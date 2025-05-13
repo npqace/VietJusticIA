@@ -1,14 +1,17 @@
 // App colors
 export const COLORS = {
   // Primary brand colors
-  primary: '#5492DA',
-  secondary: '#3B5998',
+  primary: '#2854A8',
+  secondary: '#82ACDB',
+
+  // Neutral colors
+
   
   // Gradient colors
-  gradientStart: '#FFFFFF',
-  gradientMiddle1: '#AEC5DC',
-  gradientMiddle2: '#99B9DB',
-  gradientEnd: '#5492DA',
+  gradientStart: 'rgba(255, 255, 255, 1)',
+  gradientMiddle1: 'rgba(174, 197, 220, 0.9)',
+  gradientMiddle2: 'rgba(153, 185, 219, 1)',
+  gradientEnd: 'rgba(84, 146, 218, 0.9)',
   
   // Text colors
   textDark: '#000000',
@@ -25,6 +28,7 @@ export const SIZES = {
   heading2: 28,
   body: 16,
   small: 14,
+  medium: 15,
 };
 
 // Font weights

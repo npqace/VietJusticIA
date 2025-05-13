@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import CustomButton from '../components/CustomButton';
 import { COLORS, SIZES, WEIGHTS, SPACING, FONTS } from '../constants/styles';
 
-const WelcomeScreen = () => {
+const WelcomeScreen = ({ navigation }: { navigation: any }) => {
   return (
     <LinearGradient
       colors={[COLORS.gradientStart, COLORS.gradientMiddle1, COLORS.gradientMiddle2, COLORS.gradientEnd]}
@@ -31,14 +31,16 @@ const WelcomeScreen = () => {
       <View style={styles.buttonContainer}>
         <CustomButton 
           title="Đăng nhập" 
-          onPress={() => console.log('Login pressed')}
+          // onPress={() => console.log('Login pressed')}
+          onPress={() => navigation.navigate('Login')}
           buttonStyle={styles.loginButton}
           textStyle={styles.loginButtonText}
         />
         
         <CustomButton 
           title="Đăng ký" 
-          onPress={() => console.log('Register pressed')}
+          // onPress={() => console.log('Register pressed')}
+          onPress={() => navigation.navigate('Signup')}
           buttonStyle={styles.registerButton}
           textStyle={styles.registerButtonText}
         />
@@ -101,7 +103,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   registerButton: {
-    backgroundColor: COLORS.secondary,
+    backgroundColor: COLORS.primary,
   },
   registerButtonText: {
     fontFamily: FONTS.regular,
