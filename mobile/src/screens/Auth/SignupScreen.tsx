@@ -11,11 +11,12 @@ import {
   Image,
   Dimensions
 } from 'react-native';
+import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
+import { responsiveScreenHeight, responsiveScreenWidth, responsiveScreenFontSize } from 'react-native-responsive-dimensions';
 import { LinearGradient } from 'expo-linear-gradient';
-import CustomButton from '../components/CustomButton'; // Import CustomButton
-import { COLORS, SIZES, SPACING, FONTS, RADIUS } from '../constants/styles';
-import { Ionicons } from '@expo/vector-icons'; // Import icons
-import { Colors } from 'react-native/Libraries/NewAppScreen';
+import CustomButton from '../../components/CustomButton';
+import { COLORS, SIZES, SPACING, FONTS, RADIUS } from '../../constants/styles';
+import { Ionicons } from '@expo/vector-icons'; 
 
 const { width } = Dimensions.get('window');
 
@@ -46,16 +47,21 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
   return (
     <LinearGradient
         colors={[COLORS.gradientStart, COLORS.gradientMiddle1, COLORS.gradientMiddle2, COLORS.gradientEnd]}
-        locations={[0, 0.3, 0.6, 1]} // Adjusted locations for a smoother gradient like the image
+        locations={[0, 0.44, 0.67, 1]} 
         style={styles.container}
     >
       <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboardAvoidView}
       >
-        <View style={styles.innerContainer}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.innerContainer}>
           <Image
-              source={require('../assets/images/lawsphere-logo.png')} // Replace with your actual logo for this screen if different
+              source={require('../../assets/images/lawsphere-logo.png')}
               style={styles.logo}
               resizeMode="contain"
           />
@@ -68,7 +74,7 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
               <TextInput
                   style={styles.input}
                   placeholder="Họ và Tên"
-                  placeholderTextColor={COLORS.textDark} // Adjusted placeholder color
+                  placeholderTextColor={COLORS.textDark} 
                   value={fullName}
                   onChangeText={setFullName}
                   autoCapitalize="words"
@@ -151,7 +157,7 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
 
             <TouchableOpacity style={styles.googleButton} onPress={() => {/* Handle Google Sign-in */ }}>
               <Image
-                source={require('../assets/images/google-logo.png')} // Ensure you have this asset
+                source={require('../../assets/images/google-logo.png')} // Ensure you have this asset
                 style={styles.googleLogo}
                 resizeMode="contain"
               />
@@ -166,6 +172,7 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
             <Text style={styles.loginLinkText}>Đăng nhập</Text>
             </TouchableOpacity>
           </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </LinearGradient>
   );
@@ -179,24 +186,32 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
-  innerContainer: {
-    width: '100%',
-    maxWidth: 400, // Max width for larger screens
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: SPACING.lg,
-    paddingHorizontal: SPACING.lg,
-    marginTop: SPACING.lg,
+    // height: responsiveScreenHeight(100),
+  },
+  innerContainer: {
+    // width: wp('90%'),
+    // height: hp('95%'),
+    width: responsiveScreenWidth(90),
+    height: responsiveScreenHeight(90),
+    alignSelf: 'center',
+    alignItems: 'center',
+    // paddingVertical: SPACING.sm,
+    paddingHorizontal: 8,
   },
   logo: {
-    width: 100, // Adjust as per your logo's aspect ratio
-    height: 100, // Adjust as per your logo's aspect ratio
-    marginBottom: SPACING.lg,
+    width: width * 0.25, 
+    height: width * 0.25, 
+    marginBottom: 10,
   },
   title: {
     fontFamily: FONTS.bold,
     fontSize: SIZES.heading1, // Using SIZES constant
     color: COLORS.textDark, // Using textDark for title from image
-    marginBottom: SPACING.md, // Increased margin
+    marginBottom: 10, // Increased margin
     textAlign: 'center',
   },
   inputOuterContainer: {
@@ -204,15 +219,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: COLORS.buttonLight, // White background for inputs
     borderRadius: RADIUS.medium,
-    marginBottom: SPACING.md,
-    paddingHorizontal: SPACING.md,
-    width: '100%',
-    height: 55, // Fixed height for inputs like image
+    marginBottom: 12,
+    paddingHorizontal: 16,
+    // width: wp('90%'),
+    // height: 55, 
+    width: responsiveScreenWidth(90),
+    height: responsiveScreenHeight(6), 
     borderWidth: 1,
     borderColor: '#E0E0E0', // Light border for inputs
   },
   inputIcon: {
-    marginRight: SPACING.sm,
+    marginRight: 8,
   },
   input: {
     flex: 1,
@@ -222,7 +239,7 @@ const styles = StyleSheet.create({
     color: COLORS.textDark,
   },
   eyeIconTouchable: {
-    padding: SPACING.sm, // Make eye icon easier to press
+    padding: 8, // Make eye icon easier to press
   },
   termsText: {
     fontFamily: FONTS.regular,
@@ -230,7 +247,7 @@ const styles = StyleSheet.create({
     color: COLORS.textDark, // Adjusted color to be more readable
     textAlign: 'justify',
     lineHeight: SIZES.small * 1.5, // Improved readability
-    paddingHorizontal: SPACING.sm, // Padding if text is long
+    paddingHorizontal: 8, // Padding if text is long
   },
   linkText: {
     fontFamily: FONTS.semiBold,
@@ -240,7 +257,7 @@ const styles = StyleSheet.create({
   signupButton: {
     backgroundColor: COLORS.primary, // Main action button color
     height: 55, // Match input height
-    marginTop: SPACING.sm, // Spacing from terms text
+    marginTop: 15, // Spacing from terms text
     width: '100%', // Full width
   },
   signupButtonText: {
@@ -252,25 +269,25 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.regular,
     fontSize: SIZES.small,
     color: COLORS.textDark, 
-    marginVertical: SPACING.md, // Generous spacing
+    marginVertical: 12, // Generous spacing
   },
   googleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.buttonLight, // White background
-    paddingVertical: SPACING.sm, // Adjust padding
+    paddingVertical: 8, // Adjust padding
     borderRadius: RADIUS.medium,
     width: '100%',
     height: 55, // Match input height
     borderWidth: 1,
     borderColor: '#D3D3D3', // Light gray border
-    marginBottom: SPACING.md,
+    marginBottom: 12,
   },
   googleLogo: {
     width: 24,
     height: 24,
-    marginRight: SPACING.md,
+    marginRight: 16,
   },
   googleButtonText: {
     fontFamily: FONTS.semiBold,
@@ -278,7 +295,7 @@ const styles = StyleSheet.create({
     color: COLORS.textDark, // Dark text for Google button
   },
   loginLink: {
-    padding: SPACING.sm, // Make it easier to tap
+    padding: 10, // Make it easier to tap
   },
   // signUpText: {
   //   fontFamily: FONTS.regular,

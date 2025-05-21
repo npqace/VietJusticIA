@@ -3,6 +3,9 @@ export const COLORS = {
   // Primary brand colors
   primary: '#2854A8',
   secondary: '#82ACDB',
+  black: '#000000',
+  white: '#FFFFFF',
+  gray: '#5E5E5E',
 
   // Neutral colors
 

@@ -1,16 +1,17 @@
 import React from 'react';
+import Constants from 'expo-constants';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, SafeAreaView } from 'react-native';
+import { StyleSheet, SafeAreaView, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import WelcomeScreen from './screens/WelcomeScreen';
-import LoginScreen from './screens/LoginScreen';
 import { COLORS } from './constants/styles';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
-import SignupScreen from './screens/SignupScreen';
-import ChatScreen from './screens/ChatScreen';
-
+import ChatScreen from './screens/Main/ChatScreen';
 // import * as SplashScreen from 'expo-splash-screen';
+import WelcomeScreen from './screens/WelcomeScreen';
+import LoginScreen from './screens/Auth/LoginScreen';
+import SignupScreen from './screens/Auth/SignupScreen';
+import MenuScreen from './screens/Main/MenuScreen';
 
 const Stack = createStackNavigator();
 
@@ -23,15 +24,20 @@ export default function App(): React.JSX.Element {
   });
 
   return (
-    <NavigationContainer>
-      <StatusBar style="dark" backgroundColor={COLORS.gradientStart} />
-      <Stack.Navigator initialRouteName="Welcome" screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="Welcome" component={WelcomeScreen} />
-        <Stack.Screen name="Signup" component={SignupScreen} />
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name='Chat' component={ChatScreen} />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <SafeAreaView style={styles.container}>
+      <StatusBar style="dark" />
+      <View style={styles.content}>
+        <NavigationContainer>
+          <Stack.Navigator initialRouteName="Welcome" screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="Welcome" component={WelcomeScreen} />
+            <Stack.Screen name="Signup" component={SignupScreen} />
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name='Chat' component={ChatScreen} />
+            <Stack.Screen name='Menu' component={MenuScreen} />
+          </Stack.Navigator>
+        </NavigationContainer>
+      </View>
+    </SafeAreaView>
   );
 }
 
@@ -39,5 +45,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.gradientStart,
+    paddingTop: Constants.statusBarHeight,
+  },
+  content: {
+    flex: 1,
   },
 }); 

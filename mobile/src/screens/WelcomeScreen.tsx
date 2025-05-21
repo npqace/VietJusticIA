@@ -1,5 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View, Image, ImageStyle } from 'react-native';
+import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
+import { responsiveScreenHeight, responsiveScreenWidth, responsiveScreenFontSize } from 'react-native-responsive-dimensions';
 import { LinearGradient } from 'expo-linear-gradient';
 import CustomButton from '../components/CustomButton';
 import { COLORS, SIZES, WEIGHTS, SPACING, FONTS } from '../constants/styles';
@@ -59,8 +61,10 @@ const styles = StyleSheet.create({
     marginTop: SPACING.xxl + SPACING.lg,
   },
   logo: {
-    width: 250,
-    height: 250,
+    width: wp('45%'),
+    height: wp('45%'),
+    // width: responsiveScreenWidth(45),
+    // height: responsiveScreenHeight(45),
   },
   contentContainer: {
     alignItems: 'center',
