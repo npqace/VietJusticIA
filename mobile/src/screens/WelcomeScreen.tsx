@@ -1,12 +1,14 @@
 import React from 'react';
-import { StyleSheet, Text, View, Image, ImageStyle } from 'react-native';
-import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
-import { responsiveScreenHeight, responsiveScreenWidth, responsiveScreenFontSize } from 'react-native-responsive-dimensions';
+import { StyleSheet, Text, View, Image } from 'react-native';
+import { responsiveScreenWidth } from 'react-native-responsive-dimensions';
 import { LinearGradient } from 'expo-linear-gradient';
 import CustomButton from '../components/CustomButton';
-import { COLORS, SIZES, WEIGHTS, SPACING, FONTS } from '../constants/styles';
+import { COLORS, SIZES, SPACING, FONTS, LOGO_PATH } from '../constants/styles';
+import { useIsFocused } from '@react-navigation/native';
 
 const WelcomeScreen = ({ navigation }: { navigation: any }) => {
+  const isFocused = useIsFocused();
+
   return (
     <LinearGradient
       colors={[COLORS.gradientStart, COLORS.gradientMiddle1, COLORS.gradientMiddle2, COLORS.gradientEnd]}
@@ -15,13 +17,16 @@ const WelcomeScreen = ({ navigation }: { navigation: any }) => {
     >
       <View style={styles.logoContainer}>
         <Image 
-          source={require('../assets/images/lawsphere-logo.png')} 
+          source={LOGO_PATH} 
           style={styles.logo as any}
           resizeMode="contain"
         />
       </View>
       
-      <View style={styles.contentContainer}>
+      <View 
+        key={`welcome-${isFocused}`} 
+        style={styles.contentContainer}
+      >
         <Text style={styles.titleText}>Welcome to</Text>
         <Text style={styles.appNameText}>LawSphere</Text>
         
@@ -33,7 +38,6 @@ const WelcomeScreen = ({ navigation }: { navigation: any }) => {
       <View style={styles.buttonContainer}>
         <CustomButton 
           title="Đăng nhập" 
-          // onPress={() => console.log('Login pressed')}
           onPress={() => navigation.navigate('Login')}
           buttonStyle={styles.loginButton}
           textStyle={styles.loginButtonText}
@@ -41,7 +45,6 @@ const WelcomeScreen = ({ navigation }: { navigation: any }) => {
         
         <CustomButton 
           title="Đăng ký" 
-          // onPress={() => console.log('Register pressed')}
           onPress={() => navigation.navigate('Signup')}
           buttonStyle={styles.registerButton}
           textStyle={styles.registerButtonText}
@@ -61,10 +64,8 @@ const styles = StyleSheet.create({
     marginTop: SPACING.xxl + SPACING.lg,
   },
   logo: {
-    width: wp('45%'),
-    height: wp('45%'),
-    // width: responsiveScreenWidth(45),
-    // height: responsiveScreenHeight(45),
+    width: responsiveScreenWidth(45),
+    height: responsiveScreenWidth(45),
   },
   contentContainer: {
     alignItems: 'center',

@@ -7,15 +7,14 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   Image,
   Dimensions
 } from 'react-native';
-import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
+import { responsiveScreenHeight, responsiveScreenWidth, responsiveScreenFontSize } from 'react-native-responsive-dimensions';
 import { LinearGradient } from 'expo-linear-gradient';
 import CustomButton from '../../components/CustomButton';
-import { COLORS, SIZES, SPACING, FONTS, RADIUS } from '../../constants/styles';
-import { Ionicons } from '@expo/vector-icons'; // Import icons
+import { COLORS, SIZES, SPACING, FONTS, RADIUS, LOGO_PATH, GOOGLE_LOGO_PATH } from '../../constants/styles';
+import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
 
@@ -27,21 +26,16 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
 
   const handleLogin = () => {
     console.log('Login attempt:', { emailOrPhone, password, rememberMe });
-    // Add actual login logic here
-    // if (successful) navigation.navigate('HomeScreen');
     navigation.navigate('Chat');
   };
 
   const navigateToSignup = () => {
-    navigation.navigate('Signup'); // Navigate to SignupScreen
+    navigation.navigate('Signup');
   };
 
   const handleForgotPassword = () => {
     console.log('Forgot password pressed');
-    // navigation.navigate('ForgotPasswordScreen'); // Navigate to Forgot Password screen
   };
-
-  // No back button to WelcomeScreen in this new design, so removing handleBackToWelcome
 
   return (
     <LinearGradient
@@ -55,7 +49,7 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
       >
         <View style={styles.innerContainer}>
           <Image
-            source={require('../../assets/images/lawsphere-logo.png')} // Using the same logo
+            source={LOGO_PATH}
             style={styles.logo}
             resizeMode="contain"
           />
@@ -65,14 +59,13 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
           {/* Input Fields */}
           <Text style={styles.inputLabel}>Email / Số điện thoại</Text>
           <View style={styles.inputOuterContainer}>
-              {/* Icon can be added here if desired, though not in image for this field */}
             <TextInput
               style={styles.input}
               placeholder="hello@example.com"
-              placeholderTextColor={COLORS.textDark} // Adjusted placeholder color
+              placeholderTextColor={COLORS.textDark}
               value={emailOrPhone}
               onChangeText={setEmailOrPhone}
-              keyboardType="email-address" // Or default, if phone number logic is complex
+              keyboardType="email-address"
               autoCapitalize="none"
             />
           </View>
@@ -87,7 +80,7 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
             <Ionicons name="lock-closed-outline" size={22} color={COLORS.textDark} style={styles.inputIcon} />
             <TextInput
               style={styles.input}
-              placeholder="••••••••••••" // Placeholder as dots
+              placeholder="••••••••••••" 
               placeholderTextColor={COLORS.textDark}
               value={password}
               onChangeText={setPassword}
@@ -118,9 +111,10 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
 
           <Text style={styles.orText}>hoặc</Text>
 
-          <TouchableOpacity style={styles.googleButton} onPress={() => {/* Handle Google Sign-in */ }}>
+          {/* Google Button */}
+          <TouchableOpacity style={styles.googleButton} onPress={() => { }}>
               <Image
-                source={require('../../assets/images/google-logo.png')} // Ensure you have this asset
+                source={GOOGLE_LOGO_PATH}
                 style={styles.googleLogo}
                 resizeMode="contain"
               />
@@ -128,10 +122,6 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
           </TouchableOpacity>
 
           <TouchableOpacity onPress={navigateToSignup} style={styles.signupLink}>
-            {/* <Text style={styles.signInText}>
-              Bạn chưa có tài khoản? {' '}
-              <Text style={styles.signupLinkText}>Tạo tài khoản</Text>
-            </Text> */}
             <Text style={styles.signupLinkText}>Tạo tài khoản</Text>
           </TouchableOpacity>
         </View>
@@ -146,16 +136,13 @@ const styles = StyleSheet.create({
   },
   keyboardAvoidView: {
     flex: 1,
-    // justifyContent: 'center',
   },
   
   innerContainer: {
-    width: wp('90%'),
-    // maxWidth: 400,
+    width: responsiveScreenWidth(90),
     alignSelf: 'center',
     alignItems: 'center',
-    // paddingVertical: 24,
-    paddingHorizontal: 24,
+    paddingHorizontal: 8,
   },
   logo: {
     width: width * 0.25,
@@ -171,11 +158,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   inputLabel: {
-    fontFamily: FONTS.semiBold, // Bolder label as per image
-    fontSize: SIZES.body, // Slightly larger label
+    fontFamily: FONTS.semiBold,
+    fontSize: SIZES.body,
     color: COLORS.textDark,
     marginBottom: SPACING.sm,
-    alignSelf: 'flex-start', // Align label to the left
+    alignSelf: 'flex-start',
   },
   labelRow: {
     flexDirection: 'row',
@@ -187,17 +174,17 @@ const styles = StyleSheet.create({
   forgotPasswordText: {
     fontFamily: FONTS.medium,
     fontSize: SIZES.small,
-    color: COLORS.primary, // Link color
+    color: COLORS.primary,
   },
   inputOuterContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.buttonLight,
     borderRadius: RADIUS.medium,
-    marginBottom: SPACING.md, // Standard margin
+    marginBottom: SPACING.md,
     paddingHorizontal: SPACING.md,
-    width: wp('90%'),
-    height: 55,
+    width: responsiveScreenWidth(90),
+    height: responsiveScreenHeight(6),
     borderWidth: 1,
     borderColor: '#E0E0E0',
   },
@@ -218,8 +205,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-    marginBottom: SPACING.lg, // Space before login button
-    marginTop: SPACING.xs, // Small space after password
+    marginBottom: SPACING.lg,
+    marginTop: SPACING.xs,
   },
   checkboxIcon: {
     marginRight: SPACING.sm,
@@ -230,7 +217,7 @@ const styles = StyleSheet.create({
     color: COLORS.textDark,
   },
   loginButton: {
-    backgroundColor: COLORS.primary, // Dark blue button
+    backgroundColor: COLORS.primary,
     height: 55,
     width: '100%',
   },

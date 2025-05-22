@@ -7,11 +7,11 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { COLORS } from './constants/styles';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
 import ChatScreen from './screens/Main/ChatScreen';
-// import * as SplashScreen from 'expo-splash-screen';
 import WelcomeScreen from './screens/WelcomeScreen';
 import LoginScreen from './screens/Auth/LoginScreen';
 import SignupScreen from './screens/Auth/SignupScreen';
 import MenuScreen from './screens/Main/MenuScreen';
+import FAQsScreen from './screens/Support/HelpScreen';
 
 const Stack = createStackNavigator();
 
@@ -34,6 +34,7 @@ export default function App(): React.JSX.Element {
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name='Chat' component={ChatScreen} />
             <Stack.Screen name='Menu' component={MenuScreen} />
+            <Stack.Screen name='FAQs' component={FAQsScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </View>
@@ -50,4 +51,4 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
-}); 
+});

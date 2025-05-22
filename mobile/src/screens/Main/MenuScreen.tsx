@@ -10,9 +10,9 @@ import {
   SafeAreaView
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, SIZES, SPACING, FONTS, RADIUS } from '../../constants/styles';
+import { COLORS, SIZES, SPACING, FONTS, RADIUS, LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
-import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
+import { heightPercentageToDP as hp } from 'react-native-responsive-screen';
 
 const { width } = Dimensions.get('window');
 
@@ -45,14 +45,13 @@ const MenuScreen = ({ navigation }: { navigation: any }) => {
     console.log(`Selected option: ${optionId}`);
     // Navigate to appropriate screen based on option
     // Example: navigation.navigate('DocumentSearch');
+    if (optionId === 'help') {
+      navigation.navigate('FAQs');
+    }
   };
 
   const handleClose = () => {
     navigation.goBack();
-  };
-
-  const navigateToChat = () => {
-    navigation.navigate('Chat');
   };
 
   return (
@@ -64,7 +63,7 @@ const MenuScreen = ({ navigation }: { navigation: any }) => {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <Image
-            source={require('../../assets/images/lawsphere-logo.png')}
+            source={LOGO_PATH}
             style={styles.logo}
             resizeMode="contain"
           />
@@ -78,7 +77,7 @@ const MenuScreen = ({ navigation }: { navigation: any }) => {
           <View style={styles.profileContainer}>
             <View style={styles.profileImageContainer}>
               <Image
-                source={require('../../assets/images/lawsphere-logo.png')} // Replace with user image
+                source={LOGO_PATH} // Use logo image as a placeholder
                 style={styles.profileImage}
                 resizeMode="cover"
               />
@@ -87,7 +86,10 @@ const MenuScreen = ({ navigation }: { navigation: any }) => {
               <Text style={styles.profileName}>Ace Nguyen</Text>
               <Text style={styles.profileEmail}>anhnpqgcd220190@fpt.edu.vn</Text>
             </View>
-            <TouchableOpacity style={styles.logoutButton}>
+            <TouchableOpacity
+              style={styles.logoutButton}
+              onPress={() => navigation.navigate('Login')}
+            >
               <Ionicons name="log-out-outline" size={30} color={COLORS.primary} />
             </TouchableOpacity>
           </View>

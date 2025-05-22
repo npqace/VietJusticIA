@@ -15,7 +15,7 @@ import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-nat
 import { responsiveScreenHeight, responsiveScreenWidth, responsiveScreenFontSize } from 'react-native-responsive-dimensions';
 import { LinearGradient } from 'expo-linear-gradient';
 import CustomButton from '../../components/CustomButton';
-import { COLORS, SIZES, SPACING, FONTS, RADIUS } from '../../constants/styles';
+import { COLORS, SIZES, SPACING, FONTS, RADIUS, LOGO_PATH, GOOGLE_LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons'; 
 
 const { width } = Dimensions.get('window');
@@ -61,7 +61,7 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
         >
           <View style={styles.innerContainer}>
           <Image
-              source={require('../../assets/images/lawsphere-logo.png')}
+              source={LOGO_PATH}
               style={styles.logo}
               resizeMode="contain"
           />
@@ -157,7 +157,7 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
 
             <TouchableOpacity style={styles.googleButton} onPress={() => {/* Handle Google Sign-in */ }}>
               <Image
-                source={require('../../assets/images/google-logo.png')} // Ensure you have this asset
+                source={GOOGLE_LOGO_PATH} // Ensure you have this asset
                 style={styles.googleLogo}
                 resizeMode="contain"
               />

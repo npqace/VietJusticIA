@@ -1,3 +1,7 @@
+// logo path
+export const LOGO_PATH = require('../assets/images/lawsphere-logo.png');
+export const GOOGLE_LOGO_PATH = require('../assets/images/google-logo.png');
+
 // App colors
 export const COLORS = {
   // Primary brand colors

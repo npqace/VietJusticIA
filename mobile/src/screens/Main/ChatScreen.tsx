@@ -14,8 +14,7 @@ import {
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SIZES, SPACING, FONTS, RADIUS } from '../../constants/styles';
-import { Ionicons } from '@expo/vector-icons'; // Import icons
-import { Colors } from 'react-native/Libraries/NewAppScreen';
+import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
 
@@ -38,7 +37,7 @@ const ChatScreen = ({ navigation }: { navigation: any }) => {
     setChatHistory(prev => [...prev, newUserMessage]);
     setMessage('');
     
-    // Simulate bot response - in a real app, you'd call an API here
+    // Simulate bot response (should call API here)
     setTimeout(() => {
       const botResponse = {
         id: chatHistory.length + 2,
@@ -135,8 +134,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#fff',
     paddingHorizontal: SPACING.md,
-    // borderBottomWidth: 1,
-    // borderBottomColor: 'rgba(0,0,0,0.1)',
     height: hp('7%'),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
