@@ -11,11 +11,9 @@ import {
   Image,
   Dimensions
 } from 'react-native';
-import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
-import { responsiveScreenHeight, responsiveScreenWidth, responsiveScreenFontSize } from 'react-native-responsive-dimensions';
 import { LinearGradient } from 'expo-linear-gradient';
 import CustomButton from '../../components/CustomButton';
-import { COLORS, SIZES, SPACING, FONTS, RADIUS, LOGO_PATH, GOOGLE_LOGO_PATH } from '../../constants/styles';
+import { COLORS, SIZES, FONTS, LOGO_PATH, GOOGLE_LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons'; 
 
 const { width } = Dimensions.get('window');
@@ -37,11 +35,11 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
         alert("Passwords do not match!");
         return;
     }
-    // navigation.navigate('HomeScreen'); // Navigate on successful signup
+    navigation.navigate('Login'); // Navigate on successful signup
   };
 
   const navigateToLogin = () => {
-    navigation.navigate('Login'); // Ensure 'LoginScreen' is your route name for Login
+    navigation.navigate('Login');
   };
 
   return (
@@ -70,11 +68,11 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
 
             {/* Input Fields */}
             <View style={styles.inputOuterContainer}>
-              <Ionicons name="person-outline" size={22} color={COLORS.textDark} style={styles.inputIcon} />
+              <Ionicons name="person-outline" size={22} color={COLORS.black} style={styles.inputIcon} />
               <TextInput
                   style={styles.input}
                   placeholder="Họ và Tên"
-                  placeholderTextColor={COLORS.textDark} 
+                  placeholderTextColor={COLORS.black} 
                   value={fullName}
                   onChangeText={setFullName}
                   autoCapitalize="words"
@@ -82,11 +80,11 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
             </View>
 
             <View style={styles.inputOuterContainer}>
-              <Ionicons name="mail-outline" size={22} color={COLORS.textDark} style={styles.inputIcon} />
+              <Ionicons name="mail-outline" size={22} color={COLORS.black} style={styles.inputIcon} />
               <TextInput
                   style={styles.input}
                   placeholder="Email"
-                  placeholderTextColor={COLORS.textDark}
+                  placeholderTextColor={COLORS.black}
                   value={email}
                   onChangeText={setEmail}
                   keyboardType="email-address"
@@ -95,11 +93,11 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
             </View>
 
             <View style={styles.inputOuterContainer}>
-              <Ionicons name="call-outline" size={22} color={COLORS.textDark} style={styles.inputIcon} />
+              <Ionicons name="call-outline" size={22} color={COLORS.black} style={styles.inputIcon} />
               <TextInput
                   style={styles.input}
                   placeholder="Số điện thoại"
-                  placeholderTextColor={COLORS.textDark}
+                  placeholderTextColor={COLORS.black}
                   value={phoneNumber}
                   onChangeText={setPhoneNumber}
                   keyboardType="phone-pad"
@@ -107,34 +105,34 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
             </View>
 
             <View style={styles.inputOuterContainer}>
-              <Ionicons name="lock-closed-outline" size={22} color={COLORS.textDark} style={styles.inputIcon} />
+              <Ionicons name="lock-closed-outline" size={22} color={COLORS.black} style={styles.inputIcon} />
               <TextInput
                   style={styles.input}
                   placeholder="Mật khẩu"
-                  placeholderTextColor={COLORS.textDark}
+                  placeholderTextColor={COLORS.black}
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIconTouchable}>
-                  <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={24} color={COLORS.textDark} />
+                  <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={24} color={COLORS.black} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.inputOuterContainer}>
-              <Ionicons name="lock-closed-outline" size={22} color={COLORS.textDark} style={styles.inputIcon} />
+              <Ionicons name="lock-closed-outline" size={22} color={COLORS.black} style={styles.inputIcon} />
               <TextInput
                   style={styles.input}
                   placeholder="Xác nhận mật khẩu"
-                  placeholderTextColor={COLORS.textDark}
+                  placeholderTextColor={COLORS.black}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                   secureTextEntry={!showConfirmPassword}
                   autoCapitalize="none"
               />
               <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeIconTouchable}>
-                  <Ionicons name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} size={24} color={COLORS.textDark} />
+                  <Ionicons name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} size={24} color={COLORS.black} />
               </TouchableOpacity>
             </View>
 
@@ -157,7 +155,7 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
 
             <TouchableOpacity style={styles.googleButton} onPress={() => {/* Handle Google Sign-in */ }}>
               <Image
-                source={GOOGLE_LOGO_PATH} // Ensure you have this asset
+                source={GOOGLE_LOGO_PATH}
                 style={styles.googleLogo}
                 resizeMode="contain"
               />
@@ -165,10 +163,6 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
             </TouchableOpacity>
 
             <TouchableOpacity onPress={navigateToLogin} style={styles.loginLink}>
-              {/* <Text style={styles.signUpText}>
-                Bạn đã có tài khoản? {' '}
-                <Text style={styles.loginLinkText}>Đăng nhập</Text>
-              </Text> */}
             <Text style={styles.loginLinkText}>Đăng nhập</Text>
             </TouchableOpacity>
           </View>
@@ -190,16 +184,13 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    // height: responsiveScreenHeight(100),
   },
   innerContainer: {
-    // width: wp('90%'),
-    // height: hp('95%'),
-    width: responsiveScreenWidth(90),
-    height: responsiveScreenHeight(90),
+    // width: responsiveScreenWidth(90),
+    // height: responsiveScreenHeight(90),
+    width: '95%',
     alignSelf: 'center',
     alignItems: 'center',
-    // paddingVertical: SPACING.sm,
     paddingHorizontal: 8,
   },
   logo: {
@@ -209,24 +200,22 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: FONTS.bold,
-    fontSize: SIZES.heading1, // Using SIZES constant
-    color: COLORS.textDark, // Using textDark for title from image
-    marginBottom: 10, // Increased margin
+    fontSize: SIZES.heading1, 
+    color: COLORS.black, 
+    marginBottom: 10, 
     textAlign: 'center',
   },
   inputOuterContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.buttonLight, // White background for inputs
-    borderRadius: RADIUS.medium,
+    backgroundColor: COLORS.buttonLight,
+    borderRadius: 8,
     marginBottom: 12,
     paddingHorizontal: 16,
-    // width: wp('90%'),
-    // height: 55, 
-    width: responsiveScreenWidth(90),
-    height: responsiveScreenHeight(6), 
+    width: '100%',
+    height: 55,
     borderWidth: 1,
-    borderColor: '#E0E0E0', // Light border for inputs
+    borderColor: '#E0E0E0',
   },
   inputIcon: {
     marginRight: 8,
@@ -236,52 +225,52 @@ const styles = StyleSheet.create({
     height: '100%',
     fontFamily: FONTS.regular,
     fontSize: SIZES.body,
-    color: COLORS.textDark,
+    color: COLORS.black,
   },
   eyeIconTouchable: {
-    padding: 8, // Make eye icon easier to press
+    padding: 8,
   },
   termsText: {
     fontFamily: FONTS.regular,
     fontSize: SIZES.small,
-    color: COLORS.textDark, // Adjusted color to be more readable
+    color: COLORS.black,
     textAlign: 'justify',
-    lineHeight: SIZES.small * 1.5, // Improved readability
-    paddingHorizontal: 8, // Padding if text is long
+    lineHeight: SIZES.small * 1.5, 
+    paddingHorizontal: 8, 
   },
   linkText: {
     fontFamily: FONTS.semiBold,
-    color: COLORS.primary, // Use primary color for link
+    color: COLORS.primary, 
     textDecorationLine: 'underline',
   },
   signupButton: {
-    backgroundColor: COLORS.primary, // Main action button color
-    height: 55, // Match input height
-    marginTop: 15, // Spacing from terms text
-    width: '100%', // Full width
+    backgroundColor: COLORS.primary, 
+    height: 55, 
+    marginTop: 15, 
+    width: '100%', 
   },
   signupButtonText: {
-    fontFamily: FONTS.bold, // Bold text for button
-    fontSize: SIZES.body, // Standard body size
-    color: COLORS.textLight,
+    fontFamily: FONTS.bold, 
+    fontSize: SIZES.body, 
+    color: COLORS.white,
   },
   orText: {
     fontFamily: FONTS.regular,
     fontSize: SIZES.small,
-    color: COLORS.textDark, 
-    marginVertical: 12, // Generous spacing
+    color: COLORS.black, 
+    marginVertical: 12, 
   },
   googleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.buttonLight, // White background
-    paddingVertical: 8, // Adjust padding
-    borderRadius: RADIUS.medium,
+    backgroundColor: COLORS.buttonLight,
+    paddingVertical: 8,
+    borderRadius: 8,
     width: '100%',
-    height: 55, // Match input height
+    height: 55, 
     borderWidth: 1,
-    borderColor: '#D3D3D3', // Light gray border
+    borderColor: '#D3D3D3', 
     marginBottom: 12,
   },
   googleLogo: {
@@ -292,17 +281,11 @@ const styles = StyleSheet.create({
   googleButtonText: {
     fontFamily: FONTS.semiBold,
     fontSize: SIZES.body,
-    color: COLORS.textDark, // Dark text for Google button
+    color: COLORS.black,
   },
   loginLink: {
-    padding: 10, // Make it easier to tap
+    padding: 10,
   },
-  // signUpText: {
-  //   fontFamily: FONTS.regular,
-  //   fontSize: SIZES.body,
-  //   // fontWeight: '300',
-  //   // color: "#ffffff",
-  // },
   loginLinkText: {
     fontFamily: FONTS.semiBold,
     fontSize: SIZES.body,

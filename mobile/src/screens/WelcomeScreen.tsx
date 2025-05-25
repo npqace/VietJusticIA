@@ -1,10 +1,11 @@
 import React from 'react';
-import { StyleSheet, Text, View, Image } from 'react-native';
-import { responsiveScreenWidth } from 'react-native-responsive-dimensions';
+import { StyleSheet, Text, View, Image, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import CustomButton from '../components/CustomButton';
-import { COLORS, SIZES, SPACING, FONTS, LOGO_PATH } from '../constants/styles';
+import { COLORS, SIZES, FONTS, LOGO_PATH } from '../constants/styles';
 import { useIsFocused } from '@react-navigation/native';
+
+const { width } = Dimensions.get('window');
 
 const WelcomeScreen = ({ navigation }: { navigation: any }) => {
   const isFocused = useIsFocused();
@@ -57,15 +58,16 @@ const WelcomeScreen = ({ navigation }: { navigation: any }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: SPACING.lg,
+    paddingHorizontal: 24,
   },
   logoContainer: {
     alignItems: 'center',
-    marginTop: SPACING.xxl + SPACING.lg,
+    marginTop: 64,
   },
   logo: {
-    width: responsiveScreenWidth(45),
-    height: responsiveScreenWidth(45),
+    width: width * 0.5,
+    height: width * 0.5,
+    
   },
   contentContainer: {
     alignItems: 'center',
@@ -74,45 +76,42 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.medium,
     fontSize: SIZES.heading2,
     textAlign: 'center',
-    fontWeight: '400',
-    color: COLORS.textDark,
+    color: COLORS.black,
   },
   appNameText: {
     fontFamily: FONTS.bold,
     fontSize: SIZES.heading1,
-    fontWeight: 'bold',
-    color: COLORS.textDark,
-    marginBottom: SPACING.lg,
+    color: COLORS.black,
+    marginBottom: 24,
     textAlign: 'center',
   },
   descriptionText: {
     fontFamily: FONTS.regular,
     fontSize: SIZES.body,
     lineHeight: 24,
-    color: COLORS.textDark,
+    color: COLORS.black,
     textAlign: 'center',
-    paddingHorizontal: SPACING.lg,
+    paddingHorizontal: 24,
   },
   buttonContainer: {
     marginTop: 'auto',
-    marginBottom: SPACING.xxl,
+    marginBottom: 40,
     width: '100%',
   },
   loginButton: {
     backgroundColor: COLORS.buttonLight,
-    marginBottom: SPACING.md,
+    marginBottom: 16,
   },
   loginButtonText: {
-    fontFamily: FONTS.regular,
-    color: COLORS.textDark,
-    fontWeight: 'bold',
+    fontFamily: FONTS.bold,
+    color: COLORS.black,
   },
   registerButton: {
     backgroundColor: COLORS.primary,
   },
   registerButtonText: {
     fontFamily: FONTS.regular,
-    color: COLORS.textLight,
+    color: COLORS.white,
     fontWeight: 'bold',
   },
 });

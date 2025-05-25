@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, SafeAreaView, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { COLORS } from './constants/styles';
+import { COLORS, FONTS } from './constants/styles';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
 import ChatScreen from './screens/Main/ChatScreen';
 import WelcomeScreen from './screens/WelcomeScreen';
@@ -16,13 +16,6 @@ import FAQsScreen from './screens/Support/HelpScreen';
 const Stack = createStackNavigator();
 
 export default function App(): React.JSX.Element {
-  const [fontsLoaded] = useFonts({
-    'Montserrat-Regular': Montserrat_400Regular,
-    'Montserrat-Medium': Montserrat_500Medium,
-    'Montserrat-SemiBold': Montserrat_600SemiBold,
-    'Montserrat-Bold': Montserrat_700Bold,
-  });
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />

@@ -8,14 +8,14 @@ import {
   Image,
   TextInput
 } from 'react-native';
-import { COLORS, SIZES, FONTS, SPACING, LOGO_PATH } from '../../constants/styles';
-import { heightPercentageToDP as hp } from 'react-native-responsive-screen';
+import { COLORS, SIZES, FONTS,  LOGO_PATH } from '../../constants/styles';
 import { Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import HelpItem from '../../components/HelpItem';
 
 const { width } = Dimensions.get('window');
+const height = Dimensions.get('window').height;
 
 // List of FAQs
 const faqData = [
@@ -280,9 +280,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#fff',
-    paddingHorizontal: SPACING.md,
+    paddingHorizontal: 16,
     marginBottom: 16,
-    height: hp('7%'),
+    height: height * 0.07,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -302,24 +302,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   iconButton: {
-    padding: SPACING.sm,
-    marginLeft: SPACING.sm,
+    padding: 8,
+    marginLeft: 8,
   },
   tabsContainer: {
     flexDirection: 'row',
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    borderRadius: SPACING.sm,
-    marginHorizontal: SPACING.sm,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginHorizontal: 8,
   },
   tabButton: {
     flex: 1,
-    paddingVertical: SPACING.sm,
+    paddingVertical: 8,
     alignItems: 'center',
   },
   activeTabButton: {
     backgroundColor: '#a4caf7',
-    borderRadius: SPACING.sm,
+    borderRadius: 8,
   },
   tabText: {
     fontFamily: FONTS.semiBold,
@@ -332,11 +332,11 @@ const styles = StyleSheet.create({
   },
   contentScrollView: {
     flex: 1,
-    padding: SPACING.sm,
-    paddingHorizontal: SPACING.md,
+    padding: 8,
+    paddingHorizontal: 16,
   },
   contentContainer: {
-    padding: SPACING.md,
+    padding: 16,
     alignItems: 'center',
   },
   contentText: {
@@ -346,38 +346,38 @@ const styles = StyleSheet.create({
   },
   helpItemContainer: {
     backgroundColor: COLORS.white,
-    borderRadius: SPACING.md,
+    borderRadius: 16,
     overflow: 'hidden',
   },
   contactContainer: {
-    borderRadius: SPACING.md,
-    marginBottom: SPACING.lg,
+    borderRadius: 16,
+    marginBottom: 24,
     overflow: 'hidden',
   },
   contactHeading: {
     fontFamily: FONTS.bold,
     fontSize: SIZES.heading2,
-    color: COLORS.textDark,
+    color: COLORS.black,
     textAlign: 'center',
-    marginBottom: SPACING.sm,
+    marginBottom: 8,
   },
   contactDescription: {
     fontFamily: FONTS.regular,
     fontSize: SIZES.body,
     color: COLORS.gray,
     textAlign: 'center',
-    marginBottom: SPACING.lg,
+    marginBottom: 24,
   },
   inputContainer: {
-    marginBottom: SPACING.md,
-    paddingHorizontal: SPACING.sm,
+    marginBottom: 16,
+    paddingHorizontal: 8,
   },
   input: {
     height: 50,
     borderWidth: 1,
     borderColor: '#e0e0e0',
-    borderRadius: SPACING.sm,
-    paddingHorizontal: SPACING.md,
+    borderRadius: 8,
+    paddingHorizontal: 16,
     fontFamily: FONTS.regular,
     backgroundColor: '#f9f9f9',
   },
@@ -385,21 +385,21 @@ const styles = StyleSheet.create({
     height: 200,
     borderWidth: 1,
     borderColor: '#e0e0e0',
-    borderRadius: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.md,
-    paddingBottom: SPACING.md,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 16,
     fontFamily: FONTS.regular,
     backgroundColor: '#f9f9f9',
     textAlignVertical: 'top',
   },
   submitButton: {
     backgroundColor: COLORS.primary,
-    paddingVertical: SPACING.md,
-    marginHorizontal: SPACING.sm,
-    borderRadius: SPACING.sm,
+    paddingVertical: 16,
+    marginHorizontal: 8,
+    borderRadius: 8,
     alignItems: 'center',
-    marginTop: SPACING.md,
+    marginTop: 16,
   },
   submitButtonText: {
     fontFamily: FONTS.medium,

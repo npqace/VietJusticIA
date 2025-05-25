@@ -11,12 +11,12 @@ import {
   Image,
   Dimensions
 } from 'react-native';
-import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, SIZES, SPACING, FONTS, RADIUS } from '../../constants/styles';
+import { COLORS, SIZES, FONTS } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
+const height = Dimensions.get('window').height;
 
 const ChatScreen = ({ navigation }: { navigation: any }) => {
   const [message, setMessage] = useState('');
@@ -94,7 +94,7 @@ const ChatScreen = ({ navigation }: { navigation: any }) => {
               <Text 
                 style={[
                   styles.messageText, 
-                  { color: chat.sender === 'user' ? COLORS.textLight : COLORS.textDark }
+                  { color: chat.sender === 'user' ? COLORS.white : COLORS.black }
                 ]}
               >
                 {chat.text}
@@ -106,7 +106,7 @@ const ChatScreen = ({ navigation }: { navigation: any }) => {
           <TextInput
             style={styles.input}
             placeholder="Nhập câu hỏi của bạn tại đây..."
-            placeholderTextColor={COLORS.textDark}
+            placeholderTextColor={COLORS.black}
             value={message}
             onChangeText={setMessage}
             multiline
@@ -133,8 +133,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#fff',
-    paddingHorizontal: SPACING.md,
-    height: hp('7%'),
+    paddingHorizontal: 16,
+    height: height * 0.07,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -150,21 +150,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   iconButton: {
-    padding: SPACING.sm,
-    marginLeft: SPACING.sm,
+    padding: 8,
+    marginLeft: 8,
   },
   keyboardAvoidView: {
       flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
-    padding: SPACING.md,
+    padding: 16,
   },
   messageContainer: {
-    borderRadius: RADIUS.large,
-    padding: SPACING.md,
-    marginVertical: SPACING.sm,
-    maxWidth: wp('80%'),
+    borderRadius: 16,
+    padding: 16,
+    marginVertical: 8,
+    // maxWidth: wp('80%'),
+    maxWidth: width * 0.8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -178,15 +179,15 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     position: 'absolute',
-    bottom: SPACING.md,
-    left: SPACING.md,
-    right: SPACING.md,
+    bottom: 16,
+    left: 16,
+    right: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     backgroundColor: COLORS.buttonLight,
-    borderRadius: RADIUS.large,
+    borderRadius: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
@@ -197,12 +198,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: FONTS.regular,
     fontSize: SIZES.body,
-    color: COLORS.textDark,
+    color: COLORS.black,
     maxHeight: 100,
-    padding: SPACING.sm,
+    padding: 8,
   },
   sendButton: {
-    padding: SPACING.sm,
+    padding: 8,
   },
 });
 

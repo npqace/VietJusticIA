@@ -10,10 +10,9 @@ import {
   Image,
   Dimensions
 } from 'react-native';
-import { responsiveScreenHeight, responsiveScreenWidth, responsiveScreenFontSize } from 'react-native-responsive-dimensions';
 import { LinearGradient } from 'expo-linear-gradient';
 import CustomButton from '../../components/CustomButton';
-import { COLORS, SIZES, SPACING, FONTS, RADIUS, LOGO_PATH, GOOGLE_LOGO_PATH } from '../../constants/styles';
+import { COLORS, SIZES, FONTS, LOGO_PATH, GOOGLE_LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
@@ -62,7 +61,7 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
             <TextInput
               style={styles.input}
               placeholder="hello@example.com"
-              placeholderTextColor={COLORS.textDark}
+              placeholderTextColor={COLORS.black}
               value={emailOrPhone}
               onChangeText={setEmailOrPhone}
               keyboardType="email-address"
@@ -77,18 +76,18 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
             </TouchableOpacity>
           </View>
           <View style={styles.inputOuterContainer}>
-            <Ionicons name="lock-closed-outline" size={22} color={COLORS.textDark} style={styles.inputIcon} />
+            <Ionicons name="lock-closed-outline" size={22} color={COLORS.black} style={styles.inputIcon} />
             <TextInput
               style={styles.input}
               placeholder="••••••••••••" 
-              placeholderTextColor={COLORS.textDark}
+              placeholderTextColor={COLORS.black}
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
               autoCapitalize="none"
             />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIconTouchable}>
-              <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={24} color={COLORS.textDark} />
+              <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={24} color={COLORS.black} />
             </TouchableOpacity>
           </View>
 
@@ -96,7 +95,7 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
               <Ionicons
                 name={rememberMe ? "checkbox" : "square-outline"}
                 size={24}
-                color={rememberMe ? COLORS.primary : COLORS.textDark}
+                color={rememberMe ? COLORS.primary : COLORS.black}
                 style={styles.checkboxIcon}
               />
               <Text style={styles.rememberMeText}>Ghi nhớ đăng nhập</Text>
@@ -139,7 +138,8 @@ const styles = StyleSheet.create({
   },
   
   innerContainer: {
-    width: responsiveScreenWidth(90),
+    // width: responsiveScreenWidth(90),
+    width: '95%',
     alignSelf: 'center',
     alignItems: 'center',
     paddingHorizontal: 8,
@@ -153,15 +153,15 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: FONTS.bold,
     fontSize: SIZES.heading1,
-    color: COLORS.textDark,
+    color: COLORS.black,
     marginBottom: 25,
     textAlign: 'center',
   },
   inputLabel: {
     fontFamily: FONTS.semiBold,
     fontSize: SIZES.body,
-    color: COLORS.textDark,
-    marginBottom: SPACING.sm,
+    color: COLORS.black,
+    marginBottom: 8,
     alignSelf: 'flex-start',
   },
   labelRow: {
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     width: '100%',
-    marginBottom: SPACING.sm,
+    marginBottom: 8,
   },
   forgotPasswordText: {
     fontFamily: FONTS.medium,
@@ -180,41 +180,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.buttonLight,
-    borderRadius: RADIUS.medium,
-    marginBottom: SPACING.md,
-    paddingHorizontal: SPACING.md,
-    width: responsiveScreenWidth(90),
-    height: responsiveScreenHeight(6),
+    borderRadius: 8,
+    marginBottom: 16,
+    paddingHorizontal: 16,
+    width: '100%',
+    height: 55,
     borderWidth: 1,
     borderColor: '#E0E0E0',
   },
   inputIcon: {
-    marginRight: SPACING.sm,
+    marginRight: 8,
   },
   input: {
     flex: 1,
     height: '100%',
     fontFamily: FONTS.regular,
     fontSize: SIZES.body,
-    color: COLORS.textDark,
+    color: COLORS.black,
 },
   eyeIconTouchable: {
-    padding: SPACING.sm,
+    padding: 8,
   },
   rememberMeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-    marginBottom: SPACING.lg,
-    marginTop: SPACING.xs,
+    marginBottom: 24,
+    marginTop: 4,
   },
   checkboxIcon: {
-    marginRight: SPACING.sm,
+    marginRight: 8,
   },
   rememberMeText: {
     fontFamily: FONTS.regular,
     fontSize: SIZES.body,
-    color: COLORS.textDark,
+    color: COLORS.black,
   },
   loginButton: {
     backgroundColor: COLORS.primary,
@@ -224,50 +224,44 @@ const styles = StyleSheet.create({
   loginButtonText: {
     fontFamily: FONTS.bold,
     fontSize: SIZES.body,
-    color: COLORS.textLight,
+    color: COLORS.white,
   },
   orText: {
     fontFamily: FONTS.regular,
     fontSize: SIZES.small,
-    color: COLORS.textDark,
-    marginVertical: SPACING.md,
+    color: COLORS.black,
+    marginVertical: 16,
 },
   googleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.buttonLight,
-    borderRadius: RADIUS.medium,
+    borderRadius: 8,
     width: '100%',
     height: 55,
     borderWidth: 1,
     borderColor: '#D3D3D3',
-    marginBottom: SPACING.md, // Consistent margin
+    marginBottom: 16, 
   },
   googleLogo: {
     width: 24,
     height: 24,
-    marginRight: SPACING.md,
+    marginRight: 16,
   },
   googleButtonText: {
     fontFamily: FONTS.semiBold,
     fontSize: SIZES.body,
-    color: COLORS.textDark,
+    color: COLORS.black,
   },
   signupLink: {
-    marginTop: SPACING.sm, // Reduced margin from Google button
-    padding: SPACING.sm,
+    marginTop: 8,
+    padding: 8,
   },
-  // signInText: {
-  //   fontFamily: FONTS.regular,
-  //   fontSize: SIZES.body,
-  //   // fontWeight: '300',
-  //   // color: "#ffffff",
-  // },
   signupLinkText: {
     fontFamily: FONTS.semiBold,
-    fontSize: SIZES.body, // Consistent link size
-    color: COLORS.primary, // Consistent link color
+    fontSize: SIZES.body,
+    color: COLORS.primary,
   },
 });
 

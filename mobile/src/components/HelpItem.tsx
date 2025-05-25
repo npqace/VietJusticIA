@@ -3,18 +3,10 @@ import {
   StyleSheet,
   Text,
   View,
-  ScrollView,
   TouchableOpacity,
-  Image,
-  SafeAreaView,
-  Platform,
-  StatusBar
 } from 'react-native';
-import { COLORS, SIZES, FONTS, SPACING, LOGO_PATH } from '../constants/styles';
-import { Dimensions } from 'react-native';
+import { COLORS, SIZES, FONTS } from '../constants/styles';
 import Ionicons from '@expo/vector-icons/Ionicons';
-
-const { width } = Dimensions.get('window');
 
 const HelpItem = ({ title, content }: { title: string; content: string }) => {
   const [expanded, setExpanded] = useState(false);
@@ -48,22 +40,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: SPACING.md,
+    padding: 16,
     backgroundColor: COLORS.white,
   },
   titleText: {
     flex: 1,
     fontFamily: FONTS.medium,
     fontSize: SIZES.body,
-    color: COLORS.textDark,
+    color: COLORS.black,
   },
   expandIcon: {
     fontSize: SIZES.body,
     color: COLORS.gray,
-    marginRight: SPACING.sm,
+    marginRight: 8,
   },
   contentContainer: {
-    padding: SPACING.md,
+    padding: 16,
     backgroundColor: '#f9f9f9',
   },
   contentText: {

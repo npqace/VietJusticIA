@@ -10,11 +10,11 @@ import {
   SafeAreaView
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, SIZES, SPACING, FONTS, RADIUS, LOGO_PATH } from '../../constants/styles';
+import { COLORS, SIZES, FONTS, LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
-import { heightPercentageToDP as hp } from 'react-native-responsive-screen';
 
 const { width } = Dimensions.get('window');
+const height = Dimensions.get('window').height;
 
 const MenuScreen = ({ navigation }: { navigation: any }) => {
   // Menu options
@@ -102,7 +102,7 @@ const MenuScreen = ({ navigation }: { navigation: any }) => {
                 style={styles.menuOption}
                 onPress={() => handleMenuOption(option.id)}
               >
-                <Ionicons name={option.icon as any} size={24} color={COLORS.textDark} style={styles.menuIcon} />
+                <Ionicons name={option.icon as any} size={24} color={COLORS.black} style={styles.menuIcon} />
                 <Text style={styles.menuText}>{option.title}</Text>
               </TouchableOpacity>
             ))}
@@ -136,14 +136,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#fff',
     paddingHorizontal: 16,
-    height: hp('7%'),
+    height: height * 0.07,
   },
   logo: {
     width: width * 0.15,
     height: width * 0.15,    
   },
   closeButton: {
-    padding: SPACING.sm,
+    padding: 8,
   },
   content: {
     flex: 1,
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
   profileName: {
     fontFamily: FONTS.semiBold,
     fontSize: SIZES.body,
-    color: COLORS.textDark,
+    color: COLORS.black,
     marginBottom: 4,
   },
   profileEmail: {
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   logoutButton: {
-    padding: SPACING.sm,
+    padding: 8,
   },
   menuContainer: {
     backgroundColor: COLORS.buttonLight,
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
   menuText: {
     fontFamily: FONTS.regular,
     fontSize: SIZES.body,
-    color: COLORS.textDark,
+    color: COLORS.black,
   },
   chatHistoryContainer: {
     flex: 1,
@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
   chatHistoryTitle: {
     fontFamily: FONTS.semiBold,
     fontSize: SIZES.body,
-    color: COLORS.textDark,
+    color: COLORS.black,
     marginBottom: 5,
   },
   chatHistory: {
