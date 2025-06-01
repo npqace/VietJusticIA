@@ -135,10 +135,10 @@ const styles = StyleSheet.create({
   },
   keyboardAvoidView: {
     flex: 1,
+    justifyContent: 'center',
   },
   
   innerContainer: {
-    // width: responsiveScreenWidth(90),
     width: '95%',
     alignSelf: 'center',
     alignItems: 'center',
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
     width: width * 0.25,
     height: width * 0.25,
     marginBottom: 10,
-    marginTop: 20,
+    // marginTop: 20,
   },
   title: {
     fontFamily: FONTS.bold,
@@ -214,6 +214,7 @@ const styles = StyleSheet.create({
   rememberMeText: {
     fontFamily: FONTS.regular,
     fontSize: SIZES.body,
+    fontWeight: '600',
     color: COLORS.black,
   },
   loginButton: {
@@ -250,7 +251,7 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   googleButtonText: {
-    fontFamily: FONTS.semiBold,
+    fontFamily: FONTS.bold,
     fontSize: SIZES.body,
     color: COLORS.black,
   },

@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
     color: '#5E5E5E',
   },
   activeTabText: {
-    fontFamily: FONTS.medium,
+    fontFamily: FONTS.regular,
     color: COLORS.primary,
   },
   contentScrollView: {
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   submitButtonText: {
-    fontFamily: FONTS.medium,
+    fontFamily: FONTS.semiBold,
     color: COLORS.white,
     fontSize: SIZES.body,
   },

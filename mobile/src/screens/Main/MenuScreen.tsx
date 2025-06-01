@@ -48,6 +48,12 @@ const MenuScreen = ({ navigation }: { navigation: any }) => {
     if (optionId === 'help') {
       navigation.navigate('FAQs');
     }
+    if (optionId === 'documents') {
+      navigation.navigate('DocumentLookup');
+    }
+    if (optionId === 'procedures') {
+      navigation.navigate('ProcedureLookup');
+    }
   };
 
   const handleClose = () => {
@@ -179,7 +185,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   profileName: {
-    fontFamily: FONTS.semiBold,
+    fontFamily: FONTS.bold,
     fontSize: SIZES.body,
     color: COLORS.black,
     marginBottom: 4,
@@ -231,7 +237,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   chatHistoryTitle: {
-    fontFamily: FONTS.semiBold,
+    fontFamily: FONTS.regular,
     fontSize: SIZES.body,
     color: COLORS.black,
     marginBottom: 5,

@@ -44,35 +44,30 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
 
   return (
     <LinearGradient
-        colors={[COLORS.gradientStart, COLORS.gradientMiddle1, COLORS.gradientMiddle2, COLORS.gradientEnd]}
-        locations={[0, 0.44, 0.67, 1]} 
-        style={styles.container}
+      colors={[COLORS.gradientStart, COLORS.gradientMiddle1, COLORS.gradientMiddle2, COLORS.gradientEnd]}
+      locations={[0, 0.44, 0.67, 1]}
+      style={styles.container}
     >
       <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.keyboardAvoidView}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.keyboardAvoidView}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.innerContainer}>
+        <View style={styles.innerContainer}>
           <Image
-              source={LOGO_PATH}
-              style={styles.logo}
-              resizeMode="contain"
+            source={LOGO_PATH}
+            style={styles.logo}
+            resizeMode="contain"
           />
 
             <Text style={styles.title}>Tạo tài khoản</Text>
 
             {/* Input Fields */}
             <View style={styles.inputOuterContainer}>
-              <Ionicons name="person-outline" size={22} color={COLORS.black} style={styles.inputIcon} />
+              <Ionicons name="person-outline" size={22} color={COLORS.gray} style={styles.inputIcon} />
               <TextInput
                   style={styles.input}
                   placeholder="Họ và Tên"
-                  placeholderTextColor={COLORS.black} 
+                  placeholderTextColor={COLORS.gray} 
                   value={fullName}
                   onChangeText={setFullName}
                   autoCapitalize="words"
@@ -80,11 +75,11 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
             </View>
 
             <View style={styles.inputOuterContainer}>
-              <Ionicons name="mail-outline" size={22} color={COLORS.black} style={styles.inputIcon} />
+              <Ionicons name="mail-outline" size={22} color={COLORS.gray} style={styles.inputIcon} />
               <TextInput
                   style={styles.input}
                   placeholder="Email"
-                  placeholderTextColor={COLORS.black}
+                  placeholderTextColor={COLORS.gray}
                   value={email}
                   onChangeText={setEmail}
                   keyboardType="email-address"
@@ -93,11 +88,11 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
             </View>
 
             <View style={styles.inputOuterContainer}>
-              <Ionicons name="call-outline" size={22} color={COLORS.black} style={styles.inputIcon} />
+              <Ionicons name="call-outline" size={22} color={COLORS.gray} style={styles.inputIcon} />
               <TextInput
                   style={styles.input}
                   placeholder="Số điện thoại"
-                  placeholderTextColor={COLORS.black}
+                  placeholderTextColor={COLORS.gray}
                   value={phoneNumber}
                   onChangeText={setPhoneNumber}
                   keyboardType="phone-pad"
@@ -105,34 +100,34 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
             </View>
 
             <View style={styles.inputOuterContainer}>
-              <Ionicons name="lock-closed-outline" size={22} color={COLORS.black} style={styles.inputIcon} />
+              <Ionicons name="lock-closed-outline" size={22} color={COLORS.gray} style={styles.inputIcon} />
               <TextInput
                   style={styles.input}
                   placeholder="Mật khẩu"
-                  placeholderTextColor={COLORS.black}
+                  placeholderTextColor={COLORS.gray}
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIconTouchable}>
-                  <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={24} color={COLORS.black} />
+                  <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={24} color={COLORS.gray} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.inputOuterContainer}>
-              <Ionicons name="lock-closed-outline" size={22} color={COLORS.black} style={styles.inputIcon} />
+              <Ionicons name="lock-closed-outline" size={22} color={COLORS.gray} style={styles.inputIcon} />
               <TextInput
                   style={styles.input}
                   placeholder="Xác nhận mật khẩu"
-                  placeholderTextColor={COLORS.black}
+                  placeholderTextColor={COLORS.gray}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                   secureTextEntry={!showConfirmPassword}
                   autoCapitalize="none"
               />
               <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeIconTouchable}>
-                  <Ionicons name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} size={24} color={COLORS.black} />
+                  <Ionicons name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} size={24} color={COLORS.gray} />
               </TouchableOpacity>
             </View>
 
@@ -166,7 +161,6 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
             <Text style={styles.loginLinkText}>Đăng nhập</Text>
             </TouchableOpacity>
           </View>
-        </ScrollView>
       </KeyboardAvoidingView>
     </LinearGradient>
   );
@@ -180,14 +174,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   innerContainer: {
-    // width: responsiveScreenWidth(90),
-    // height: responsiveScreenHeight(90),
     width: '95%',
     alignSelf: 'center',
     alignItems: 'center',
@@ -197,6 +184,7 @@ const styles = StyleSheet.create({
     width: width * 0.25, 
     height: width * 0.25, 
     marginBottom: 10,
+    // marginTop: 20,
   },
   title: {
     fontFamily: FONTS.bold,
@@ -239,7 +227,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8, 
   },
   linkText: {
-    fontFamily: FONTS.semiBold,
+    fontFamily: FONTS.regular,
     color: COLORS.primary, 
     textDecorationLine: 'underline',
   },
@@ -279,7 +267,7 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   googleButtonText: {
-    fontFamily: FONTS.semiBold,
+    fontFamily: FONTS.bold,
     fontSize: SIZES.body,
     color: COLORS.black,
   },
@@ -289,7 +277,7 @@ const styles = StyleSheet.create({
   loginLinkText: {
     fontFamily: FONTS.semiBold,
     fontSize: SIZES.body,
-    color: "#2A4BA0",
+    color: COLORS.primary,
   },
 });
 

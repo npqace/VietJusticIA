@@ -34,18 +34,27 @@ export const SIZES = {
   medium: 15,
 };
 
-// Font families
 export const FONTS = {
-  thin: 'Montserrat-Thin',
-  extraLight: 'Montserrat-ExtraLight',
-  light: 'Montserrat-Light',
-  regular: 'Montserrat-Regular',
-  medium: 'Montserrat-Medium',
-  semiBold: 'Montserrat-SemiBold',
-  bold: 'Montserrat-Bold',
-  extraBold: 'Montserrat-ExtraBold',
   black: 'Montserrat-Black',
+  blackItalic: 'Montserrat-Black-Italic',
+  bold: 'Montserrat-Bold',
+  boldItalic: 'Montserrat-Bold-Italic',
+  extraBold: 'Montserrat-Extra-Bold',
+  extraBoldItalic: 'Montserrat-Extra-Bold-Italic',
+  extraLight: 'Montserrat-Extra-Light',
+  extraLightItalic: 'Montserrat-Extra-Light-Italic',
+  italic: 'Montserrat-Italic',
+  light: 'Montserrat-Light',
+  lightItalic: 'Montserrat-Light-Italic',
+  medium: 'Montserrat-Medium',
+  mediumItalic: 'Montserrat-Medium-Italic',
+  regular: 'Montserrat-Regular',
+  semiBold: 'Montserrat-Semi-Bold',
+  semiBoldItalic: 'Montserrat-Semi-Bold-Italic',
+  thin: 'Montserrat-Thin',
+  thinItalic: 'Montserrat-Thin-Italic',
 };
+
 
 // Export
 export type ColorType = typeof COLORS;

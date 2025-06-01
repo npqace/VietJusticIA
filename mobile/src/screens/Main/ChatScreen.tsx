@@ -12,7 +12,7 @@ import {
   Dimensions
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, SIZES, FONTS } from '../../constants/styles';
+import { COLORS, SIZES, FONTS, LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
@@ -56,7 +56,7 @@ const ChatScreen = ({ navigation }: { navigation: any }) => {
     >
       <View style={styles.header}>
         <Image
-          source={require('../../assets/images/lawsphere-logo.png')}
+          source={LOGO_PATH}
           style={styles.logo}
           resizeMode="contain"
         />

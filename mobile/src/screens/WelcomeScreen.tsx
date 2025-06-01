@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   titleText: {
-    fontFamily: FONTS.medium,
+    fontFamily: FONTS.regular,
     fontSize: SIZES.heading2,
     textAlign: 'center',
     color: COLORS.black,
@@ -110,9 +110,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
   },
   registerButtonText: {
-    fontFamily: FONTS.regular,
+    fontFamily: FONTS.bold,
     color: COLORS.white,
-    fontWeight: 'bold',
   },
 });
 
