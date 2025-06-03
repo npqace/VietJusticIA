@@ -33,64 +33,62 @@ interface FilterProps {
 }
 
 interface FilterState {
-  startDate: string;
-  endDate: string;
-  status: string;
-  documentType: string;
-  field: string;
-  location: string;
+  issuingAuthority: string;
+  implementingAuthority: string;
+  implementationLevel: string;
+  implementationSubject: string;
 }
 
-const DocumentsFilterModal = ({ onApplyFilter, containerStyle, isVisible, onClose }: FilterProps) => {
+const ProcedureFilterModal = ({ onApplyFilter, containerStyle, isVisible, onClose }: FilterProps) => {
   const [filters, setFilters] = useState<FilterState>({
-    startDate: '',
-    endDate: '',
-    status: 'Tất cả',
-    documentType: 'Tất cả',
-    field: 'Tất cả',
-    location: 'Tất cả',
+    issuingAuthority: 'Tất cả',
+    implementingAuthority: 'Tất cả',
+    implementationLevel: 'Tất cả',
+    implementationSubject: 'Tất cả',
   });
 
   const [modalVisible, setModalVisible] = useState(false);
-  const [currentFilterType, setCurrentFilterType] = useState<keyof Omit<FilterState, 'startDate' | 'endDate'> | null>(null);
+  const [currentFilterType, setCurrentFilterType] = useState<keyof FilterState | null>(null);
   const translateY = new Animated.Value(0);
 
-  const statusOptions: FilterOption[] = [
+  const issuingAuthorityOptions: FilterOption[] = [
     { id: 'all', label: 'Tất cả' },
-    { id: 'active', label: 'Còn hiệu lực' },
-    { id: 'inactive', label: 'Hết hiệu lực' },
+    { id: 'ha_giang', label: 'UBND tỉnh Hà Giang' },
+    { id: 'ha_tinh', label: 'UBND tỉnh Hà Tĩnh' },
+    { id: 'bac_kan', label: 'UBND tỉnh Bắc Kạn' },
   ];
 
-  const documentTypeOptions: FilterOption[] = [
+  const implementingAuthorityOptions: FilterOption[] = [
     { id: 'all', label: 'Tất cả' },
-    { id: 'law', label: 'Luật' },
-    { id: 'decree', label: 'Nghị định' },
-    { id: 'circular', label: 'Thông tư' },
+    { id: 'industry_trade', label: 'Sở công thương' },
+    { id: 'justice', label: 'Sở Tư Pháp' },
+    { id: 'health', label: 'Sở Y Tế' },
   ];
 
-  const fieldOptions: FilterOption[] = [
+  const implementationLevelOptions: FilterOption[] = [
     { id: 'all', label: 'Tất cả' },
-    { id: 'civil', label: 'Dân sự' },
-    { id: 'criminal', label: 'Hình sự' },
-    { id: 'administrative', label: 'Hành chính' },
+    { id: 'province', label: 'Cấp tỉnh' },
+    { id: 'district', label: 'Cấp huyện' },
+    { id: 'commune', label: 'Cấp xã' },
   ];
 
-  const locationOptions: FilterOption[] = [
+  const implementationSubjectOptions: FilterOption[] = [
     { id: 'all', label: 'Tất cả' },
-    { id: 'central', label: 'Trung ương' },
-    { id: 'local', label: 'Địa phương' },
+    { id: 'citizen', label: 'Công dân Việt Nam' },
+    { id: 'enterprise', label: 'Doanh nghiệp' },
+    { id: 'cooperative', label: 'Hợp tác xã' },
   ];
 
-  const getOptionsForType = (type: keyof Omit<FilterState, 'startDate' | 'endDate'>) => {
+  const getOptionsForType = (type: keyof FilterState) => {
     switch (type) {
-      case 'status':
-        return statusOptions;
-      case 'documentType':
-        return documentTypeOptions;
-      case 'field':
-        return fieldOptions;
-      case 'location':
-        return locationOptions;
+      case 'issuingAuthority':
+        return issuingAuthorityOptions;
+      case 'implementingAuthority':
+        return implementingAuthorityOptions;
+      case 'implementationLevel':
+        return implementationLevelOptions;
+      case 'implementationSubject':
+        return implementationSubjectOptions;
       default:
         return [];
     }
@@ -106,7 +104,7 @@ const DocumentsFilterModal = ({ onApplyFilter, containerStyle, isVisible, onClos
     }
   };
 
-  const openDropdown = (type: keyof Omit<FilterState, 'startDate' | 'endDate'>) => {
+  const openDropdown = (type: keyof FilterState) => {
     setCurrentFilterType(type);
     setModalVisible(true);
   };
@@ -164,73 +162,48 @@ const DocumentsFilterModal = ({ onApplyFilter, containerStyle, isVisible, onClos
                 <View style={styles.dragIndicator} />
                 
                 <View style={[styles.container, containerStyle]}>
-                  <Text style={styles.title}>Lọc văn bản theo:</Text>
+                  <Text style={styles.title}>Lọc thủ tục theo:</Text>
                   
                   <View style={styles.filterSection}>
-                    <Text style={styles.sectionTitle}>Thời gian ban hành</Text>
-                    <View style={styles.dateContainer}>
-                      <View style={styles.dateInputContainer}>
-                        <TextInput
-                          style={styles.dateInput}
-                          placeholder="dd/mm/yyyy"
-                          value={filters.startDate}
-                          onChangeText={(text) => setFilters({ ...filters, startDate: text })}
-                          keyboardType="numeric"
-                        />
-                      </View>
-                      <Text style={styles.dateToText}>đến</Text>
-                      <View style={styles.dateInputContainer}>
-                        <TextInput
-                          style={styles.dateInput}
-                          placeholder="dd/mm/yyyy"
-                          value={filters.endDate}
-                          onChangeText={(text) => setFilters({ ...filters, endDate: text })}
-                          keyboardType="numeric"
-                        />
-                      </View>
-                    </View>
-                  </View>
-
-                  <View style={styles.filterSection}>
-                    <Text style={styles.sectionTitle}>Tình trạng</Text>
+                    <Text style={styles.sectionTitle}>Cơ quan ban hành</Text>
                     <TouchableOpacity 
                       style={styles.dropdown} 
-                      onPress={() => openDropdown('status')}
+                      onPress={() => openDropdown('issuingAuthority')}
                     >
-                      <Text style={styles.dropdownText}>{filters.status}</Text>
+                      <Text style={styles.dropdownText}>{filters.issuingAuthority}</Text>
                       <Ionicons name="chevron-down" size={16} color={COLORS.gray} />
                     </TouchableOpacity>
                   </View>
 
                   <View style={styles.filterSection}>
-                    <Text style={styles.sectionTitle}>Loại văn bản</Text>
+                    <Text style={styles.sectionTitle}>Cơ quan thực hiện</Text>
                     <TouchableOpacity 
                       style={styles.dropdown} 
-                      onPress={() => openDropdown('documentType')}
+                      onPress={() => openDropdown('implementingAuthority')}
                     >
-                      <Text style={styles.dropdownText}>{filters.documentType}</Text>
+                      <Text style={styles.dropdownText}>{filters.implementingAuthority}</Text>
                       <Ionicons name="chevron-down" size={16} color={COLORS.gray} />
                     </TouchableOpacity>
                   </View>
 
                   <View style={styles.filterSection}>
-                    <Text style={styles.sectionTitle}>Lĩnh vực, ngành</Text>
+                    <Text style={styles.sectionTitle}>Cấp thực hiện</Text>
                     <TouchableOpacity 
                       style={styles.dropdown} 
-                      onPress={() => openDropdown('field')}
+                      onPress={() => openDropdown('implementationLevel')}
                     >
-                      <Text style={styles.dropdownText}>{filters.field}</Text>
+                      <Text style={styles.dropdownText}>{filters.implementationLevel}</Text>
                       <Ionicons name="chevron-down" size={16} color={COLORS.gray} />
                     </TouchableOpacity>
                   </View>
 
                   <View style={styles.filterSection}>
-                    <Text style={styles.sectionTitle}>Nơi ban hành</Text>
+                    <Text style={styles.sectionTitle}>Đối tượng thực hiện</Text>
                     <TouchableOpacity 
                       style={styles.dropdown} 
-                      onPress={() => openDropdown('location')}
+                      onPress={() => openDropdown('implementationSubject')}
                     >
-                      <Text style={styles.dropdownText}>{filters.location}</Text>
+                      <Text style={styles.dropdownText}>{filters.implementationSubject}</Text>
                       <Ionicons name="chevron-down" size={16} color={COLORS.gray} />
                     </TouchableOpacity>
                   </View>
@@ -292,7 +265,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    height: screenHeight * 0.7,
+    height: screenHeight * 0.6,
     paddingBottom: 10,
   },
   dragIndicator: {
@@ -326,27 +299,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     color: COLORS.black,
     fontWeight: '500',
-  },
-  dateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  dateInputContainer: {
-    flex: 1,
-    height: 45,
-    borderRadius: 8,
-    backgroundColor: '#F0F0F0',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  dateInput: {
-    fontFamily: FONTS.regular,
-    fontSize: 14,
-  },
-  dateToText: {
-    marginHorizontal: 12,
-    fontFamily: FONTS.regular,
-    fontSize: 14,
   },
   dropdown: {
     height: 45,
@@ -402,4 +354,6 @@ const styles = StyleSheet.create({
   },
 });
 
-export default DocumentsFilterModal;
+export default ProcedureFilterModal;
+export type { FilterState as ProceduresFilterState };
+

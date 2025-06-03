@@ -12,6 +12,9 @@ export const COLORS = {
   gray: '#5E5E5E',
 
   // Neutral colors
+  lightGray: '#F5F5F5',
+  border: '#E0E0E0',
+  text: '#333333',
 
   
   // Gradient colors
