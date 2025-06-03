@@ -86,7 +86,6 @@ const ContactUsTab = () => {
 
 const styles = StyleSheet.create({
   contactContainer: {
-    borderRadius: 16,
     marginBottom: 24,
     overflow: 'hidden',
   },

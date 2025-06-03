@@ -11,7 +11,8 @@ import WelcomeScreen from './screens/WelcomeScreen';
 import LoginScreen from './screens/Auth/LoginScreen';
 import SignupScreen from './screens/Auth/SignupScreen';
 import MenuScreen from './screens/Main/MenuScreen';
-import FAQsScreen from './screens/Support/HelpScreen';
+import HelpScreen from './screens/Support/HelpScreen';
+import LawyerScreen from './screens/Support/LawyerScreen';
 import DocumentLookupScreen from './screens/Lookup/DocumentLookup';
 import ProcedureLookupScreen from './screens/Lookup/ProcedureLookup';
 import { useFonts } from 'expo-font';
@@ -64,7 +65,8 @@ export default function App(): React.JSX.Element | null {
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name='Chat' component={ChatScreen} />
             <Stack.Screen name='Menu' component={MenuScreen} />
-            <Stack.Screen name='FAQs' component={FAQsScreen} />
+            <Stack.Screen name='FAQs' component={HelpScreen} />
+            <Stack.Screen name='Lawyer' component={LawyerScreen} /> 
             <Stack.Screen name="DocumentLookup" component={DocumentLookupScreen} />
             <Stack.Screen name="ProcedureLookup" component={ProcedureLookupScreen} />
           </Stack.Navigator>

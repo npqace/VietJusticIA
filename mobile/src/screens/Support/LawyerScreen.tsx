@@ -11,38 +11,29 @@ import { COLORS, SIZES, FONTS,  LOGO_PATH } from '../../constants/styles';
 import { Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import FAQsTab from '../../components/Help/FAQsTab';
-import ContactUsTab from '../../components/Help/ContactUsTab';
-import PolicyTab from '../../components/Help/PolicyTab';
-import TermsTab from '../../components/Help/TermsTab';
+import LegalConsultantTab from '../../components/Legal/LegalConsultantTab';
 
 const { width } = Dimensions.get('window');
 const height = Dimensions.get('window').height;
 
-// Tab names
+// tabs
 const tabs = [
-  { id: 'faqs', name: 'FAQs' },
-  { id: 'contact', name: 'Liên hệ' },
-  { id: 'policy', name: 'Chính sách' },
-  { id: 'terms', name: 'Điều khoản' }
+  {id: 'consultant', name: 'Nhận tư vấn pháp lý'},
+  {id: 'find-lawyer', name: 'Tìm luật sư'}
 ];
 
-const HelpScreen = ({ navigation }: { navigation: any }) => {
-  const [activeTab, setActiveTab] = useState('faqs');
+const LawyerScreen = ({ navigation }: { navigation: any }) => {
+  const [activeTab, setActiveTab] = useState('consultant');
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'faqs':
-        return <FAQsTab />;
-      case 'contact':
-        return <ContactUsTab />;
-      case 'policy':
-        return <PolicyTab />;
-      case 'terms':
-        return <TermsTab /> ;
+      case 'consultant':
+        return <LegalConsultantTab />;
+      case 'find-lawyer':
+        return;
       default:
         return null;
-    }
+    };
   };
 
   return (
@@ -171,4 +162,4 @@ const styles = StyleSheet.create({
   }
 });
 
-export default HelpScreen;
+export default LawyerScreen;

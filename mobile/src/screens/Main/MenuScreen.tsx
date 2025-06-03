@@ -54,6 +54,9 @@ const MenuScreen = ({ navigation }: { navigation: any }) => {
     if (optionId === 'procedures') {
       navigation.navigate('ProcedureLookup');
     }
+    if (optionId === 'lawyer') {
+      navigation.navigate('Lawyer');
+    }
   };
 
   const handleClose = () => {
