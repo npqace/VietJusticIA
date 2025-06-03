@@ -15,8 +15,8 @@ import {
 } from 'react-native';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, FONTS } from '../constants/styles';
-import CustomButton from './CustomButton';
+import { COLORS, FONTS } from '../../constants/styles';
+import CustomButton from '../CustomButton';
 
 const { height: screenHeight } = Dimensions.get('window');
 

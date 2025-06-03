@@ -12,7 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SIZES, FONTS, LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
-import ProceduresFilterModal, { ProceduresFilterState } from '../../components/ProceduresFilterModal';
+import ProceduresFilterModal, { ProceduresFilterState } from '../../components/Filter/ProceduresFilterModal';
 
 export interface FilterState {
   startDate: string;

@@ -1,22 +1,22 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  TouchableWithoutFeedback,
-  Modal,
-  FlatList,
-  StyleProp,
-  ViewStyle,
   Animated,
   Dimensions,
+  FlatList,
+  Modal,
+  StyleProp,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
+  ViewStyle,
 } from 'react-native';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
-import { Ionicons } from '@expo/vector-icons';
-import { COLORS, FONTS } from '../constants/styles';
-import CustomButton from './CustomButton';
+import { COLORS, FONTS } from '../../constants/styles';
+import CustomButton from '../CustomButton';
 
 const { height: screenHeight } = Dimensions.get('window');
 

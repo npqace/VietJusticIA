@@ -12,7 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SIZES, FONTS, LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
-import DocumentsFilterModal from '../../components/DocumentsFilterModal';
+import DocumentsFilterModal from '../../components/Filter/DocumentsFilterModal';
 
 const { width } = Dimensions.get('window');
 const height = Dimensions.get('window').height;
