@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -23,6 +23,14 @@ const ChatScreen = ({ navigation }: { navigation: any }) => {
   const [chatHistory, setChatHistory] = useState<Array<{ id: number; text: string; sender: 'user' | 'bot' }>>([
     { id: 1, text: 'LawSphere có thể giúp gì cho bạn?', sender: 'bot' }
   ]);
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  // Auto-scroll to bottom when chat history changes
+  useEffect(() => {
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+  }, [chatHistory]);
 
   const sendMessage = () => {
     if (message.trim() === '') return;
@@ -76,6 +84,7 @@ const ChatScreen = ({ navigation }: { navigation: any }) => {
         style={styles.keyboardAvoidView}
       >
         <ScrollView
+          ref={scrollViewRef}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -159,12 +168,12 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     padding: 16,
+    paddingBottom: 80,
   },
   messageContainer: {
     borderRadius: 16,
     padding: 16,
     marginVertical: 8,
-    // maxWidth: wp('80%'),
     maxWidth: width * 0.8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
