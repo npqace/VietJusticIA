@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
 from sqlalchemy.orm import Session
 from .database import models
+from .database.models import User
 from .model.userModel import SignUpModel, LoginModel, UserResponse
 from .services.auth import create_access_token, verify_token
 from .database.database import get_db
@@ -39,7 +40,7 @@ async def signup(signup_request: SignUpModel, db: Session = Depends(get_db)):
     user = user_repository.create_user(db, signup_request)
     
     # Generate JWT token
-    access_token = create_access_token(data={"sub": user.email})
+    access_token = create_access_token(data={"sub": user.email, "role": user.role.value})
     
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -55,7 +56,7 @@ async def login(login_request: LoginModel, db: Session = Depends(get_db)):
             detail="Incorrect email/phone or password"
         )
     
-    access_token = create_access_token(data={"sub": user.email})
+    access_token = create_access_token(data={"sub": user.email, "role": user.role.value})
     return {"access_token": access_token, "token_type": "bearer"}
 
 async def get_current_user(authorization: str = Security(api_key_header), db: Session = Depends(get_db)):
@@ -91,10 +92,24 @@ async def get_current_user(authorization: str = Security(api_key_header), db: Se
     
     return user
 
-@app.get("/protected")
-async def protected_route(current_user = Depends(get_current_user)):
-    return {"message": f"Hello {current_user.full_name}, this is a protected route"}
-
-@app.get("/me", response_model=UserResponse)
+@app.get("/profile", response_model=UserResponse)
 async def read_users_me(current_user = Depends(get_current_user)):
     return current_user
+
+# ---------- Role-based access dependency ----------
+
+def require_roles(*allowed_roles):
+    """Dependency generator that ensures the current user has one of the allowed roles."""
+    def role_checker(current_user = Depends(get_current_user)):
+        if current_user.role.value not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not enough privileges"
+            )
+        return current_user
+    return role_checker
+
+# --- Demo admin-only endpoint ---
+@app.get("/admin")
+async def admin_only_route(current_user = Depends(require_roles("admin"))):
+    return {"message": f"Hello {current_user.full_name}, you have admin access"}
