@@ -9,12 +9,15 @@ import {
   Platform,
   ScrollView,
   Image,
-  Dimensions
+  Dimensions,
+  Alert
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import CustomButton from '../../components/CustomButton';
 import { COLORS, SIZES, FONTS, LOGO_PATH, GOOGLE_LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons'; 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import api from '../../api';
 
 const { width } = Dimensions.get('window');
 
@@ -27,7 +30,7 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const handleSignup = () => {
+  const handleSignup = async () => {
     // Add actual signup logic here
     // Example: Validate inputs, then call API
     console.log('Signup attempt:', { fullName, email, phoneNumber, password, confirmPassword });
@@ -35,7 +38,31 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
         alert("Passwords do not match!");
         return;
     }
-    navigation.navigate('Login'); // Navigate on successful signup
+    try {
+      const payload = {
+        full_name: fullName,
+        email: email,
+        phone: phoneNumber,
+        pwd: password,
+        confirm_pwd: confirmPassword,
+      };
+
+      const response = await api.post('/signup', payload);
+      const { access_token } = response.data as any;
+      if (access_token) {
+        await AsyncStorage.setItem('access_token', access_token);
+        navigation.navigate('Login');
+      } else {
+        Alert.alert('Lỗi', 'Đăng ký thất bại');
+      }
+    } catch (err: any) {
+        let message = 'Đăng ký thất bại';
+        if (err?.response?.data?.detail) {
+          message = err.response.data.detail as string;
+        }
+        Alert.alert('Lỗi', message);
+      }
+    // navigation.navigate('Login'); // Navigate on successful signup
   };
 
   const navigateToLogin = () => {
@@ -94,8 +121,8 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
                   placeholder="Số điện thoại"
                   placeholderTextColor={COLORS.gray}
                   value={phoneNumber}
-                  onChangeText={setPhoneNumber}
-                  keyboardType="phone-pad"
+                  onChangeText={(text) => setPhoneNumber(text.replace(/[^0-9]/g, ''))}
+                  keyboardType="numeric"
               />
             </View>
 
