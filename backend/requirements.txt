@@ -1,0 +1,9 @@
+fastapi
+fastapi-cors
+bcrypt==3.2.0
+jose
+datetime
+passlib
+pydantic
+sqlalchemy
+pymysql

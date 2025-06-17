@@ -8,24 +8,45 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
-  Dimensions
+  Dimensions,
+  Alert
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import CustomButton from '../../components/CustomButton';
 import { COLORS, SIZES, FONTS, LOGO_PATH, GOOGLE_LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
+import api from '../../api';
 
 const { width } = Dimensions.get('window');
 
 const LoginScreen = ({ navigation }: { navigation: any }) => {
-  const [emailOrPhone, setEmailOrPhone] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
-  const handleLogin = () => {
-    console.log('Login attempt:', { emailOrPhone, password, rememberMe });
-    navigation.navigate('Chat');
+  const handleLogin = async () => {
+    // console.log('Login attempt:', { identifier, password, rememberMe });
+    // navigation.navigate('Chat');
+    try {
+      console.log('Login attempt:', { identifier, password, rememberMe });
+      const response = await api.post('/login', { identifier, pwd: password });
+      const { access_token } = response.data as any;
+      if (access_token) {
+        await AsyncStorage.setItem('access_token', access_token);
+        navigation.navigate('Chat');
+      } else {
+        Alert.alert('Lỗi', 'Tài khoản hoặc mật khẩu không chính xác');
+      }
+    }
+      catch (err: any) {
+        let message = 'Tài khoản hoặc mật khẩu không chính xác';
+        if (err?.response?.data?.detail) {
+          message = err.response.data.detail as string;
+        }
+        Alert.alert('Lỗi', message);
+      }
   };
 
   const navigateToSignup = () => {
@@ -62,8 +83,8 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
               style={styles.input}
               placeholder="hello@example.com"
               placeholderTextColor={COLORS.black}
-              value={emailOrPhone}
-              onChangeText={setEmailOrPhone}
+              value={identifier}
+              onChangeText={setIdentifier}
               keyboardType="email-address"
               autoCapitalize="none"
             />
