@@ -1,9 +1,10 @@
 fastapi
 fastapi-cors
 bcrypt==3.2.0
-jose
-datetime
+python-jose
+python-dotenv
 passlib
 pydantic
 sqlalchemy
+alembic
 pymysql
