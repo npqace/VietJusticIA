@@ -110,31 +110,47 @@ class LegalDocumentCrawler:
 
     async def get_document_links_with_pagination(self, page: Page, base_url: str, max_pages: Optional[int] = None) -> List[Dict[str, str]]:
         """
-        Extract all document links with pagination support
+        Extract all document links with ASP.NET postback pagination support
         """
         all_document_links = []
         
-        # For simplicity, start with just the first page
-        page_num = 1
-        max_attempts = max_pages if max_pages else 10  # Default to 10 pages max
+        # Start with the first page
+        self.logger.info(f"Starting pagination crawl from: {base_url}")
+        await page.goto(base_url, wait_until="networkidle", timeout=30000)
+        await page.wait_for_timeout(3000)
+        
+        # Get pagination information
+        pagination_info = await self.get_pagination_info(page)
+        total_pages = pagination_info.get('total_pages', 10)
+        total_documents = pagination_info.get('total_documents', 0)
+        
+        # Determine max pages to crawl
+        max_attempts = min(max_pages, total_pages) if max_pages else total_pages
+        self.logger.info(f"Will crawl up to {max_attempts} pages (total available: {total_pages})")
+        
+        if total_documents > 0:
+            self.logger.info(f"Estimated total documents to process: {total_documents}")
         
         for page_num in range(1, max_attempts + 1):
             try:
-                # Construct URL for current page
-                if '?' in base_url:
-                    page_url = f"{base_url}&page={page_num}"
-                else:
-                    page_url = f"{base_url}?page={page_num}"
+                self.logger.info(f"Crawling page {page_num}")
                 
-                self.logger.info(f"Crawling page {page_num}: {page_url}")
-                
-                page_links = await self.get_document_links_from_page(page, page_url)
+                # Extract document links from current page
+                page_links = await self.extract_document_links_from_current_page(page)
                 
                 if not page_links and page_num > 1:
                     self.logger.info(f"No more documents found at page {page_num}, stopping pagination")
                     break
                     
                 all_document_links.extend(page_links)
+                self.logger.info(f"Found {len(page_links)} documents on page {page_num}")
+                
+                # Try to navigate to next page using postback
+                if page_num < max_attempts:
+                    next_page_success = await self.navigate_to_next_page(page, page_num + 1)
+                    if not next_page_success:
+                        self.logger.info(f"Could not navigate to page {page_num + 1}, stopping pagination")
+                        break
                 
                 # Add delay between pages
                 await asyncio.sleep(CRAWLER_SETTINGS.get('delay_between_requests', 2))
@@ -147,15 +163,12 @@ class LegalDocumentCrawler:
         
         # Remove duplicates
         unique_links = self.remove_duplicate_links(all_document_links)
-        self.logger.info(f"Found {len(unique_links)} unique documents across pages")
+        self.logger.info(f"Found {len(unique_links)} unique documents across {page_num} pages")
         
         return unique_links
 
-    async def get_document_links_from_page(self, page: Page, url: str) -> List[Dict[str, str]]:
-        """Extract document links from a single page"""
-        await page.goto(url, wait_until="networkidle", timeout=30000)
-        await page.wait_for_timeout(3000)
-        
+    async def extract_document_links_from_current_page(self, page: Page) -> List[Dict[str, str]]:
+        """Extract document links from the current page content"""
         content = await page.content()
         soup = BeautifulSoup(content, 'html.parser')
         
@@ -177,11 +190,103 @@ class LegalDocumentCrawler:
                         'docid': docid,
                         'url': full_url,
                         'title': title,
-                        'page_url': url
+                        'page_url': page.url
                     })
         
-        self.logger.info(f"Found {len(document_links)} documents on page")
         return document_links
+
+    async def navigate_to_next_page(self, page: Page, target_page: int) -> bool:
+        """
+        Navigate to next page using ASP.NET postback mechanism
+        """
+        try:
+            # Method 1: Try clicking the pagination link directly
+            next_page_selector = f'a[href*="Page${target_page}"]'
+            next_page_element = await page.query_selector(next_page_selector)
+            
+            if next_page_element:
+                self.logger.info(f"Clicking pagination link for page {target_page}")
+                await next_page_element.click()
+                await page.wait_for_load_state("networkidle", timeout=15000)
+                return True
+            
+            # Method 2: Try executing the postback JavaScript directly
+            postback_script = f"""
+            if (typeof __doPostBack === 'function') {{
+                var gridView = document.querySelector('table[id*="grvDocument"], div[id*="grvDocument"]');
+                if (gridView) {{
+                    var controlId = gridView.id || 'ctrl_191017_163$grvDocument';
+                    __doPostBack(controlId, 'Page${target_page}');
+                    return true;
+                }}
+            }}
+            return false;
+            """
+            
+            result = await page.evaluate(postback_script)
+            if result:
+                self.logger.info(f"Executed postback for page {target_page}")
+                await page.wait_for_load_state("networkidle", timeout=15000)
+                return True
+            
+            # Method 3: Extract ViewState and post form data manually
+            return await self.postback_with_viewstate(page, target_page)
+            
+        except Exception as e:
+            self.logger.warning(f"Failed to navigate to page {target_page}: {str(e)}")
+            return False
+
+    async def postback_with_viewstate(self, page: Page, target_page: int) -> bool:
+        """
+        Manual form postback with ViewState extraction
+        """
+        try:
+            # Extract form data including ViewState
+            form_data = await page.evaluate("""
+            () => {
+                const form = document.forms[0];
+                if (!form) return null;
+                
+                const formData = new FormData(form);
+                const data = {};
+                
+                for (let [key, value] of formData.entries()) {
+                    data[key] = value;
+                }
+                
+                return {
+                    action: form.action || window.location.href,
+                    data: data
+                };
+            }
+            """)
+            
+            if not form_data:
+                return False
+            
+            # Find the GridView control ID
+            control_id = await page.evaluate("""
+            () => {
+                const gridView = document.querySelector('table[id*="grvDocument"], div[id*="grvDocument"]');
+                return gridView ? gridView.id : 'ctrl_191017_163$grvDocument';
+            }
+            """)
+            
+            # Update form data for pagination
+            form_data['data']['__EVENTTARGET'] = control_id
+            form_data['data']['__EVENTARGUMENT'] = f'Page${target_page}'
+            
+            # Post the form data
+            current_url = page.url
+            await page.goto(current_url, method='POST', post_data=form_data['data'])
+            await page.wait_for_load_state("networkidle", timeout=15000)
+            
+            self.logger.info(f"Manual postback successful for page {target_page}")
+            return True
+            
+        except Exception as e:
+            self.logger.warning(f"Manual postback failed for page {target_page}: {str(e)}")
+            return False
 
     def remove_duplicate_links(self, links: List[Dict[str, str]]) -> List[Dict[str, str]]:
         """Remove duplicate document links based on docid"""
@@ -436,6 +541,85 @@ class LegalDocumentCrawler:
     async def run(self, category: str = "legal_documents", max_documents: Optional[int] = None, max_pages: Optional[int] = None):
         """Run the enhanced crawler"""
         await self.crawl_category(category, max_documents, max_pages)
+
+    async def get_pagination_info(self, page: Page) -> Dict[str, int]:
+        """
+        Extract pagination information from the page
+        Returns: {'current_page': int, 'total_pages': int, 'total_documents': int, 'per_page': int}
+        """
+        try:
+            pagination_info = await page.evaluate("""
+            () => {
+                // Look for pagination information in various formats
+                const paginationText = document.querySelector('.th-detail span, .pagination-info, [class*="pag"]');
+                if (paginationText) {
+                    const text = paginationText.textContent.trim();
+                    
+                    // Parse patterns like "1 - 50 | 93983"
+                    const match1 = text.match(/(\\d+)\\s*-\\s*(\\d+)\\s*\\|\\s*(\\d+)/);
+                    if (match1) {
+                        const start = parseInt(match1[1]);
+                        const end = parseInt(match1[2]);
+                        const total = parseInt(match1[3]);
+                        const perPage = end - start + 1;
+                        const totalPages = Math.ceil(total / perPage);
+                        const currentPage = Math.ceil(start / perPage);
+                        
+                        return {
+                            current_page: currentPage,
+                            total_pages: totalPages,
+                            total_documents: total,
+                            per_page: perPage,
+                            text: text
+                        };
+                    }
+                    
+                    // Parse patterns like "Page 1 of 1880" 
+                    const match2 = text.match(/page\\s*(\\d+)\\s*of\\s*(\\d+)/i);
+                    if (match2) {
+                        return {
+                            current_page: parseInt(match2[1]),
+                            total_pages: parseInt(match2[2]),
+                            total_documents: null,
+                            per_page: null,
+                            text: text
+                        };
+                    }
+                }
+                
+                // Try to count pagination links
+                const pageLinks = document.querySelectorAll('a[href*="Page$"]');
+                const maxPage = Math.max(...Array.from(pageLinks).map(link => {
+                    const match = link.href.match(/Page\\$(\\d+)/);
+                    return match ? parseInt(match[1]) : 0;
+                }));
+                
+                if (maxPage > 0) {
+                    return {
+                        current_page: 1,
+                        total_pages: maxPage,
+                        total_documents: null,
+                        per_page: null,
+                        text: `Detected ${maxPage} pages from links`
+                    };
+                }
+                
+                return null;
+            }
+            """)
+            
+            if pagination_info:
+                self.logger.info(f"Pagination info: {pagination_info['text']}")
+                self.logger.info(f"Total pages: {pagination_info.get('total_pages', 'Unknown')}, "
+                               f"Total documents: {pagination_info.get('total_documents', 'Unknown')}")
+                return pagination_info
+            else:
+                self.logger.warning("Could not extract pagination information")
+                return {'current_page': 1, 'total_pages': 1, 'total_documents': 0, 'per_page': 50}
+                
+        except Exception as e:
+            self.logger.error(f"Error extracting pagination info: {str(e)}")
+            return {'current_page': 1, 'total_pages': 1, 'total_documents': 0, 'per_page': 50}
 
 
 async def main():
