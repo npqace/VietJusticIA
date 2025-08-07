@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,13 +12,40 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SIZES, FONTS, LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
+import api from '../../api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 const height = Dimensions.get('window').height;
 
 const MenuScreen = ({ navigation }: { navigation: any }) => {
+  const [fullName, setFullName] = useState('Guest User');
+  const [email, setEmail] = useState('');
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const token = await AsyncStorage.getItem('access_token');
+        if (token) {
+          const response = await api.get('/profile');
+          const { full_name, email } = response.data as { full_name: string; email: string };
+          setFullName(full_name);
+          setEmail(email);
+        }
+      } catch (error) {
+        console.error('Failed to fetch user data:', error);
+      }
+    };
+
+    fetchUserData();
+  }, []);
   // Menu options
   const menuOptions = [
+    {
+      id: 'chat',
+      title: 'Chat',
+      icon: 'chatbox-ellipses-outline'
+    },
     {
       id: 'documents',
       title: 'Tra cứu văn bản',
@@ -45,6 +72,9 @@ const MenuScreen = ({ navigation }: { navigation: any }) => {
     console.log(`Selected option: ${optionId}`);
     // Navigate to appropriate screen based on option
     // Example: navigation.navigate('DocumentSearch');
+    if (optionId === 'chat') {
+      navigation.navigate('Chat');
+    }
     if (optionId === 'help') {
       navigation.navigate('FAQs');
     }
@@ -92,8 +122,8 @@ const MenuScreen = ({ navigation }: { navigation: any }) => {
               />
             </View>
             <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>Ace Nguyen</Text>
-              <Text style={styles.profileEmail}>anhnpqgcd220190@fpt.edu.vn</Text>
+              <Text style={styles.profileName}>{fullName}</Text>
+              <Text style={styles.profileEmail}>{email}</Text>
             </View>
             <TouchableOpacity
               style={styles.logoutButton}

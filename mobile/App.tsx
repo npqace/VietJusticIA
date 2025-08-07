@@ -2,10 +2,10 @@ import React from 'react';
 import Constants from 'expo-constants';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, SafeAreaView, View } from 'react-native';
-import { COLORS, FONTS } from './constants/styles';
-import useFontsLoader from './hooks/useFontsLoader';
+import { COLORS, FONTS } from './src/constants/styles';
+import useFontsLoader from './src/hooks/useFontsLoader';
 import * as SplashScreen from 'expo-splash-screen';
-import AppNavigator from './navigation/AppNavigator';
+import AppNavigator from './src/navigation/AppNavigator';
 
 // Keep the splash screen visible until the fonts are loaded
 SplashScreen.preventAutoHideAsync();
