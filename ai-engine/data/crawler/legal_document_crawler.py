@@ -108,7 +108,7 @@ class LegalDocumentCrawler:
         
         return browser, page
 
-    async def get_document_links_with_pagination(self, page: Page, base_url: str, max_pages: Optional[int] = None) -> List[Dict[str, str]]:
+    async def get_document_links_with_pagination(self, page: Page, base_url: str, max_pages: Optional[int] = None, max_documents: Optional[int] = None) -> List[Dict[str, str]]:
         """
         Extract all document links with ASP.NET postback pagination support
         """
@@ -123,13 +123,27 @@ class LegalDocumentCrawler:
         pagination_info = await self.get_pagination_info(page)
         total_pages = pagination_info.get('total_pages', 10)
         total_documents = pagination_info.get('total_documents', 0)
+        per_page = pagination_info.get('per_page', 50)
         
-        # Determine max pages to crawl
-        max_attempts = min(max_pages, total_pages) if max_pages else total_pages
+        # Calculate actual limits based on max_documents
+        if max_documents and per_page > 0:
+            max_pages_needed = max(1, (max_documents + per_page - 1) // per_page)  # Ceiling division
+            max_attempts = min(max_pages_needed, max_pages or total_pages, total_pages)
+            actual_documents_to_fetch = min(max_documents, total_documents or max_documents)
+        else:
+            max_attempts = min(max_pages or total_pages, total_pages)
+            actual_documents_to_fetch = total_documents
+        
+        # Log actual crawling plan
         self.logger.info(f"Will crawl up to {max_attempts} pages (total available: {total_pages})")
         
-        if total_documents > 0:
-            self.logger.info(f"Estimated total documents to process: {total_documents}")
+        if max_documents:
+            self.logger.info(f"Document limit: {max_documents} (total available: {total_documents or 'Unknown'})")
+        else:
+            self.logger.info(f"No document limit set (total available: {total_documents or 'Unknown'})")
+            
+        if actual_documents_to_fetch:
+            self.logger.info(f"Estimated documents to process: {actual_documents_to_fetch}")
         
         for page_num in range(1, max_attempts + 1):
             try:
@@ -144,6 +158,11 @@ class LegalDocumentCrawler:
                     
                 all_document_links.extend(page_links)
                 self.logger.info(f"Found {len(page_links)} documents on page {page_num}")
+                
+                # Check if we have enough documents
+                if max_documents and len(all_document_links) >= max_documents:
+                    self.logger.info(f"Reached document limit ({max_documents}), stopping pagination")
+                    break
                 
                 # Try to navigate to next page using postback
                 if page_num < max_attempts:
@@ -448,12 +467,16 @@ class LegalDocumentCrawler:
         try:
             # Get document links
             document_links = await self.get_document_links_with_pagination(
-                page, category_info['url'], max_pages
+                page, category_info['url'], max_pages, max_documents
             )
             
-            if max_documents:
+            if max_documents and len(document_links) > max_documents:
                 document_links = document_links[:max_documents]
-                self.logger.info(f"Limited to {max_documents} documents")
+                self.logger.info(f"Trimmed to exactly {max_documents} documents")
+            elif max_documents:
+                self.logger.info(f"Found {len(document_links)} documents (within limit of {max_documents})")
+            else:
+                self.logger.info(f"Found {len(document_links)} documents (no limit set)")
             
             # Process documents
             async with aiohttp.ClientSession() as session:

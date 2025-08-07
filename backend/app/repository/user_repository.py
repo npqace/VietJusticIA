@@ -34,14 +34,14 @@ def create_user(db: Session, user: SignUpModel):
 
 def authenticate_user(db: Session, identifier: str, password: str):
     # Check if user exists with email or phone
-    user = db.query(models.User).filter(
-        (models.User.email == identifier) | (models.User.phone == identifier)
-    ).first()
-    
+    user = db.query(models.User).filter(models.User.email == identifier).first()
     if not user:
-        return False
+        user = db.query(models.User).filter(models.User.phone == identifier).first()
+
+    if not user:
+        return None
     
     if not verify_password(password, user.hashed_password):
-        return False
+        return None
     
     return user
