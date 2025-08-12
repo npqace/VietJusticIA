@@ -1,11 +1,15 @@
 from fastapi import FastAPI, HTTPException, status, Depends, Security
+from fastapi import Request
+from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
 from sqlalchemy.orm import Session
+import logging
+import time
 from .database import models
 from .database.models import User
 from .model.userModel import SignUpModel, LoginModel, UserResponse
-from .services.auth import create_access_token, verify_token
+from .services.auth import create_access_token, create_refresh_token, verify_token, verify_refresh_token
 from .database.database import get_db
 from .database.create_tables import create_tables
 from .repository import user_repository
@@ -14,6 +18,11 @@ from .repository import user_repository
 create_tables()
 
 app = FastAPI(title="LawSphere API", version="1.0.0")
+
+# Configure basic logging
+logger = logging.getLogger("lawsphere.api")
+if not logger.handlers:
+    logging.basicConfig(level=logging.INFO)
 
 # CORS Middleware
 app.add_middleware(
@@ -27,8 +36,25 @@ app.add_middleware(
 # API key header for authentication
 api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
 
+# Request/Response logging middleware (masks Authorization header)
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+    response = None
+    try:
+        response = await call_next(request)
+        return response
+    finally:
+        duration_ms = (time.time() - start_time) * 1000
+        client_ip = request.client.host if request.client else "-"
+        path = request.url.path
+        method = request.method
+        status_code = getattr(response, "status_code", "ERROR")
+        logger.info(f"{client_ip} {method} {path} -> {status_code} ({duration_ms:.1f} ms)")
+
 @app.post("/signup", response_model=dict)
 async def signup(signup_request: SignUpModel, db: Session = Depends(get_db)):
+    logger.info(f"Signup attempt email={signup_request.email} phone={signup_request.phone}")
     # Check if passwords match
     if signup_request.pwd != signup_request.confirm_pwd:
         raise HTTPException(
@@ -39,25 +65,33 @@ async def signup(signup_request: SignUpModel, db: Session = Depends(get_db)):
     # Create user in database
     user = user_repository.create_user(db, signup_request)
     
-    # Generate JWT token
-    access_token = create_access_token(data={"sub": user.email, "role": user.role.value})
+    # Generate tokens
+    token_claims = {"sub": user.email, "role": user.role.value}
+    access_token = create_access_token(data=token_claims)
+    refresh_token = create_refresh_token(data=token_claims)
     
-    return {"access_token": access_token, "token_type": "bearer"}
+    logger.info(f"Signup success for {user.email}")
+    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 
 @app.post("/login", response_model=dict)
 async def login(login_request: LoginModel, db: Session = Depends(get_db)):
+    logger.info(f"Login attempt identifier={login_request.identifier}")
     user = user_repository.authenticate_user(
         db, login_request.identifier, login_request.pwd
     )
     
     if not user:
+        logger.info("Login failed: incorrect credentials")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email/phone or password"
         )
     
-    access_token = create_access_token(data={"sub": user.email, "role": user.role.value})
-    return {"access_token": access_token, "token_type": "bearer"}
+    token_claims = {"sub": user.email, "role": user.role.value}
+    access_token = create_access_token(data=token_claims)
+    refresh_token = create_refresh_token(data=token_claims)
+    logger.info(f"Login success for {user.email}")
+    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 
 async def get_current_user(authorization: str = Security(api_key_header), db: Session = Depends(get_db)):
     if not authorization:
@@ -96,6 +130,27 @@ async def get_current_user(authorization: str = Security(api_key_header), db: Se
 async def read_users_me(current_user = Depends(get_current_user)):
     return current_user
 
+# Refresh endpoint: accepts refresh token and returns new access token
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+@app.post("/refresh", response_model=dict)
+async def refresh_token_endpoint(refresh_request: RefreshRequest):
+    logger.info("Refresh token attempt")
+    payload = verify_refresh_token(refresh_request.refresh_token)
+    if not payload:
+        logger.info("Refresh token invalid")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    # Re-issue an access token using the same subject and role
+    token_claims = {"sub": payload.get("sub"), "role": payload.get("role")}
+    access_token = create_access_token(data=token_claims)
+    logger.info(f"Refresh token success for sub={token_claims.get('sub')}")
+    return {"access_token": access_token, "token_type": "bearer"}
+
 # ---------- Role-based access dependency ----------
 
 def require_roles(*allowed_roles):
@@ -113,3 +168,7 @@ def require_roles(*allowed_roles):
 @app.get("/admin")
 async def admin_only_route(current_user = Depends(require_roles("admin"))):
     return {"message": f"Hello {current_user.full_name}, you have admin access"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")

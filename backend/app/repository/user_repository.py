@@ -38,9 +38,10 @@ def authenticate_user(db: Session, identifier: str, password: str):
     if not user:
         user = db.query(models.User).filter(models.User.phone == identifier).first()
 
+    # If still not found, return None
     if not user:
         return None
-    
+
     if not verify_password(password, user.hashed_password):
         return None
     
