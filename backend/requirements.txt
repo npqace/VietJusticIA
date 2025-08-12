@@ -1,4 +1,6 @@
 fastapi
+uvicorn
+gunicorn
 fastapi-cors
 bcrypt==3.2.0
 python-jose
@@ -8,3 +10,4 @@ pydantic
 sqlalchemy
 alembic
 pymysql
+python-multipart
