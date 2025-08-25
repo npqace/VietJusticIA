@@ -9,5 +9,5 @@ passlib
 pydantic
 sqlalchemy
 alembic
-pymysql
+psycopg2-binary
 python-multipart
