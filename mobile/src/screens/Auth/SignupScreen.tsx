@@ -48,9 +48,12 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
       };
 
       const response = await api.post('/signup', payload);
-      const { access_token } = response.data as any;
+      const { access_token, refresh_token } = response.data as any;
       if (access_token) {
         await AsyncStorage.setItem('access_token', access_token);
+        if (refresh_token) {
+          await AsyncStorage.setItem('refresh_token', refresh_token);
+        }
         navigation.navigate('Login');
       } else {
         Alert.alert('Lỗi', 'Đăng ký thất bại');
