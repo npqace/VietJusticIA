@@ -45,7 +45,10 @@ __pycache__/
 .env.docker.local
 docker-compose.override.yml
 
+ai-engine-archive/
 logs/
 raw_data/
 
 BRANCHING_STRATEGY.md
+
+*.mmd
