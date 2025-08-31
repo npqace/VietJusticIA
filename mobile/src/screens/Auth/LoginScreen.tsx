@@ -32,9 +32,15 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
     try {
       console.log('Login attempt:', { identifier, password, rememberMe });
       const response = await api.post('/login', { identifier, pwd: password });
-      const { access_token } = response.data as any;
+      const { access_token, refresh_token } = response.data as any;
       if (access_token) {
+        console.log('Login successful, received tokens:');
+        console.log('Access Token:', access_token);
+        console.log('Refresh Token:', refresh_token);
         await AsyncStorage.setItem('access_token', access_token);
+        if (refresh_token) {
+          await AsyncStorage.setItem('refresh_token', refresh_token);
+        }
         navigation.navigate('Chat');
       } else {
         Alert.alert('Lỗi', 'Tài khoản hoặc mật khẩu không chính xác');

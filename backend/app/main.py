@@ -33,6 +33,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Lightweight health check endpoint for container healthcheck
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
 # API key header for authentication
 api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
 
