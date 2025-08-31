@@ -19,7 +19,7 @@ class User(Base):
         LAWYER = "lawyer"
         USER = "user"
 
-    role = Column(SqlEnum(Role), nullable=False, server_default="user")
+    role = Column(SqlEnum(Role, native_enum=False), nullable=False, server_default=Role.USER.value)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
