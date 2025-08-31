@@ -10,14 +10,21 @@ from .database import models
 from .database.models import User
 from .model.userModel import SignUpModel, LoginModel, UserResponse
 from .services.auth import create_access_token, create_refresh_token, verify_token, verify_refresh_token
-from .database.database import get_db
-from .database.create_tables import create_tables
+from .database.database import get_db, init_db
 from .repository import user_repository
+from contextlib import asynccontextmanager
 
-# Create tables
-create_tables()
+# Lifespan Manager
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Code to run on startup
+    print("Application startup...")
+    init_db()
+    yield
+    # Code to run on shutdown (if any)
+    print("Application shutdown.")
 
-app = FastAPI(title="LawSphere API", version="1.0.0")
+app = FastAPI(title="LawSphere API", version="1.0.0", lifespan=lifespan)
 
 # Configure basic logging
 logger = logging.getLogger("lawsphere.api")

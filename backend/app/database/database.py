@@ -67,3 +67,9 @@ def get_db():
         yield db
     finally:
         db.close()
+
+def init_db():
+    from . import models  # This line is crucial
+    print("Creating database tables if they don't exist...")
+    Base.metadata.create_all(bind=engine)
+    print("Database tables are ready.")
