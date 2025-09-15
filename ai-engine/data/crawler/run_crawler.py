@@ -1,170 +1,111 @@
-#!/usr/bin/env python3
 """
-Simple runner script for the Vietnamese Legal Document Crawler
+Main runner script for the Thu Vien Phap Luat Crawler.
 """
-
-import asyncio
 import argparse
-import sys
+import warnings
 from pathlib import Path
-
-# Add the current directory to path to import our modules
-sys.path.append(str(Path(__file__).parent))
-
-from legal_document_crawler import LegalDocumentCrawler
-
+from crawler import Crawler
+# Import the centralized configuration
+from crawler_config import CRAWLER_SETTINGS, OUTPUT_DIR
 
 def parse_arguments():
     """Parse command line arguments"""
     parser = argparse.ArgumentParser(
-        description="Vietnamese Legal Document Crawler",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="Thu Vien Phap Luat Crawler",
+        formatter_class=argparse.RawTextHelpFormatter,
         epilog="""
 Examples:
-  # Crawl 10 documents for testing
-  python run_crawler.py --max-documents 10
+  # Crawl 5 documents for a quick test
+  python run_crawler.py --max-documents 5
 
-  # Crawl first 3 pages only
+  # Crawl the first 3 pages only
   python run_crawler.py --max-pages 3
-
-  # Crawl specific category with limits
-  python run_crawler.py --category legal_documents --max-documents 50 --max-pages 5
 
   # Full crawl (be careful - this can take hours!)
   python run_crawler.py --full
 
   # Custom output directory
-  python run_crawler.py --output-dir /path/to/output --max-documents 20
+  python run_crawler.py --output-dir ./my_crawled_data --max-documents 10
         """
     )
-    
     parser.add_argument(
-        "--category",
-        default="legal_documents",
-        choices=["legal_documents", "government_decrees", "prime_minister_decisions", "ministerial_circulars"],
-        help="Category of documents to crawl (default: legal_documents)"
-    )
-    
-    parser.add_argument(
-        "--max-documents",
+        '--max-documents',
         type=int,
         default=None,
-        help="Maximum number of documents to crawl (default: no limit)"
+        help='Maximum number of total documents to crawl.'
     )
-    
     parser.add_argument(
-        "--max-pages",
+        '--max-pages',
         type=int,
         default=None,
-        help="Maximum number of pages to crawl (default: no limit)"
+        help='Maximum number of search result pages to crawl.'
     )
-    
     parser.add_argument(
-        "--output-dir",
-        type=str,
-        default="../raw_data",
-        help="Output directory for crawled data (default: ../raw_data)"
+        '--full',
+        action='store_true',
+        help='Run a full crawl with no limits on pages or documents.'
     )
-    
     parser.add_argument(
-        "--full",
-        action="store_true",
-        help="Perform a full crawl (removes all limits - use with caution)"
+        '--output-dir',
+        type=Path,
+        # MODIFIED: Use the imported OUTPUT_DIR as the default
+        default=OUTPUT_DIR,
+        help='Specify a custom directory for the output data.'
     )
-    
     parser.add_argument(
-        "--test",
-        action="store_true",
-        help="Test run with minimal documents (equivalent to --max-documents 5 --max-pages 1)"
+        '--start-at',
+        type=int,
+        default=1,
+        help='Start crawling from a specific document number.'
     )
-    
-    parser.add_argument(
-        "--headless",
-        action="store_true",
-        help="Run browser in headless mode (no GUI)"
-    )
-    
-    return parser.parse_args()
+    args = parser.parse_args()
 
-
-async def main():
-    """Main function"""
-    args = parse_arguments()
-    
-    # Handle test mode
-    if args.test:
-        args.max_documents = 5
-        args.max_pages = 1
-        print("🧪 Running in TEST mode (5 documents, 1 page)")
-    
-    # Handle full mode
+    # Logic for full crawl and default behavior
     if args.full:
-        args.max_documents = None
-        args.max_pages = None
-        print("🚀 Running FULL crawl (no limits) - this may take a very long time!")
-        response = input("Are you sure you want to continue? (y/N): ")
-        if response.lower() != 'y':
-            print("Cancelled.")
-            return
-    
-    # Display configuration
-    print("\n" + "="*60)
-    print("🏛️  Vietnamese Legal Document Crawler")
-    print("="*60)
-    print(f"📂 Category: {args.category}")
-    print(f"📄 Max documents: {args.max_documents if args.max_documents else 'No limit'}")
-    print(f"📃 Max pages: {args.max_pages if args.max_pages else 'No limit'}")
-    print(f"💾 Output directory: {args.output_dir}")
-    print(f"👁️  Headless mode: {args.headless}")
-    print("="*60)
-    
-    # Initialize crawler
-    try:
-        crawler = LegalDocumentCrawler(output_dir=args.output_dir)
-        
-        # Modify crawler settings if needed
-        if args.headless:
-            # Note: This would require modifying the crawler to accept runtime settings
-            print("⚠️  Headless mode setting noted (may require crawler modification)")
-        
-        # Run crawler
-        print("\n🕷️  Starting crawler...")
-        await crawler.run(
-            category=args.category,
-            max_documents=args.max_documents,
-            max_pages=args.max_pages
-        )
-        
-        print("\n✅ Crawling completed successfully!")
-        print(f"📁 Check output directory: {args.output_dir}")
-        
-    except KeyboardInterrupt:
-        print("\n⏹️  Crawling interrupted by user")
-    except Exception as e:
-        print(f"\n❌ Error during crawling: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        args.max_pages = float('inf')
+        args.max_documents = float('inf')
+    elif args.max_pages is None and args.max_documents is None:
+        # Default behavior if no limits are set: run a small test crawl.
+        print("⚠️ No limits set. Running a small test crawl (1 page, 5 documents).")
+        args.max_pages = 1
+        args.max_documents = 5
 
+    return args
 
-def quick_test():
-    """Quick test function for development"""
-    print("🧪 Running quick test...")
-    
-    async def test_run():
-        crawler = LegalDocumentCrawler()
-        await crawler.run(
-            category="legal_documents",
-            max_documents=3,
-            max_pages=1
-        )
-    
-    asyncio.run(test_run())
+def print_header(args):
+    """Prints the crawler's startup header."""
+    max_pages_str = "No limit" if args.max_pages == float('inf') else args.max_pages or "Not set"
+    max_docs_str = "No limit" if args.max_documents == float('inf') else args.max_documents or "Not set"
+    header = f"""
+============================================================
+🏛️  Thu Vien Phap Luat Crawler
+============================================================
+📄 Max documents: {max_docs_str}
+📃 Max pages: {max_pages_str}
+� Start at document: {args.start_at}
+�💾 Output directory: {args.output_dir.resolve()}
+👁️  Headless mode: {CRAWLER_SETTINGS['headless_browser']}
+============================================================
+"""
+    print(header)
 
+def main():
+    warnings.filterwarnings("ignore", message="unclosed transport", category=ResourceWarning)
+    
+    args = parse_arguments()
+    print_header(args)
+
+    print("🕷️  Starting crawler...")
+    # Pass the custom output directory and start document to the crawler
+    crawler = Crawler(output_dir=args.output_dir)
+    crawler.run(
+        max_pages=args.max_pages, 
+        max_total_docs=args.max_documents,
+        start_at_doc=args.start_at
+    )
+
+    print("\n🎉 Crawling complete!")
+    print(f"Check the '{args.output_dir.resolve()}' directory for results.")
 
 if __name__ == "__main__":
-    # Check if this is a direct call for testing
-    if len(sys.argv) == 1:
-        print("No arguments provided. Running quick test...")
-        quick_test()
-    else:
-        asyncio.run(main()) 
+    main()
