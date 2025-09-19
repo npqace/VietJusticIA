@@ -1,149 +1,273 @@
 """
-Core crawler logic for thuvienphapluat.vn
+Core web-scraping logic for aitracuuluat.vn.
+This version scrapes links directly from the webpage, bypassing the API.
+Now consolidated into a single, executable file.
 """
 import json
 import re
 import logging
 import time
+import argparse
 from pathlib import Path
-from playwright.sync_api import sync_playwright, Page, TimeoutError as PlaywrightTimeoutError
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
+from playwright.sync_api import sync_playwright, Page, TimeoutError as PlaywrightTimeoutError, ElementHandle, expect
 
-# Import settings from the configuration file
-from crawler_config import (
-    BASE_URL, SEARCH_PAGE_URL_P1, SEARCH_PAGE_URL_PN,
-    REQUEST_HEADERS, CRAWLER_SETTINGS, SELECTORS, OUTPUT_DIR  # MODIFIED: Import OUTPUT_DIR
-)
+# --- Configuration ---
+CHROME_DEBUGGING_PORT = 9222
+SITE_BASE_URL = "https://aitracuuluat.vn/legal-documents"
+OUTPUT_DIR = Path("../raw_data_aitracuu")
+
+CRAWLER_SETTINGS = {
+    'delay_between_requests': 1,
+    'headless_browser': False,
+    'timeout': 240,
+}
+
+SELECTORS = {
+    "category_span": 'span:has-text("Giáo dục")',
+    "document_list_container": 'div.sc-jIYCZY',
+    "document_link": 'a[href*="/legal-documents/"]',
+    "next_page_button": 'li[title="Trang Kế"] button',
+    "document_title": "h1.document-title",
+    "document_content_container": "div.legislation-page__container",
+    "document_metadata_div": 'div.rounded-\[12px\]:has-text("Văn bản đang xem")',
+}
 
 class Crawler:
     def __init__(self, output_dir: Path | None = None):
-        # MODIFIED: Use imported OUTPUT_DIR as the fallback
         self.output_dir = output_dir or OUTPUT_DIR
         self.documents_dir = self.output_dir / "documents"
         self.logs_dir = self.output_dir / "logs"
         self.debug_dir = self.output_dir / "debug"
-        
         self.logger = self._setup_logger()
         self.debug_dir.mkdir(parents=True, exist_ok=True)
 
     def _setup_logger(self):
+        """Sets up a logger that outputs formatted messages to both console and a file."""
         self.logs_dir.mkdir(parents=True, exist_ok=True)
         logger = logging.getLogger('crawler_logger')
         logger.setLevel(logging.INFO)
-        if not logger.handlers:
-            log_format = '%(asctime)s - thuvienphapluat_crawler - %(levelname)s - %(message)s'
-            formatter = logging.Formatter(log_format)
-            file_handler = logging.FileHandler(self.logs_dir / "crawler.log", encoding="utf-8")
-            file_handler.setFormatter(formatter)
-            logger.addHandler(file_handler)
+
+        # If handlers are already present, do nothing
+        if logger.hasHandlers():
+            return logger
+
+        # --- Formatter with Colors and Emojis ---
+        class CustomFormatter(logging.Formatter):
+            
+            # Define colors for different log levels
+            GREY = "\x1b[38;20m"
+            YELLOW = "\x1b[33;20m"
+            RED = "\x1b[31;20m"
+            BOLD_RED = "\x1b[31;1m"
+            GREEN = "\x1b[32;20m"
+            BLUE = "\x1b[34;20m"
+            RESET = "\x1b[0m"
+
+            def __init__(self, fmt):
+                super().__init__()
+                self.fmt = fmt
+                self.FORMATS = {
+                    logging.DEBUG: self.GREY + self.fmt + self.RESET,
+                    logging.INFO: self.BLUE + self.fmt + self.RESET,
+                    logging.WARNING: self.YELLOW + self.fmt + self.RESET,
+                    logging.ERROR: self.RED + self.fmt + self.RESET,
+                    logging.CRITICAL: self.BOLD_RED + self.fmt + self.RESET
+                }
+
+            def format(self, record):
+                log_fmt = self.FORMATS.get(record.levelno)
+                formatter = logging.Formatter(log_fmt)
+                return formatter.format(record)
+
+        # --- Console Handler ---
+        # Use a more readable format for the console
+        console_format = " %(levelname)s - %(message)s"
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(CustomFormatter(console_format))
+        logger.addHandler(console_handler)
+
+        # --- File Handler ---
+        # Keep a more detailed, plain format for the log file
+        file_format = '%(asctime)s - %(levelname)s - %(message)s'
+        file_handler = logging.FileHandler(self.logs_dir / "crawler.log", encoding="utf-8")
+        file_handler.setFormatter(logging.Formatter(file_format))
+        logger.addHandler(file_handler)
+
         return logger
 
-    # get_document_links function remains the same
-    def get_document_links(self, page_url: str, browser_page: Page) -> list[str]:
-        self.logger.info(f"Fetching document links from: {page_url}")
-        try:
-            browser_page.goto(page_url, timeout=CRAWLER_SETTINGS['timeout'] * 1000)
-            try:
-                cookie_button_selector = "button.qc-cmp2-summary-buttons-btn-primary"
-                browser_page.click(cookie_button_selector, timeout=5000)
-                self.logger.info("Cookie consent button clicked.")
-                time.sleep(2)
-            except PlaywrightTimeoutError:
-                self.logger.info("Cookie consent pop-up not found, continuing.")
-            self.logger.info(f"Waiting for selector: '{SELECTORS['search_results_list']}'")
-            browser_page.wait_for_selector(SELECTORS["search_results_list"], timeout=20000)
-            self.logger.info("Search results container found.")
-            html = browser_page.content()
-            soup = BeautifulSoup(html, 'html.parser')
-            links = [a['href'].split('?')[0] for a in soup.select(SELECTORS["document_link"]) if a.has_attr('href')]
-            if not links: raise ValueError("CSS selector found no links in the HTML.")
-            unique_links = list(set(links))
-            self.logger.info(f"Found {len(unique_links)} unique documents on page.")
-            return unique_links
-        except (PlaywrightTimeoutError, ValueError) as e:
-            self.logger.warning(f"No links found on {page_url}. Error: {e}")
-            screenshot_path = self.debug_dir / f"failure_{time.strftime('%Y%m%d-%H%M%S')}.png"
-            browser_page.screenshot(path=screenshot_path, full_page=True)
-            self.logger.info(f"Saved debug screenshot: {screenshot_path}")
-            print(f"  ⚠️ No links found. Saved debug screenshot to '{screenshot_path}'")
-            return []
-        except Exception as e:
-            self.logger.error(f"An unexpected error occurred: {e}", exc_info=True)
-            return []
+    def _extract_content_text(self, content_element: Tag | None) -> str:
+        """Extracts text from the content container, attempting to preserve paragraphs and tables."""
+        if not content_element:
+            return ""
+        
+        text_blocks = []
+        main_div = content_element.find('div', recursive=False) or content_element
 
-
-    # scrape_document function remains the same
-    def scrape_document(self, url: str, browser_page: Page, doc_number: int) -> dict | None:
-        self.logger.info(f"Scraping document {doc_number}: {url}")
-        try:
-            print(f"    -> Navigating to {url}...")
-            browser_page.goto(url, wait_until='domcontentloaded', timeout=CRAWLER_SETTINGS['timeout'] * 1000)
-            print("    -> Navigation complete. Waiting for content container...")
+        for element in main_div.find_all(['p', 'table']):
+            if element.name == 'table':
+                # For tables, use newlines to better preserve the structure of the text.
+                text = element.get_text(separator='\n', strip=True)
+            else: # For 'p' tags and others
+                # For paragraphs, join with spaces to correctly handle inline tags.
+                text = element.get_text(separator=' ', strip=True)
             
-            browser_page.wait_for_selector(SELECTORS["document_content_container"], timeout=15000)
-            print("    -> Content container found. Scraping content...")
+            if text:
+                text_blocks.append(text)
+        
+        if not text_blocks:
+            # Fallback if the structure is different and no <p> or <table> tags are found
+            return content_element.get_text(separator='\n', strip=True)
+
+        return '\n\n'.join(text_blocks)
+
+    def _parse_metadata(self, metadata_html: str | None) -> tuple[str, dict]:
+        """
+        Parses the document metadata HTML into a structured dictionary and extracts the correct title,
+        based on the specific structure of the 'luoc_do' tab.
+        Returns a tuple: (document_title, metadata_dictionary).
+        """
+        metadata = {"thuộc tính": {}}
+        title = ""
+
+        if not metadata_html:
+            return title, metadata
+
+        try:
+            soup = BeautifulSoup(metadata_html, 'html.parser')
+
+            # --- Extract the Document Title ("Tên văn bản") ---
+            # The title is in a <p> tag with a very specific class.
+            title_p = soup.find('p', class_="text-[15px] font-semibold leading-[18px] text-[#2D3C58] m-0")
+            if title_p:
+                title = title_p.get_text(strip=True)
+                if title not in ("---", "Dữ liệu đang cập nhật"):
+                    metadata["thuộc tính"]["Tên văn bản"] = title
+
+            # --- Extract all key-value pairs for other metadata ---
+            # Find all p tags, then check them to see if they are keys.
+            all_p_tags = soup.find_all('p')
+            for p_tag in all_p_tags:
+                key_text = p_tag.get_text(strip=True)
+
+                # --- Tình trạng ---
+                if 'Tình trạng' in key_text:
+                    value_tag = p_tag.find_next_sibling('p', class_=lambda c: c and 'bg-[#4DCE33]' in c)
+                    if value_tag:
+                        value = value_tag.get_text(strip=True)
+                        if value not in ("---", "Dữ liệu đang cập nhật"):
+                            metadata["thuộc tính"]["Tình trạng"] = value
+                    continue
+
+                # --- Other standard fields ---
+                other_keys = [
+                    "Ngày ban hành", "Ngày hiệu lực", "Số hiệu", "Loại văn bản",
+                    "Lĩnh vực, ngành", "Nơi ban hành", "Người ký", "Số công báo", "Ngày đăng"
+                ]
+                # Clean key_text for comparison
+                cleaned_key = key_text.replace(':', '').strip()
+
+                if cleaned_key in other_keys:
+                    value_tag = p_tag.find_next_sibling('p', class_="text-[#2D3C58] text-[15px] leading-[18px] font-semibold m-0")
+                    if value_tag:
+                        value = value_tag.get_text(strip=True)
+                        if value not in ("---", "Dữ liệu đang cập nhật"):
+                            metadata["thuộc tính"][cleaned_key] = value
+        
+        except Exception as e:
+            self.logger.error(f"Could not parse metadata HTML: {e}")
+
+        return title, metadata
+
+    def get_document_links_from_page(self, page: Page) -> list[str]:
+        """Scrapes all unique document URLs from the currently visible page."""
+        self.logger.info("Scraping document links from the current page...")
+        try:
+            page.wait_for_selector(SELECTORS["document_list_container"], timeout=60000)
+            links = page.locator(SELECTORS["document_link"]).all()
+            urls = [link.get_attribute('href') for link in links]
+            
+            # Ensure URLs are absolute
+            absolute_urls = [f"https://aitracuuluat.vn{url}" if url.startswith('/') else url for url in urls]
+            unique_urls = sorted(list(set(absolute_urls)))
+            
+            self.logger.info(f"Found {len(unique_urls)} unique document links.")
+            return unique_urls
+        except Exception as e:
+            self.logger.error(f"Could not get document links from page: {e}")
+            return []
+
+    def scrape_document(self, url: str, browser_page: Page, doc_number: int) -> dict | None:
+        base_url = url.split('?')[0]
+        content_url = f"{base_url}?tab=noi_dung"
+        metadata_url = f"{base_url}?tab=luoc_do"
+        scraped_data = {}
+
+        try:
+            self.logger.info(f"➡️ Navigating to metadata tab: {metadata_url}")
+            browser_page.goto(metadata_url, wait_until='domcontentloaded', timeout=CRAWLER_SETTINGS['timeout'] * 1000)
+            
+            metadata_container_selector = SELECTORS["document_metadata_div"]
+            container = browser_page.locator(metadata_container_selector)
+            container.wait_for(timeout=40000)
+            
+            title_locator = container.locator('p[class="text-[15px] font-semibold leading-[18px] text-[#2D3C58] m-0"]')
+            expect(title_locator).not_to_be_empty(timeout=60000)
+            expect(title_locator).not_to_contain_text(re.compile(r"---|Dữ liệu đang cập nhật"), timeout=60000)
+
+            metadata_element = browser_page.query_selector(metadata_container_selector)
+            metadata_html = metadata_element.inner_html() if metadata_element else ""
+            
+            title_text, scraped_data["metadata"] = self._parse_metadata(metadata_html)
+
+        except Exception as e:
+            self.logger.error(f"Failed to get metadata for {url}: {e}")
+            try:
+                if 'browser_page' in locals() and browser_page:
+                    metadata_element = browser_page.query_selector(SELECTORS["document_metadata_div"])
+                    if metadata_element:
+                        metadata_html_content = metadata_element.inner_html()
+                        timestamp = time.strftime('%Y%m%d-%H%M%S')
+                        debug_html_path = self.debug_dir / f"failed_metadata_{doc_number}_{timestamp}.html"
+                        debug_html_path.write_text(metadata_html_content, encoding='utf-8')
+                        self.logger.error(f"Saved failed metadata HTML to {debug_html_path}")
+            except Exception as save_e:
+                self.logger.error(f"Could not save debug metadata HTML: {save_e}")
+
+            title_text = ""
+            scraped_data["metadata"] = self._parse_metadata(None)
+
+        try:
+            self.logger.info(f"➡️ Navigating to content tab: {content_url}")
+            browser_page.goto(content_url, wait_until='domcontentloaded', timeout=CRAWLER_SETTINGS['timeout'] * 1000)
+            browser_page.wait_for_selector(SELECTORS["document_content_container"], timeout=50000)
 
             html_content = browser_page.content()
             screenshot_bytes = browser_page.screenshot(full_page=True)
             soup = BeautifulSoup(html_content, 'html.parser')
             
-            metadata = {}
-
-            thuoc_tinh_data = {}
-            thuoc_tinh_table = soup.select_one(f"{SELECTORS['document_metadata_container']} table")
-            if thuoc_tinh_table:
-                cells = thuoc_tinh_table.find_all('td')
-                for i, cell in enumerate(cells):
-                    key_tag = cell.find('b')
-                    if key_tag and i + 1 < len(cells):
-                        key = key_tag.get_text(strip=True).replace(':', '')
-                        value = cells[i+1].get_text(strip=True)
-                        thuoc_tinh_data[key] = value
-            metadata["thuộc tính"] = thuoc_tinh_data
-
-            tom_tat_div = soup.select_one("div.Tomtatvanban")
-            if tom_tat_div:
-                tom_tat_text = tom_tat_div.get_text(separator='\n', strip=True)
-                metadata["tóm tắt văn bản"] = tom_tat_text
-            else:
-                metadata["tóm tắt văn bản"] = "Không tìm thấy tóm tắt."
-
-            main_content = ""
-            content_div = soup.select_one(SELECTORS["document_content_container"])
-            if content_div:
-                paragraphs = []
-                for p in content_div.find_all(['p', 'h2', 'h3', 'li', 'table']):
-                    text = re.sub(r'\s+', ' ', p.get_text()).strip()
-                    if text:
-                        paragraphs.append(text)
-                main_content = "\n\n".join(paragraphs)
+            main_content_element = soup.select_one(SELECTORS["document_content_container"])
+            main_content = self._extract_content_text(main_content_element)
             
-            page_title = soup.title.string.strip() if soup.title else "Untitled Document"
-            
-            return {
-                "title": page_title, 
-                "metadata": metadata,
-                "content": main_content, 
-                "url": url,
-                "raw_html": html_content, 
-                "screenshot_bytes": screenshot_bytes
-            }
-        except PlaywrightTimeoutError as e:
-            self.logger.error(f"Timeout error scraping document {doc_number} ({url}): {e}")
-            screenshot_path = self.debug_dir / f"error_timeout_doc_{doc_number}_{time.strftime('%Y%m%d-%H%M%S')}.png"
-            browser_page.screenshot(path=screenshot_path, full_page=True)
-            self.logger.info(f"Saved debug screenshot to {screenshot_path}")
-            print(f"  ⚠️ Timeout error. Saved debug screenshot to '{screenshot_path}'")
-            return None
+            if not title_text or title_text in ("---", "Dữ liệu đang cập nhật"):
+                self.logger.warning(f"⚠️ Falling back to content-page title for doc {doc_number} ({content_url})")
+                title_element = soup.select_one(SELECTORS["document_title"])
+                if title_element:
+                    title_text = title_element.get_text(strip=True)
+                elif soup.title:
+                    title_text = soup.title.string.strip().replace("AI Tra Cứu Luật - ", "")
+                else:
+                    title_text = "Untitled Document"
+
+            scraped_data.update({
+                "title": title_text, "content": main_content, "url": content_url,
+                "raw_html": html_content, "screenshot_bytes": screenshot_bytes
+            })
+            return scraped_data
         except Exception as e:
-            self.logger.error(f"Failed to scrape document {doc_number} ({url}): {e}", exc_info=True)
-            screenshot_path = self.debug_dir / f"error_unexpected_doc_{doc_number}_{time.strftime('%Y%m%d-%H%M%S')}.png"
-            browser_page.screenshot(path=screenshot_path, full_page=True)
-            self.logger.info(f"Saved debug screenshot to {screenshot_path}")
-            print(f"  ⚠️ Unexpected error. Saved debug screenshot to '{screenshot_path}'")
+            self.logger.error(f"Failed to scrape content for doc {doc_number} ({content_url}): {e}")
             return None
 
-    # save_data function remains the same
     def save_data(self, data: dict):
         try:
             title = data['title']
@@ -151,80 +275,107 @@ class Crawler:
             doc_folder = self.documents_dir / folder_name
             doc_folder.mkdir(parents=True, exist_ok=True)
             
-            html_path = doc_folder / "page_content.html"
-            screenshot_path = doc_folder / "screenshot.png"
-            json_path = doc_folder / "metadata.json"
-            txt_path = doc_folder / "content.txt"
-
-            with open(html_path, 'w', encoding='utf-8') as f: f.write(data["raw_html"])
-            with open(screenshot_path, 'wb') as f: f.write(data["screenshot_bytes"])
-
-            json_data = {k: v for k, v in data.items() if k not in ["raw_html", "screenshot_bytes", "content"]}
-            with open(json_path, 'w', encoding='utf-8') as f:
-                json.dump(json_data, f, indent=4, ensure_ascii=False)
+            (doc_folder / "page_content.html").write_text(data["raw_html"], encoding='utf-8')
+            (doc_folder / "screenshot.png").write_bytes(data["screenshot_bytes"])
+            (doc_folder / "content.txt").write_text(data.get('content', ''), encoding='utf-8')
             
-            with open(txt_path, 'w', encoding='utf-8') as f:
-                f.write(data.get('content', ''))
-            
-            self.logger.info(f"Successfully saved all files for document: {title}")
-            print(f"  ✅ Saved all files to folder: {doc_folder}")
+            metadata_to_save = {
+                "title": data.get("title", ""),
+                "metadata": data.get("metadata", {}),
+                "url": data.get("url", "")
+            }
+            with open(doc_folder / "metadata.json", 'w', encoding='utf-8') as f:
+                json.dump(metadata_to_save, f, ensure_ascii=False, indent=4)
+
+            self.logger.info(f"✅ [SUCCESS] Saved all files to folder: {folder_name}")
         except Exception as e:
-            self.logger.error(f"Failed to save data for {data.get('title', 'Unknown')}: {e}", exc_info=True)
+            self.logger.error(f"❌ Failed to save data for {data.get('title', 'Unknown')}: {e}")
 
-
-    def run(self, max_pages: int | None, max_total_docs: int | None, start_at_doc: int = 1):
-        """Main method to run the entire crawling process with new limits."""
-        docs_scraped_count = 0
-        total_docs_encountered = 0
+    def run(self, max_pages: int | None, max_docs: int | None):
+        """Connects to a browser, navigates, and scrapes links from the page."""
+        scraped_docs_count = 0
         
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=CRAWLER_SETTINGS['headless_browser'])
-            page = browser.new_page(extra_http_headers=REQUEST_HEADERS)
+            self.logger.info(f"🔌 Connecting to Chrome on port {CHROME_DEBUGGING_PORT}...")
+            browser = p.chromium.connect_over_cdp(f"http://localhost:{CHROME_DEBUGGING_PORT}")
+            context = browser.contexts[0]
+            page = context.new_page()
+            self.logger.info("✅ Connection successful.")
+
+            self.logger.info(f"➡️ Navigating to '{SITE_BASE_URL}' to prime session...")
+            page.goto(SITE_BASE_URL, wait_until='networkidle', timeout=120000)
+            page.locator(SELECTORS["category_span"]).click()
+            self.logger.info("👍 Category selected. Waiting for page to update...")
+            page.wait_for_timeout(10000)
             
-            try:
-                # Use a large number for the loop if max_pages is not set
-                page_limit = max_pages or float('inf')
-                page_num = 1
+            page_num = 1
+            while True:
+                if max_pages and page_num > max_pages:
+                    self.logger.info(f"Reached max page limit of {max_pages}. Stopping.")
+                    break
                 
-                while page_num <= page_limit:
-                    if max_total_docs and docs_scraped_count >= max_total_docs:
-                        print("\nReached maximum document limit. Stopping crawl.")
-                        self.logger.info("Reached maximum document limit.")
-                        break
+                self.logger.info(f"\n--- 📄 Scraping Web Page {page_num} ---")
+                links = self.get_document_links_from_page(page)
+                if not links:
+                    self.logger.info("No more document links found on this page.")
+                    break
 
-                    print(f"\n--- Processing Page {page_num} ---")
-                    self.logger.info(f"--- Starting Page {page_num} ---")
-                    
-                    url = SEARCH_PAGE_URL_P1 if page_num == 1 else SEARCH_PAGE_URL_PN.format(page_num=page_num)
-                    links = self.get_document_links(url, page)
-                    
-                    if not links:
-                        print("  No more documents found. Stopping.")
-                        self.logger.warning("No more documents found.")
+                for url in links:
+                    if max_docs and scraped_docs_count >= max_docs:
+                        self.logger.info(f"Reached max document limit of {max_docs}. Stopping.")
                         break
                     
-                    print(f"  Found {len(links)} documents on page. Processing...")
-                    
-                    for i, link in enumerate(links):
-                        total_docs_encountered += 1
+                    scraped_docs_count += 1
+                    self.logger.info(f"  > Scraping document {scraped_docs_count}...")
+                    doc_data = self.scrape_document(url, page, doc_number=scraped_docs_count)
+                    if doc_data:
+                        self.save_data(doc_data)
+                    time.sleep(CRAWLER_SETTINGS['delay_between_requests'])
+                
+                if (max_docs and scraped_docs_count >= max_docs): break
 
-                        if total_docs_encountered < start_at_doc:
-                            print(f"  > Skipping document {total_docs_encountered}...")
-                            continue
+                next_button = page.locator(SELECTORS["next_page_button"])
+                if not next_button.is_visible() or next_button.is_disabled():
+                    self.logger.info("🏁 No more pages. Stopping.")
+                    break
+                
+                self.logger.info("➡️ Navigating to next page...")
+                next_button.click()
+                page.wait_for_timeout(10000)
+                page_num += 1
 
-                        if max_total_docs and docs_scraped_count >= max_total_docs:
-                            break # Break inner loop as well
-                        
-                        print(f"  > Scraping document {total_docs_encountered}...")
-                        doc_data = self.scrape_document(link, page, doc_number=total_docs_encountered)
-                        if doc_data:
-                            self.save_data(doc_data)
-                            docs_scraped_count += 1
-                        else:
-                            print(f"  ⚠️ Failed to process document {total_docs_encountered}. Skipping.")
-                        
-                        time.sleep(CRAWLER_SETTINGS['delay_between_requests'])
-                    
-                    page_num += 1
-            finally:
-                browser.close()
+            self.logger.info("🎉 Crawl finished. Detaching from browser.")
+
+
+def parse_arguments():
+    """Parse command line arguments"""
+    parser = argparse.ArgumentParser(
+        description="Web scraper for 'Giao duc' category on aitracuuluat.vn.",
+        formatter_class=argparse.RawTextHelpFormatter,
+        epilog="""
+Setup before running:
+  1. Close all Chrome instances: taskkill /F /IM chrome.exe
+  2. Start Chrome with debugging: & "C:\\...\\chrome.exe" --remote-debugging-port=9222
+  3. Log in to aitracuuluat.vn in that browser.
+  4. Run this script.
+
+Examples:
+  # Scrape 5 documents for a quick test
+  python crawler.py --max-docs 5
+
+  # Scrape a maximum of 2 web pages
+  python crawler.py --max-pages 2
+        """)
+    parser.add_argument('--max-docs', type=int, default=None, help='Maximum number of total documents to scrape.')
+    parser.add_argument('--max-pages', type=int, default=None, help='Maximum number of web pages to scrape.')
+    args = parser.parse_args()
+    return args
+
+if __name__ == "__main__":
+    args = parse_arguments()
+    crawler = Crawler()
+    try:
+        crawler.run(max_pages=args.max_pages, max_docs=args.max_docs)
+    except Exception as e:
+        crawler.logger.critical(f"💥 [CRITICAL ERROR] An unexpected error occurred: {e}")
+        crawler.logger.critical("   Please ensure Chrome is running with the debugging flag and you are logged in.")
