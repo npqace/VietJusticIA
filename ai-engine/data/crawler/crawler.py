@@ -326,10 +326,20 @@ class Crawler:
                         break
                     
                     scraped_docs_count += 1
-                    self.logger.info(f"  > Scraping document {scraped_docs_count}...")
-                    doc_data = self.scrape_document(url, page, doc_number=scraped_docs_count)
-                    if doc_data:
-                        self.save_data(doc_data)
+                    self.logger.info(f"  > Scraping document {scraped_docs_count} in new tab...")
+                    
+                    # --- Multi-tab logic ---
+                    doc_page = context.new_page()
+                    try:
+                        doc_data = self.scrape_document(url, doc_page, doc_number=scraped_docs_count)
+                        if doc_data:
+                            self.save_data(doc_data)
+                    except Exception as e:
+                        self.logger.error(f"An error occurred in the scraping tab for {url}: {e}")
+                    finally:
+                        doc_page.close()
+                        self.logger.info(f"  > Tab for doc {scraped_docs_count} closed.")
+                    
                     time.sleep(CRAWLER_SETTINGS['delay_between_requests'])
                 
                 if (max_docs and scraped_docs_count >= max_docs): break
@@ -340,8 +350,13 @@ class Crawler:
                     break
                 
                 self.logger.info("➡️ Navigating to next page...")
-                next_button.click()
-                page.wait_for_timeout(10000)
+                # Wait for the specific API call that fetches the next page's data
+                with page.expect_response("**/api/v2/legal-documents**"):
+                    next_button.click()
+                
+                # Wait for the network to be idle, ensuring the UI has updated with the new links
+                page.wait_for_load_state('networkidle', timeout=30000)
+                self.logger.info("✅ Next page UI updated.")
                 page_num += 1
 
             self.logger.info("🎉 Crawl finished. Detaching from browser.")
