@@ -14,21 +14,23 @@ from dotenv import load_dotenv
 import requests
 import pandas as pd
 from bs4 import BeautifulSoup, Tag
-from playwright.sync_api import sync_playwright, Page, TimeoutError as PlaywrightTimeoutError, ElementHandle, expect
+from playwright.sync_api import sync_playwright, Browser, BrowserContext
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # --- Configuration ---
 load_dotenv()
 CHROME_DEBUGGING_PORT = 9222
 SITE_BASE_URL = "https://aitracuuluat.vn"
 API_BASE_URL = "https://api.aitracuuluat.vn/api/v2/legal-documents"
-BEARER_TOKEN = os.getenv("AITRACUU_BEARER_TOKEN")
-OUTPUT_DIR = Path("../raw_data_aitracuu")
+BEARER_TOKEN = os.getenv("AUTH_TOKEN")
+OUTPUT_DIR = Path("../raw_data")
 API_PAGE_SIZE = 10
 
 CRAWLER_SETTINGS = {
-    'delay_between_requests': 1,
+    'delay_between_requests': 1, # This will be used between tasks, not in the main loop
     'headless_browser': False,
     'timeout': 240,
+    'max_workers': 5, # Number of concurrent scraping threads
 }
 
 SELECTORS = {
@@ -45,8 +47,8 @@ class Crawler:
         self.logger = self._setup_logger()
         self.debug_dir.mkdir(parents=True, exist_ok=True)
         if not BEARER_TOKEN:
-            self.logger.critical("BEARER_TOKEN not found. Please set AITRACUU_BEARER_TOKEN in your .env file.")
-            raise ValueError("AITRACUU_BEARER_TOKEN not set.")
+            self.logger.critical("BEARER_TOKEN not found. Please set AUTH_TOKEN in your .env file.")
+            raise ValueError("AUTH_TOKEN not set.")
         self.api_headers = {
             "Authorization": f"Bearer {BEARER_TOKEN}",
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
@@ -58,22 +60,12 @@ class Crawler:
         logger = logging.getLogger('crawler_logger')
         logger.setLevel(logging.INFO)
 
-        # If handlers are already present, do nothing
         if logger.hasHandlers():
             return logger
 
-        # --- Formatter with Colors and Emojis ---
         class CustomFormatter(logging.Formatter):
+            GREY, YELLOW, RED, BOLD_RED, BLUE, RESET = "\x1b[38;20m", "\x1b[33;20m", "\x1b[31;20m", "\x1b[31;1m", "\x1b[34;20m", "\x1b[0m"
             
-            # Define colors for different log levels
-            GREY = "\x1b[38;20m"
-            YELLOW = "\x1b[33;20m"
-            RED = "\x1b[31;20m"
-            BOLD_RED = "\x1b[31;1m"
-            GREEN = "\x1b[32;20m"
-            BLUE = "\x1b[34;20m"
-            RESET = "\x1b[0m"
-
             def __init__(self, fmt):
                 super().__init__()
                 self.fmt = fmt
@@ -90,29 +82,19 @@ class Crawler:
                 formatter = logging.Formatter(log_fmt)
                 return formatter.format(record)
 
-        # --- Console Handler ---
-        # Use a more readable format for the console
-        console_format = " %(levelname)s - %(message)s"
         console_handler = logging.StreamHandler()
-        console_handler.setFormatter(CustomFormatter(console_format))
+        console_handler.setFormatter(CustomFormatter(" %(levelname)s - %(message)s"))
         logger.addHandler(console_handler)
 
-        # --- File Handler ---
-        # Keep a more detailed, plain format for the log file
-        file_format = '%(asctime)s - %(levelname)s - %(message)s'
         file_handler = logging.FileHandler(self.logs_dir / "crawler.log", encoding="utf-8")
-        file_handler.setFormatter(logging.Formatter(file_format))
+        file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
         logger.addHandler(file_handler)
 
         return logger
 
     def _get_docs_from_api(self, page_num: int) -> tuple[list, int]:
         """Fetches a page of documents from the API."""
-        params = {
-            "linh_vuc_nganh": "Giáo dục",
-            "page": page_num,
-            "pageSize": API_PAGE_SIZE
-        }
+        params = {"linh_vuc_nganh": "Giáo dục", "page": page_num, "pageSize": API_PAGE_SIZE}
         try:
             response = requests.get(API_BASE_URL, headers=self.api_headers, params=params, timeout=60)
             response.raise_for_status()
@@ -125,69 +107,61 @@ class Crawler:
             self.logger.error(f"API request for page {page_num} failed: {e}")
             return [], 0
 
+    def _get_full_metadata_from_api(self, doc_id: str) -> dict | None:
+        """Fetches the full metadata for a single document from the API."""
+        metadata_url = f"{API_BASE_URL}/{doc_id}"
+        self.logger.info(f"Fetching full metadata from {metadata_url}")
+        try:
+            response = requests.get(metadata_url, headers=self.api_headers, timeout=60)
+            response.raise_for_status()
+            data = response.json()
+            full_metadata = data.get("data", {})
+            self.logger.info(f"Successfully fetched full metadata for doc ID {doc_id}.")
+            return full_metadata
+        except requests.exceptions.RequestException as e:
+            self.logger.error(f"API request for full metadata of doc ID {doc_id} failed: {e}")
+            return None
+
     def _extract_content_text(self, content_element: Tag | None) -> str:
         """Extracts and formats text from the content container, handling paragraphs, tables, and line breaks."""
-        if not content_element:
-            return ""
-
-        # Replace <br> tags with newlines to preserve intended line breaks within paragraphs.
-        for br in content_element.find_all("br"):
-            br.replace_with("\n")
-
+        if not content_element: return ""
+        for br in content_element.find_all("br"): br.replace_with("\n")
         text_blocks = []
         for element in content_element.find_all(['p', 'table']):
             if element.name == 'table':
-                # Use pandas to read the HTML table into a DataFrame.
-                # This handles complex structures, including merged cells.
                 try:
-                    # The `io.StringIO` wrapper is needed to treat the HTML string as a file.
                     df_list = pd.read_html(io.StringIO(str(element)), header=None, flavor='bs4')
                     if df_list:
-                        # read_html returns a list of DataFrames, we usually want the first one.
-                        df = df_list[0]
-                        # Convert the DataFrame to a string, which gives a clean, aligned text table.
-                        # We fill NaN values that may result from merged cells.
-                        table_text = df.to_string(header=False, index=False, na_rep='')
+                        table_text = df_list[0].to_string(header=False, index=False, na_rep='')
                         text_blocks.append(table_text)
                 except Exception as e:
-                    # Fallback to simple text extraction if pandas fails
-                    self.logger.warning(f"Pandas could not parse a table, falling back to simple extraction. Error: {e}")
-                    table_text = '\n'.join(
-                        '\t'.join(cell.get_text(strip=True) for cell in row.find_all(['td', 'th']))
-                        for row in element.find_all('tr')
-                    )
-                    text_blocks.append(table_text)
-            else:  # For '<p>' tags
-                # Get text and normalize whitespace to collapse multiple lines into one.
+                    self.logger.warning(f"Pandas could not parse a table, falling back. Error: {e}")
+                    text_blocks.append('\n'.join('\t'.join(cell.get_text(strip=True) for cell in row.find_all(['td', 'th'])) for row in element.find_all('tr')))
+            else:
                 p_text = ' '.join(element.get_text().split())
-                if p_text:
-                    text_blocks.append(p_text)
-        
-        # Join the processed blocks with double newlines to create paragraph spacing.
+                if p_text: text_blocks.append(p_text)
         return '\n\n'.join(text_blocks)
 
-    def scrape_document_content(self, doc_api_data: dict, browser_page: Page, doc_number: int) -> dict | None:
-        """Scrapes the full text content of a single document page."""
+    def _scrape_document_content(self, doc_api_data: dict, browser_context: BrowserContext, doc_number: int) -> dict | None:
+        """Scrapes the full text content of a single document page in a new tab."""
         doc_id = doc_api_data.get("id")
         if not doc_id:
             self.logger.error(f"Document data from API is missing 'id' for doc number {doc_number}.")
             return None
 
-        base_url = f"{SITE_BASE_URL}/legal-documents/{doc_id}"
-        content_url = f"{base_url}?tab=noi_dung"
-        
+        content_url = f"{SITE_BASE_URL}/legal-documents/{doc_id}?tab=noi_dung"
+        page = browser_context.new_page()
         try:
-            self.logger.info(f"➡️ Navigating to content tab: {content_url}")
-            browser_page.goto(content_url, wait_until='domcontentloaded', timeout=CRAWLER_SETTINGS['timeout'] * 1000)
-            browser_page.wait_for_selector(SELECTORS["document_content_container"], timeout=50000)
-
-            html_content = browser_page.content()
-            screenshot_bytes = browser_page.screenshot(full_page=True)
+            self.logger.info(f"➡️  [Thread] Navigating to: {content_url}")
+            page.goto(content_url, wait_until='domcontentloaded', timeout=CRAWLER_SETTINGS['timeout'] * 1000)
+            page.wait_for_selector(SELECTORS["document_content_container"], timeout=50000)
+            
+            html_content = page.content()
+            screenshot_bytes = page.screenshot(full_page=True)
             soup = BeautifulSoup(html_content, 'html.parser')
             
             main_content_element = soup.select_one(SELECTORS["document_content_container"])
             main_content = self._extract_content_text(main_content_element)
-
             title_text = doc_api_data.get("diagram", {}).get("ten", "Untitled Document")
 
             return {
@@ -197,8 +171,10 @@ class Crawler:
         except Exception as e:
             self.logger.error(f"Failed to scrape content for doc {doc_number} ({content_url}): {e}")
             return None
+        finally:
+            page.close()
 
-    def save_data(self, api_data: dict, content_data: dict):
+    def save_data(self, full_metadata: dict, content_data: dict, doc_number: int, max_docs: int | None):
         """Saves document data, combining API metadata and scraped content."""
         try:
             title = content_data['title']
@@ -212,38 +188,69 @@ class Crawler:
             
             metadata_to_save = {
                 "title": title,
-                "metadata": {"thuộc tính": api_data.get("diagram", {})},
+                "metadata": full_metadata,
                 "url": content_data.get("url", "")
             }
             with open(doc_folder / "metadata.json", 'w', encoding='utf-8') as f:
                 json.dump(metadata_to_save, f, ensure_ascii=False, indent=4)
-
-            self.logger.info(f"✅ [SUCCESS] Saved all files to folder: {folder_name}")
+            
+            progress = f"({doc_number}/{max_docs})" if max_docs else f"({doc_number})"
+            self.logger.info(f"✅ [SUCCESS] {progress} Saved: {folder_name}")
         except Exception as e:
             self.logger.error(f"❌ Failed to save data for {content_data.get('title', 'Unknown')}: {e}")
 
+    def _scrape_and_save_worker(self, api_data: dict, doc_number: int, max_docs: int | None):
+        """Worker function for a thread to scrape and save a single document.
+        Each worker manages its own Playwright connection and context."""
+        doc_id = api_data.get('id')
+        if not doc_id:
+            self.logger.error(f"API data for doc {doc_number} is missing an 'id'.")
+            return
+
+        self.logger.info(f"  > Starting task for doc {doc_number} (ID: {doc_id})")
+
+        full_metadata = self._get_full_metadata_from_api(doc_id)
+        if not full_metadata:
+            self.logger.error(f"Could not retrieve full metadata for doc ID {doc_id}. Skipping.")
+            return
+
+        # Ensure the full metadata object has the 'id' for the scraper function,
+        # as the detail API might not return it at the top level.
+        if 'id' not in full_metadata:
+            full_metadata['id'] = doc_id
+
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.connect_over_cdp(f"http://localhost:{CHROME_DEBUGGING_PORT}")
+                context = browser.contexts[0]
+                try:
+                    content_data = self._scrape_document_content(full_metadata, context, doc_number=doc_number)
+                    if content_data:
+                        self.save_data(full_metadata, content_data, doc_number=doc_number, max_docs=max_docs)
+                finally:
+                    browser.close()
+        except Exception as e:
+            self.logger.error(f"An error occurred in the worker for {doc_id}: {e}", exc_info=False)
+        finally:
+            time.sleep(CRAWLER_SETTINGS['delay_between_requests'])
+
     def run(self, max_pages: int | None, max_docs: int | None):
-        """Fetches document metadata from the API and scrapes content using a browser."""
+        """Fetches document metadata from the API and scrapes content concurrently."""
         scraped_docs_count = 0
         
-        with sync_playwright() as p:
-            self.logger.info(f"🔌 Connecting to Chrome on port {CHROME_DEBUGGING_PORT}...")
-            browser = p.chromium.connect_over_cdp(f"http://localhost:{CHROME_DEBUGGING_PORT}")
-            context = browser.contexts[0]
-            self.logger.info("✅ Connection successful.")
-            
-            page_num = 1
-            total_docs = -1
+        page_num = 1
+        total_docs = -1
 
+        with ThreadPoolExecutor(max_workers=CRAWLER_SETTINGS['max_workers']) as executor:
             while True:
                 if max_pages and page_num > max_pages:
                     self.logger.info(f"Reached max page limit of {max_pages}. Stopping.")
                     break
-                
-                if max_docs and scraped_docs_count >= max_docs:
-                    self.logger.info(f"Reached document limit of {max_docs}. Stopping.")
-                    break
 
+                if max_docs and scraped_docs_count >= max_docs:
+                    self.logger.info(f"Reached document limit of {max_docs}. Not fetching more pages.")
+                    break
+                
                 self.logger.info(f"\n--- 📄 Fetching API Page {page_num} ---")
                 docs_from_api, api_total_docs = self._get_docs_from_api(page_num)
 
@@ -258,30 +265,26 @@ class Crawler:
                     self.logger.info("No more documents from API. Stopping.")
                     break
 
+                futures = []
                 for api_data in docs_from_api:
                     if max_docs and scraped_docs_count >= max_docs:
                         break
                     
+                    future = executor.submit(self._scrape_and_save_worker, api_data, scraped_docs_count + 1, max_docs)
+                    futures.append(future)
                     scraped_docs_count += 1
-                    self.logger.info(f"  > Scraping document {scraped_docs_count}/{total_docs} (ID: {api_data.get('id')}) in new tab...")
-                    
-                    doc_page = context.new_page()
+
+                # Wait for the batch of tasks for the current API page to complete
+                for future in as_completed(futures):
                     try:
-                        content_data = self.scrape_document_content(api_data, doc_page, doc_number=scraped_docs_count)
-                        if content_data:
-                            self.save_data(api_data, content_data)
+                        future.result()  # We can retrieve result here if worker returned something
                     except Exception as e:
-                        self.logger.error(f"An error occurred in the scraping tab for {api_data.get('id')}: {e}")
-                    finally:
-                        doc_page.close()
-                        self.logger.info(f"  > Tab for doc {scraped_docs_count} closed.")
-                    
-                    time.sleep(CRAWLER_SETTINGS['delay_between_requests'])
+                        self.logger.error(f"A task generated an exception: {e}")
                 
+                self.logger.info(f"--- ✅ Finished processing API Page {page_num} ---")
                 page_num += 1
 
-            self.logger.info("🎉 Crawl finished. Detaching from browser.")
-
+        self.logger.info("🎉 Crawl finished.")
 
 def parse_arguments():
     """Parse command line arguments"""
@@ -290,7 +293,7 @@ def parse_arguments():
         formatter_class=argparse.RawTextHelpFormatter,
         epilog="""
 Setup before running:
-  1. Create a .env file in this directory with: AITRACUU_BEARER_TOKEN=your_token_here
+  1. Create a .env file in this directory with: AUTH_TOKEN=your_token_here
   2. Close all Chrome instances: taskkill /F /IM chrome.exe
   3. Start Chrome with debugging: & "C:\\...\\chrome.exe" --remote-debugging-port=9222
   4. Log in to aitracuuluat.vn in that browser (session might still be needed for content).

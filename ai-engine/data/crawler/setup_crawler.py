@@ -20,7 +20,7 @@ def create_directories():
     """Create necessary output directories."""
     print("🔄 Creating output directories...")
     # These directories are now defined in crawler.py, but we can create the base one.
-    Path("../raw_data_aitracuu").mkdir(parents=True, exist_ok=True)
+    Path("../raw_data").mkdir(parents=True, exist_ok=True)
     print("✅ Directories created.")
 
 def main():
