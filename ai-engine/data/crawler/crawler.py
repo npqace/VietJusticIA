@@ -9,6 +9,7 @@ import time
 import argparse
 import os
 import io
+import threading
 from pathlib import Path
 from dotenv import load_dotenv
 import requests
@@ -31,6 +32,7 @@ CRAWLER_SETTINGS = {
     'headless_browser': False,
     'timeout': 240,
     'max_workers': 5, # Number of concurrent scraping threads
+    'status_filter': None, # Filter documents by status (e.g., "Còn hiệu lực", "Hết hiệu lực")
 }
 
 SELECTORS = {
@@ -53,6 +55,9 @@ class Crawler:
             "Authorization": f"Bearer {BEARER_TOKEN}",
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
         }
+        # Thread-safe counters
+        self.scraped_count = 0
+        self.scraped_lock = threading.Lock()
 
     def _setup_logger(self):
         """Sets up a logger that outputs formatted messages to both console and a file."""
@@ -214,10 +219,26 @@ class Crawler:
             self.logger.error(f"Could not retrieve full metadata for doc ID {doc_id}. Skipping.")
             return
 
+        # Check status filter before proceeding with content scraping
+        if CRAWLER_SETTINGS['status_filter']:
+            document_status = full_metadata.get('diagram', {}).get('tinh_trang', '')
+            if document_status != CRAWLER_SETTINGS['status_filter']:
+                self.logger.info(f"  ⏭️  [FILTERED] Doc {doc_number} (ID: {doc_id}) - Status: '{document_status}' (filtered out)")
+                return 'filtered'
+
         # Ensure the full metadata object has the 'id' for the scraper function,
         # as the detail API might not return it at the top level.
         if 'id' not in full_metadata:
             full_metadata['id'] = doc_id
+
+        # Check if we can still scrape more documents (atomic check and increment)
+        with self.scraped_lock:
+            if max_docs and self.scraped_count >= max_docs:
+                self.logger.info(f"  ⏭️  [SKIPPED] Doc {doc_number} (ID: {doc_id}) - Already reached limit of {max_docs}")
+                return 'skipped'
+            # Reserve a slot for this document
+            if max_docs:
+                self.scraped_count += 1
 
         try:
             with sync_playwright() as p:
@@ -227,6 +248,7 @@ class Crawler:
                     content_data = self._scrape_document_content(full_metadata, context, doc_number=doc_number)
                     if content_data:
                         self.save_data(full_metadata, content_data, doc_number=doc_number, max_docs=max_docs)
+                        return 'processed'
                 finally:
                     browser.close()
         except Exception as e:
@@ -236,7 +258,10 @@ class Crawler:
 
     def run(self, max_pages: int | None, max_docs: int | None):
         """Fetches document metadata from the API and scrapes content concurrently."""
-        scraped_docs_count = 0
+        # Reset thread-safe counter
+        self.scraped_count = 0
+        filtered_docs_count = 0
+        processed_docs_count = 0  # Count of documents processed (fetched from API)
         
         page_num = 1
         total_docs = -1
@@ -247,8 +272,8 @@ class Crawler:
                     self.logger.info(f"Reached max page limit of {max_pages}. Stopping.")
                     break
 
-                if max_docs and scraped_docs_count >= max_docs:
-                    self.logger.info(f"Reached document limit of {max_docs}. Not fetching more pages.")
+                if max_docs and self.scraped_count >= max_docs:
+                    self.logger.info(f"Reached scraped document limit of {max_docs}. Not fetching more pages.")
                     break
                 
                 self.logger.info(f"\n--- 📄 Fetching API Page {page_num} ---")
@@ -267,47 +292,45 @@ class Crawler:
 
                 futures = []
                 for api_data in docs_from_api:
-                    if max_docs and scraped_docs_count >= max_docs:
+                    if max_docs and self.scraped_count >= max_docs:
                         break
                     
-                    future = executor.submit(self._scrape_and_save_worker, api_data, scraped_docs_count + 1, max_docs)
+                    future = executor.submit(self._scrape_and_save_worker, api_data, processed_docs_count + 1, max_docs)
                     futures.append(future)
-                    scraped_docs_count += 1
+                    processed_docs_count += 1
 
                 # Wait for the batch of tasks for the current API page to complete
                 for future in as_completed(futures):
                     try:
-                        future.result()  # We can retrieve result here if worker returned something
+                        result = future.result()  # Get the result from worker
+                        if result == 'filtered':
+                            filtered_docs_count += 1
+                        elif result == 'skipped':
+                            pass  # Already logged in worker
                     except Exception as e:
                         self.logger.error(f"A task generated an exception: {e}")
                 
                 self.logger.info(f"--- ✅ Finished processing API Page {page_num} ---")
                 page_num += 1
 
+        # Log final statistics
         self.logger.info("🎉 Crawl finished.")
+        self.logger.info(f"📊 Final Statistics:")
+        self.logger.info(f"   • Total documents processed: {processed_docs_count}")
+        self.logger.info(f"   • Documents scraped: {self.scraped_count}")
+        if CRAWLER_SETTINGS['status_filter']:
+            self.logger.info(f"   • Documents filtered out (status != '{CRAWLER_SETTINGS['status_filter']}'): {filtered_docs_count}")
+        else:
+            self.logger.info(f"   • Documents filtered out: {filtered_docs_count}")
 
 def parse_arguments():
     """Parse command line arguments"""
     parser = argparse.ArgumentParser(
         description="API-based scraper for 'Giao duc' category on aitracuuluat.vn.",
-        formatter_class=argparse.RawTextHelpFormatter,
-        epilog="""
-Setup before running:
-  1. Create a .env file in this directory with: AUTH_TOKEN=your_token_here
-  2. Close all Chrome instances: taskkill /F /IM chrome.exe
-  3. Start Chrome with debugging: & "C:\\...\\chrome.exe" --remote-debugging-port=9222
-  4. Log in to aitracuuluat.vn in that browser (session might still be needed for content).
-  5. Run this script.
-
-Examples:
-  # Scrape 5 documents for a quick test
-  python crawler.py --max-docs 5
-
-  # Scrape a maximum of 2 pages of API results
-  python crawler.py --max-pages 2
-        """)
+        formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('--max-docs', type=int, default=None, help='Maximum number of total documents to scrape.')
     parser.add_argument('--max-pages', type=int, default=None, help='Maximum number of API pages to fetch.')
+    parser.add_argument('--status-filter', type=str, default=None, help='Filter documents by status (e.g., "Còn hiệu lực", "Hết hiệu lực").')
     args = parser.parse_args()
     return args
 
@@ -315,6 +338,11 @@ if __name__ == "__main__":
     args = parse_arguments()
     crawler = Crawler()
     try:
+        # Update crawler settings with command line arguments
+        if args.status_filter:
+            CRAWLER_SETTINGS['status_filter'] = args.status_filter
+            crawler.logger.info(f"🔍 Status filter enabled: '{args.status_filter}'")
+        
         crawler.run(max_pages=args.max_pages, max_docs=args.max_docs)
     except Exception as e:
         crawler.logger.critical(f"💥 [CRITICAL ERROR] An unexpected error occurred: {e}")
