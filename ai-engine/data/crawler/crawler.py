@@ -58,6 +58,8 @@ class Crawler:
         # Thread-safe counters
         self.scraped_count = 0
         self.scraped_lock = threading.Lock()
+        self.category = None
+        self.shutdown_event = threading.Event()
 
     def _setup_logger(self):
         """Sets up a logger that outputs formatted messages to both console and a file."""
@@ -99,7 +101,12 @@ class Crawler:
 
     def _get_docs_from_api(self, page_num: int) -> tuple[list, int]:
         """Fetches a page of documents from the API."""
-        params = {"linh_vuc_nganh": "Giáo dục", "page": page_num, "pageSize": API_PAGE_SIZE}
+        params = {"page": page_num, "pageSize": API_PAGE_SIZE}
+        if self.category:
+            params["linh_vuc_nganh"] = self.category
+        if CRAWLER_SETTINGS['status_filter']:
+            params['tinh_trang'] = CRAWLER_SETTINGS['status_filter']
+
         try:
             response = requests.get(API_BASE_URL, headers=self.api_headers, params=params, timeout=60)
             response.raise_for_status()
@@ -157,7 +164,7 @@ class Crawler:
         content_url = f"{SITE_BASE_URL}/legal-documents/{doc_id}?tab=noi_dung"
         page = browser_context.new_page()
         try:
-            self.logger.info(f"➡️  [Thread] Navigating to: {content_url}")
+            self.logger.info(f"[Thread] Navigating to: {content_url}")
             page.goto(content_url, wait_until='domcontentloaded', timeout=CRAWLER_SETTINGS['timeout'] * 1000)
             page.wait_for_selector(SELECTORS["document_content_container"], timeout=50000)
             
@@ -179,7 +186,7 @@ class Crawler:
         finally:
             page.close()
 
-    def save_data(self, full_metadata: dict, content_data: dict, doc_number: int, max_docs: int | None):
+    def save_data(self, full_metadata: dict, content_data: dict, doc_number: int, max_docs: int | None, current_scraped_count: int):
         """Saves document data, combining API metadata and scraped content."""
         try:
             title = content_data['title']
@@ -199,60 +206,68 @@ class Crawler:
             with open(doc_folder / "metadata.json", 'w', encoding='utf-8') as f:
                 json.dump(metadata_to_save, f, ensure_ascii=False, indent=4)
             
-            progress = f"({doc_number}/{max_docs})" if max_docs else f"({doc_number})"
-            self.logger.info(f"✅ [SUCCESS] {progress} Saved: {folder_name}")
+            progress = f"({current_scraped_count}/{max_docs})" if max_docs else f"({doc_number})"
+            self.logger.info(f"[SUCCESS] {progress} Saved: {folder_name}")
         except Exception as e:
-            self.logger.error(f"❌ Failed to save data for {content_data.get('title', 'Unknown')}: {e}")
+            self.logger.error(f"[FAILURE] Failed to save data for {content_data.get('title', 'Unknown')}: {e}")
 
     def _scrape_and_save_worker(self, api_data: dict, doc_number: int, max_docs: int | None):
-        """Worker function for a thread to scrape and save a single document.
-        Each worker manages its own Playwright connection and context."""
+        """Worker function for a thread to scrape and save a single document."""
+        if self.shutdown_event.is_set(): return
+
         doc_id = api_data.get('id')
         if not doc_id:
             self.logger.error(f"API data for doc {doc_number} is missing an 'id'.")
             return
 
-        self.logger.info(f"  > Starting task for doc {doc_number} (ID: {doc_id})")
+        # Atomically check the limit and reserve a slot BEFORE any network calls.
+        current_scraped_count = 0
+        with self.scraped_lock:
+            if max_docs and self.scraped_count >= max_docs:
+                return 'skipped' # Silently skip, the main loop will log the final message.
+            # Reserve a slot for this document
+            if max_docs:
+                self.scraped_count += 1
+                current_scraped_count = self.scraped_count
+
+        self.logger.info(f"Starting task for doc {doc_number} (ID: {doc_id})")
 
         full_metadata = self._get_full_metadata_from_api(doc_id)
+        if self.shutdown_event.is_set(): return
+
         if not full_metadata:
             self.logger.error(f"Could not retrieve full metadata for doc ID {doc_id}. Skipping.")
+            # Release the reserved slot if metadata fetch fails
+            if max_docs:
+                with self.scraped_lock: self.scraped_count -= 1
             return
-
-        # Check status filter before proceeding with content scraping
-        if CRAWLER_SETTINGS['status_filter']:
-            document_status = full_metadata.get('diagram', {}).get('tinh_trang', '')
-            if document_status != CRAWLER_SETTINGS['status_filter']:
-                self.logger.info(f"  ⏭️  [FILTERED] Doc {doc_number} (ID: {doc_id}) - Status: '{document_status}' (filtered out)")
-                return 'filtered'
 
         # Ensure the full metadata object has the 'id' for the scraper function,
         # as the detail API might not return it at the top level.
         if 'id' not in full_metadata:
             full_metadata['id'] = doc_id
 
-        # Check if we can still scrape more documents (atomic check and increment)
-        with self.scraped_lock:
-            if max_docs and self.scraped_count >= max_docs:
-                self.logger.info(f"  ⏭️  [SKIPPED] Doc {doc_number} (ID: {doc_id}) - Already reached limit of {max_docs}")
-                return 'skipped'
-            # Reserve a slot for this document
-            if max_docs:
-                self.scraped_count += 1
-
         try:
+            if self.shutdown_event.is_set(): return
             with sync_playwright() as p:
                 browser = p.chromium.connect_over_cdp(f"http://localhost:{CHROME_DEBUGGING_PORT}")
                 context = browser.contexts[0]
                 try:
                     content_data = self._scrape_document_content(full_metadata, context, doc_number=doc_number)
                     if content_data:
-                        self.save_data(full_metadata, content_data, doc_number=doc_number, max_docs=max_docs)
+                        self.save_data(full_metadata, content_data, doc_number=doc_number, max_docs=max_docs, current_scraped_count=current_scraped_count)
                         return 'processed'
+                    else: # Scraping failed, release the slot
+                        if max_docs:
+                            with self.scraped_lock: self.scraped_count -= 1
                 finally:
                     browser.close()
         except Exception as e:
-            self.logger.error(f"An error occurred in the worker for {doc_id}: {e}", exc_info=False)
+            if not self.shutdown_event.is_set():
+                self.logger.error(f"An error occurred in the worker for {doc_id}: {e}", exc_info=False)
+            # Release the slot on any exception
+            if max_docs:
+                with self.scraped_lock: self.scraped_count -= 1
         finally:
             time.sleep(CRAWLER_SETTINGS['delay_between_requests'])
 
@@ -266,71 +281,73 @@ class Crawler:
         page_num = 1
         total_docs = -1
 
-        with ThreadPoolExecutor(max_workers=CRAWLER_SETTINGS['max_workers']) as executor:
-            while True:
-                if max_pages and page_num > max_pages:
-                    self.logger.info(f"Reached max page limit of {max_pages}. Stopping.")
-                    break
-
-                if max_docs and self.scraped_count >= max_docs:
-                    self.logger.info(f"Reached scraped document limit of {max_docs}. Not fetching more pages.")
-                    break
-                
-                self.logger.info(f"\n--- 📄 Fetching API Page {page_num} ---")
-                docs_from_api, api_total_docs = self._get_docs_from_api(page_num)
-
-                if total_docs == -1:
-                    if api_total_docs == 0:
-                        self.logger.warning("API returned 0 total documents. Stopping.")
+        try:
+            with ThreadPoolExecutor(max_workers=CRAWLER_SETTINGS['max_workers']) as executor:
+                while True:
+                    if self.shutdown_event.is_set():
+                        self.logger.info("Shutdown signal received, stopping API requests.")
                         break
-                    total_docs = api_total_docs
-                    self.logger.info(f"API reports a total of {total_docs} documents in this category.")
 
-                if not docs_from_api:
-                    self.logger.info("No more documents from API. Stopping.")
-                    break
+                    if max_pages and page_num > max_pages:
+                        self.logger.info(f"Reached max page limit of {max_pages}. Stopping.")
+                        break
 
-                futures = []
-                for api_data in docs_from_api:
                     if max_docs and self.scraped_count >= max_docs:
+                        self.logger.info(f"Reached scraped document limit of {max_docs}. Not fetching more pages.")
                         break
                     
-                    future = executor.submit(self._scrape_and_save_worker, api_data, processed_docs_count + 1, max_docs)
-                    futures.append(future)
-                    processed_docs_count += 1
+                    self.logger.info(f"--- Fetching API Page {page_num} ---")
+                    docs_from_api, api_total_docs = self._get_docs_from_api(page_num)
 
-                # Wait for the batch of tasks for the current API page to complete
-                for future in as_completed(futures):
-                    try:
-                        result = future.result()  # Get the result from worker
-                        if result == 'filtered':
-                            filtered_docs_count += 1
-                        elif result == 'skipped':
-                            pass  # Already logged in worker
-                    except Exception as e:
-                        self.logger.error(f"A task generated an exception: {e}")
-                
-                self.logger.info(f"--- ✅ Finished processing API Page {page_num} ---")
-                page_num += 1
+                    if total_docs == -1:
+                        if api_total_docs == 0:
+                            self.logger.warning("API returned 0 total documents. Stopping.")
+                            break
+                        total_docs = api_total_docs
+                        self.logger.info(f"API reports a total of {total_docs} documents in this category.")
 
-        # Log final statistics
-        self.logger.info("🎉 Crawl finished.")
-        self.logger.info(f"📊 Final Statistics:")
-        self.logger.info(f"   • Total documents processed: {processed_docs_count}")
-        self.logger.info(f"   • Documents scraped: {self.scraped_count}")
-        if CRAWLER_SETTINGS['status_filter']:
-            self.logger.info(f"   • Documents filtered out (status != '{CRAWLER_SETTINGS['status_filter']}'): {filtered_docs_count}")
-        else:
-            self.logger.info(f"   • Documents filtered out: {filtered_docs_count}")
+                    if not docs_from_api:
+                        self.logger.info("No more documents from API. Stopping.")
+                        break
+
+                    futures = []
+                    for api_data in docs_from_api:
+                        if max_docs and self.scraped_count >= max_docs:
+                            break
+                        
+                        future = executor.submit(self._scrape_and_save_worker, api_data, processed_docs_count + 1, max_docs)
+                        futures.append(future)
+                        processed_docs_count += 1
+
+                    # Wait for the batch of tasks for the current API page to complete
+                    for future in as_completed(futures):
+                        try:
+                            result = future.result()  # Get the result from worker
+                            if result == 'filtered':
+                                filtered_docs_count += 1
+                            elif result == 'skipped':
+                                pass  # Already logged in worker
+                        except Exception as e:
+                            self.logger.error(f"A task generated an exception: {e}")
+                    
+                    self.logger.info(f"--- Finished processing API Page {page_num} ---")
+                    page_num += 1
+        except KeyboardInterrupt:
+            self.logger.info("\nShutdown signal received. Telling workers to stop...")
+            self.shutdown_event.set()
+            # The ThreadPoolExecutor's context manager will handle shutting down threads.
+        
+        self.logger.info("Crawler finished.")
 
 def parse_arguments():
     """Parse command line arguments"""
     parser = argparse.ArgumentParser(
-        description="API-based scraper for 'Giao duc' category on aitracuuluat.vn.",
+        description="API-based scraper for aitracuuluat.vn. Can filter by category.",
         formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('--max-docs', type=int, default=None, help='Maximum number of total documents to scrape.')
     parser.add_argument('--max-pages', type=int, default=None, help='Maximum number of API pages to fetch.')
-    parser.add_argument('--status-filter', type=str, default=None, help='Filter documents by status (e.g., "Còn hiệu lực", "Hết hiệu lực").')
+    parser.add_argument('--status-filter', type=str, default='Còn hiệu lực', help='Filter documents by status (e.g., "Còn hiệu lực", "Hết hiệu lực").')
+    parser.add_argument('--category', type=str, default=None, help='Specify a category to scrape (e.g., "Giáo dục"). Scrapes all if not specified.')
     args = parser.parse_args()
     return args
 
@@ -341,9 +358,17 @@ if __name__ == "__main__":
         # Update crawler settings with command line arguments
         if args.status_filter:
             CRAWLER_SETTINGS['status_filter'] = args.status_filter
-            crawler.logger.info(f"🔍 Status filter enabled: '{args.status_filter}'")
+            crawler.logger.info(f"Status filter enabled: '{args.status_filter}'")
+        
+        if args.category:
+            crawler.category = args.category
+            crawler.logger.info(f"Category filter enabled: '{args.category}'")
+        else:
+            crawler.logger.info("No category specified, scraping all categories.")
         
         crawler.run(max_pages=args.max_pages, max_docs=args.max_docs)
+    except KeyboardInterrupt:
+        crawler.logger.info("Crawler stopped by user.")
     except Exception as e:
-        crawler.logger.critical(f"💥 [CRITICAL ERROR] An unexpected error occurred: {e}")
+        crawler.logger.critical(f"[CRITICAL ERROR] An unexpected error occurred: {e}")
         crawler.logger.critical("   Please ensure Chrome is running with debugging and your .env file is set up.")

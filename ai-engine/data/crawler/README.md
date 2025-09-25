@@ -1,15 +1,15 @@
-# AI Tra Cuu Luat Crawler (v6 - API First)
+# AI Tra Cuu Luat Crawler (v7 - Filtered API)
 
 This directory contains an advanced, concurrent Python web crawler for `aitracuuluat.vn`.
 
-This version has been completely refactored to use the website's internal API for fetching document metadata, making it significantly faster and more reliable than traditional web scraping. Playwright browser automation is used for extracting the full text content of each document.
+This version has been optimized to use the website's internal API with a status filter, making it significantly faster and more efficient. It now fetches only document metadata for "Còn hiệu lực" (Effective) documents by default. Playwright browser automation is then used for extracting the full text content of each document.
 
 ## 1. How it Works
 
-1.  **API-First Metadata Fetching**: The crawler authenticates with the site's API using a bearer token. It first fetches a list of documents for the "Giáo dục" (Education) category and then retrieves the full, detailed metadata for each document individually.
+1.  **API Metadata Fetching**: The crawler authenticates with the site's API using a bearer token. It requests a list of documents, which can be filtered by category (e.g., "Giáo dục" - Education) and status. By default, it scrapes all categories and filters for documents with the status "Còn hiệu lực" (Effective).
 2.  **Concurrent Content Scraping**: Using a `ThreadPoolExecutor`, the script launches multiple worker threads to scrape the document content pages in parallel. This dramatically speeds up the overall crawling process.
-3.  **Playwright Browser Automation**: Each worker thread connects to a pre-launched Chrome browser instance via the debugging port. Workers create their own browser contexts to scrape document content, ensuring reliable access to pages that may require authentication.
-4.  **Status Filtering**: The crawler can filter documents by their legal status (`tinh_trang` field) before scraping content. This allows you to collect only documents with specific statuses like "Còn hiệu lực" (Still in effect), "Hết hiệu lực" (Expired), or "Không xác định" (Undetermined).
+3.  **Playwright Browser Automation**: Each worker thread connects to a pre-launched Chrome browser instance via the debugging port. It then scrapes the document content, ensuring reliable access to the full text.
+4.  **Default Status Filtering**: The crawler is now hardcoded to prioritize "Còn hiệu lực" documents. While the `--status-filter` argument still exists, its default is set to ensure that the most relevant documents are scraped.
 
 ## 2. Setup and Usage
 
@@ -56,38 +56,37 @@ This is a mandatory step each time you want to run a crawl.
 ### Step 4: Run the Crawler
 Open a new terminal, navigate to this directory, and run the `crawler.py` script with your desired options.
 
-- **Scrape 20 documents for a quick test:**
+- **Scrape 20 documents from all categories (defaults to "Còn hiệu lực" status):**
   ```bash
   python crawler.py --max-docs 20
   ```
 
-- **Scrape a maximum of 5 pages of API results:**
+- **Scrape 20 documents specifically from the "Giáo dục" category:**
+  ```bash
+  python crawler.py --max-docs 20 --category "Giáo dục"
+  ```
+
+- **Scrape a maximum of 5 pages of API results from all categories:**
   ```bash
   python crawler.py --max-pages 5
   ```
 
-- **Scrape only documents with "Còn hiệu lực" status:**
-  ```bash
-  python crawler.py --max-docs 50 --status-filter "Còn hiệu lực"
-  ```
-
-- **Scrape only documents with "Hết hiệu lực" status:**
+- **Scrape only documents with "Hết hiệu lực" status by overriding the default:**
   ```bash
   python crawler.py --max-docs 10 --status-filter "Hết hiệu lực"
   ```
 
-- **Scrape only documents with "Không xác định" status:**
+- **Scrape documents from a specific category with a specific status:**
   ```bash
-  python crawler.py --max-docs 5 --status-filter "Không xác định"
+  python crawler.py --max-docs 5 --category "Doanh nghiệp" --status-filter "Hết hiệu lực"
   ```
 
 ### Command Line Options
 
-- `--max-docs N`: Limit the number of documents to scrape (default: no limit)
-- `--max-pages N`: Limit the number of API pages to fetch (default: no limit)  
-- `--status-filter "STATUS"`: Filter documents by legal status (e.g., "Còn hiệu lực", "Hết hiệu lực", "Không xác định")
-
-**Note**: When using `--status-filter`, the `--max-docs` parameter limits the number of documents that match the filter criteria, not the total number of documents processed.
+- `--max-docs N`: Limit the number of documents to scrape (default: no limit).
+- `--max-pages N`: Limit the number of API pages to fetch (default: no limit).
+- `--status-filter "STATUS"`: Filter documents by legal status. **Defaults to "Còn hiệu lực"**. Other options include "Hết hiệu lực", "Không xác định".
+- `--category "CATEGORY"`: Filter documents by a specific category (e.g., "Giáo dục"). If not provided, scrapes all categories.
 
 ## 3. Project Structure
 
