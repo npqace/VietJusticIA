@@ -9,7 +9,7 @@ const tagsStyles = {
   p: {
     marginBottom: 10,
     lineHeight: 24,
-    fontSize: SIZES.body,
+    fontSize: SIZES.medium,
     fontFamily: FONTS.regular,
     textAlign: 'justify',
     color: COLORS.black,
