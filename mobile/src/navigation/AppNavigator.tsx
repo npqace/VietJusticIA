@@ -11,6 +11,8 @@ import LawyerScreen from '../screens/Support/LawyerScreen';
 import DocumentLookupScreen from '../screens/Lookup/DocumentLookup';
 import ProcedureLookupScreen from '../screens/Lookup/ProcedureLookup';
 
+import DocumentDetailScreen from '../screens/Lookup/DocumentDetailScreen';
+
 const Stack = createStackNavigator();
 
 const AppNavigator = () => {
@@ -26,6 +28,7 @@ const AppNavigator = () => {
         <Stack.Screen name='Lawyer' component={LawyerScreen} /> 
         <Stack.Screen name="DocumentLookup" component={DocumentLookupScreen} />
         <Stack.Screen name="ProcedureLookup" component={ProcedureLookupScreen} />
+        <Stack.Screen name="DocumentDetail" component={DocumentDetailScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   )

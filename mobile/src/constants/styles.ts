@@ -32,9 +32,11 @@ export const COLORS = {
 export const SIZES = {
   heading1: 36,
   heading2: 28,
-  body: 16,
-  small: 14,
+  heading3: 22,
+  heading4: 20,
+  body: 18,
   medium: 15,
+  small: 14,
 };
 
 export const FONTS = {

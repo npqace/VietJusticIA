@@ -47,8 +47,10 @@ docker-compose.override.yml
 
 ai-engine-archive/
 logs/
-raw_data/
 
 BRANCHING_STRATEGY.md
+raw_data/
+
+documents.json
 
 *.mmd

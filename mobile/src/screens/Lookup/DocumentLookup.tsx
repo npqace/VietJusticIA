@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -26,42 +26,31 @@ export interface FilterState {
   location: string;
 }
 
+import documentsData from '../../../assets/data/documents.json';
+
 const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [documents, setDocuments] = useState<Array<{ 
-    id: number; 
-    title: string; 
-    issueDate: string; 
-    status: string; 
+    id: string; 
+    tieu_de: string; 
+    ngay_ban_hanh: string; 
+    tinh_trang: string; 
+    html_content: string;
   }>>([]);
+
+  useEffect(() => {
+    setDocuments(documentsData);
+  }, []);
   const [filterVisible, setFilterVisible] = useState(false);
 
-  // This would be replaced with actual API call in production
   const searchDocuments = () => {
-    // Mock data for demonstration based on the image
     if (searchQuery.trim() !== '') {
-      setDocuments([
-        { 
-          id: 1, 
-          title: 'Nghị quyết 28/NQ-HĐND năm 2024 dự kiến kế hoạch đầu tư công năm 2025 do tỉnh Quảng Nam ban hành', 
-          issueDate: '11/07/2024',
-          status: 'Còn hiệu lực'
-        },
-        { 
-          id: 2, 
-          title: 'Nghị quyết 07/2024/NQ-HĐND quy định xét tặng Kỷ niệm chương "Vì sự nghiệp xây dựng và phát triển tỉnh Điện Biên"', 
-          issueDate: '11/07/2024',
-          status: 'Hết hiệu lực'
-        },
-        { 
-          id: 3, 
-          title: 'Nghị quyết 22/NQ-HĐND năm 2024 đặt tên, điều chỉnh giới hạn tuyến đường tại thị trấn Trung Phước, huyện Nông Sơn; thị trấn Nam Phước, huyện Duy Xuyên và thành phố Tam Kỳ, tỉnh Quảng Nam', 
-          issueDate: '11/07/2024',
-          status: 'Không còn phù hợp'
-        }
-      ]);
+      const filteredDocuments = documentsData.filter((doc) =>
+        doc.tieu_de.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setDocuments(filteredDocuments);
     } else {
-      setDocuments([]);
+      setDocuments(documentsData);
     }
   };
 
@@ -148,13 +137,13 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
           <TouchableOpacity 
             key={doc.id} 
             style={styles.documentItem}
-            // onPress={() => navigation.navigate('DocumentDetail', { document: doc })}
+            onPress={() => navigation.navigate('DocumentDetail', { document: doc, documentsData: documentsData })}
           >
             <View style={styles.documentContent}>
-              <Text style={styles.documentTitle}>{doc.title}</Text>
-              <Text style={styles.documentDate}>Ban hành: {doc.issueDate}</Text>
-              <Text style={[styles.documentStatus, { color: getStatusColor(doc.status) }]}>
-                Tình trạng: {doc.status}
+              <Text style={styles.documentTitle}>{doc.tieu_de}</Text>
+              <Text style={styles.documentDate}>Ban hành: {doc.ngay_ban_hanh}</Text>
+              <Text style={[styles.documentStatus, { color: getStatusColor(doc.tinh_trang) }]}>
+                Tình trạng: {doc.tinh_trang}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={24} color={COLORS.gray} />
