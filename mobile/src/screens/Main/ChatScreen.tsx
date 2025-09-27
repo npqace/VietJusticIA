@@ -80,8 +80,8 @@ const ChatScreen = ({ navigation }: { navigation: any }) => {
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
         style={styles.keyboardAvoidView}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? height * 0.07 : 0}
       >
         <ScrollView
           ref={scrollViewRef}
@@ -111,22 +111,24 @@ const ChatScreen = ({ navigation }: { navigation: any }) => {
             </View>
           ))}
         </ScrollView>
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Nhập câu hỏi của bạn tại đây..."
-            placeholderTextColor={COLORS.black}
-            value={message}
-            onChangeText={setMessage}
-            multiline
-          />
-          <TouchableOpacity 
-              style={styles.sendButton} 
-              onPress={sendMessage} 
-              disabled={message.trim() === ''}
-          >
-            <Ionicons name="send" size={24} color={COLORS.primary} />
-          </TouchableOpacity>
+        <View style={styles.inputWrapper}>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="Nhập câu hỏi của bạn tại đây..."
+              placeholderTextColor={COLORS.black}
+              value={message}
+              onChangeText={setMessage}
+              multiline
+            />
+            <TouchableOpacity 
+                style={styles.sendButton} 
+                onPress={sendMessage} 
+                disabled={message.trim() === ''}
+            >
+              <Ionicons name="send" size={24} color={COLORS.primary} />
+            </TouchableOpacity>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </LinearGradient>
@@ -168,7 +170,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     padding: 16,
-    paddingBottom: 80,
   },
   messageContainer: {
     borderRadius: 16,
@@ -186,11 +187,11 @@ const styles = StyleSheet.create({
     fontSize: SIZES.body,
     textAlign: 'left',
   },
+  inputWrapper: {
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
   inputContainer: {
-    position: 'absolute',
-    bottom: 16,
-    left: 16,
-    right: 16,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
@@ -198,7 +199,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.buttonLight,
     borderRadius: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 1.5,
     elevation: 2,

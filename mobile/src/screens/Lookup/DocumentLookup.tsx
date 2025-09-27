@@ -13,6 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SIZES, FONTS, LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
 import DocumentsFilterModal from '../../components/Filter/DocumentsFilterModal';
+import LoadingIndicator from '../../components/LoadingIndicator';
 
 const { width } = Dimensions.get('window');
 const height = Dimensions.get('window').height;
@@ -37,11 +38,15 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
     tinh_trang: string; 
     html_content: string;
   }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [filterVisible, setFilterVisible] = useState(false);
 
   useEffect(() => {
-    setDocuments(documentsData);
+    setTimeout(() => {
+      setDocuments(documentsData);
+      setLoading(false);
+    }, 300);
   }, []);
-  const [filterVisible, setFilterVisible] = useState(false);
 
   const searchDocuments = () => {
     if (searchQuery.trim() !== '') {
@@ -81,6 +86,45 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
       default:
         return COLORS.gray;
     }
+  };
+
+  const renderContent = () => {
+    if (loading) {
+      return <LoadingIndicator />;
+    }
+
+    return (
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {documents.map((doc) => (
+          <TouchableOpacity 
+            key={doc.id} 
+            style={styles.documentItem}
+            onPress={() => navigation.navigate('DocumentDetail', { document: doc, documentsData: documentsData })}
+          >
+            <View style={styles.documentContent}>
+              <Text style={styles.documentTitle}>{doc.tieu_de}</Text>
+              <Text style={styles.documentDate}>Ban hành: {doc.ngay_ban_hanh}</Text>
+              <Text style={[styles.documentStatus, { color: getStatusColor(doc.tinh_trang) }]}>
+                Tình trạng: {doc.tinh_trang}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color={COLORS.gray} />
+          </TouchableOpacity>
+        ))}
+        
+        {documents.length === 0 && !loading && (
+          <>
+            <View style={styles.emptySection} />
+            <View style={styles.emptySection} />
+            <View style={styles.emptySection} />
+            <View style={styles.emptySection} />
+          </>
+        )}
+      </ScrollView>
+    );
   };
 
   return (
@@ -129,36 +173,8 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
         </View>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {documents.map((doc) => (
-          <TouchableOpacity 
-            key={doc.id} 
-            style={styles.documentItem}
-            onPress={() => navigation.navigate('DocumentDetail', { document: doc, documentsData: documentsData })}
-          >
-            <View style={styles.documentContent}>
-              <Text style={styles.documentTitle}>{doc.tieu_de}</Text>
-              <Text style={styles.documentDate}>Ban hành: {doc.ngay_ban_hanh}</Text>
-              <Text style={[styles.documentStatus, { color: getStatusColor(doc.tinh_trang) }]}>
-                Tình trạng: {doc.tinh_trang}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color={COLORS.gray} />
-          </TouchableOpacity>
-        ))}
-        
-        {documents.length === 0 && (
-          <>
-            <View style={styles.emptySection} />
-            <View style={styles.emptySection} />
-            <View style={styles.emptySection} />
-            <View style={styles.emptySection} />
-          </>
-        )}
-      </ScrollView>
+      {renderContent()}
+
       <DocumentsFilterModal
         isVisible={filterVisible}
         onApplyFilter={handleApplyFilter}
@@ -261,10 +277,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   documentTitle: {
-    fontFamily: FONTS.regular,
+    fontFamily: FONTS.bold,
     fontSize: SIZES.body,
     color: COLORS.black,
-    fontWeight: 'bold',
     marginBottom: 4,
   },
   documentDate: {
