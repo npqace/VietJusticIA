@@ -11,48 +11,36 @@ import {
   Dimensions,
   Alert
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import CustomButton from '../../components/CustomButton';
 import { COLORS, SIZES, FONTS, LOGO_PATH, GOOGLE_LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
-import api from '../../api';
+import { useAuth } from '../../context/AuthContext'; // Import useAuth
 
 const { width } = Dimensions.get('window');
 
 const LoginScreen = ({ navigation }: { navigation: any }) => {
+  const { login } = useAuth(); // Get the login function from context
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
   const handleLogin = async () => {
-    // console.log('Login attempt:', { identifier, password, rememberMe });
-    // navigation.navigate('Chat');
     try {
-      console.log('Login attempt:', { identifier, password, rememberMe });
-      const response = await api.post('/login', { identifier, pwd: password });
-      const { access_token, refresh_token } = response.data as any;
-      if (access_token) {
-        console.log('Login successful, received tokens:');
-        console.log('Access Token:', access_token);
-        console.log('Refresh Token:', refresh_token);
-        await AsyncStorage.setItem('access_token', access_token);
-        if (refresh_token) {
-          await AsyncStorage.setItem('refresh_token', refresh_token);
-        }
-        navigation.navigate('Chat');
-      } else {
-        Alert.alert('Lỗi', 'Tài khoản hoặc mật khẩu không chính xác');
+      console.log('Login attempt:', { identifier, rememberMe });
+      // Use the login function from the context
+      await login({ identifier, password_val: password });
+      // Navigation will happen automatically in AppNavigator
+    } catch (err: any) {
+      let message = 'An unexpected error occurred.';
+      if (err?.response?.data?.detail) {
+        message = err.response.data.detail;
+      } else if (err.message) {
+        message = err.message;
       }
+      Alert.alert('Lỗi Đăng Nhập', message);
     }
-      catch (err: any) {
-        let message = 'Tài khoản hoặc mật khẩu không chính xác';
-        if (err?.response?.data?.detail) {
-          message = err.response.data.detail as string;
-        }
-        Alert.alert('Lỗi', message);
-      }
   };
 
   const navigateToSignup = () => {
@@ -106,7 +94,7 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
             <Ionicons name="lock-closed-outline" size={22} color={COLORS.black} style={styles.inputIcon} />
             <TextInput
               style={styles.input}
-              placeholder="••••••••••••" 
+              placeholder="••••••••••••"
               placeholderTextColor={COLORS.black}
               value={password}
               onChangeText={setPassword}
@@ -156,6 +144,7 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
   );
 };
 
+// Styles remain the same...
 const styles = StyleSheet.create({
   container: {
     flex: 1,

@@ -9,11 +9,13 @@ import {
   Platform,
   ScrollView,
   Image,
-  Dimensions
+  Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SIZES, FONTS, LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
+import api from '../../api'; // Import the api instance
 
 const { width } = Dimensions.get('window');
 const height = Dimensions.get('window').height;
@@ -23,6 +25,7 @@ const ChatScreen = ({ navigation }: { navigation: any }) => {
   const [chatHistory, setChatHistory] = useState<Array<{ id: number; text: string; sender: 'user' | 'bot' }>>([
     { id: 1, text: 'LawSphere có thể giúp gì cho bạn?', sender: 'bot' }
   ]);
+  const [isTyping, setIsTyping] = useState(false); // For the typing indicator
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Auto-scroll to bottom when chat history changes
@@ -30,30 +33,43 @@ const ChatScreen = ({ navigation }: { navigation: any }) => {
     setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
     }, 100);
-  }, [chatHistory]);
+  }, [chatHistory, isTyping]);
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (message.trim() === '') return;
-      
-    // Add user message to chat
-    const newUserMessage = {
-        id: chatHistory.length + 1,
-        text: message,
-        sender: 'user' as const
-    };
-        
-    setChatHistory(prev => [...prev, newUserMessage]);
-    setMessage('');
+
+    const userMessage = message;
     
-    // Simulate bot response (should call API here)
-    setTimeout(() => {
-      const botResponse = {
-        id: chatHistory.length + 2,
-        text: 'Tôi đang xử lý câu hỏi của bạn. Vui lòng đợi trong giây lát...',
+    // Add user message to chat
+    setChatHistory(prev => [...prev, {
+        id: prev.length + 1,
+        text: userMessage,
+        sender: 'user' as const
+    }]);
+    setMessage('');
+    setIsTyping(true);
+
+    try {
+      // Call the real API endpoint
+      const response = await api.post('/chat/query', { message: userMessage });
+      const botResponseText = response.data.response;
+
+      setChatHistory(prev => [...prev, {
+        id: prev.length + 1,
+        text: botResponseText,
         sender: 'bot' as const
-      };
-      setChatHistory(prev => [...prev, botResponse]);
-    }, 1000);
+      }]);
+
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      setChatHistory(prev => [...prev, {
+        id: prev.length + 1,
+        text: 'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại.',
+        sender: 'bot' as const
+      }]);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   return (
@@ -80,8 +96,8 @@ const ChatScreen = ({ navigation }: { navigation: any }) => {
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
         style={styles.keyboardAvoidView}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? height * 0.07 : 0}
       >
         <ScrollView
           ref={scrollViewRef}
@@ -110,29 +126,37 @@ const ChatScreen = ({ navigation }: { navigation: any }) => {
               </Text>
             </View>
           ))}
+          {isTyping && (
+            <View style={[styles.messageContainer, { alignSelf: 'flex-start', backgroundColor: COLORS.buttonLight }]}>
+              <ActivityIndicator size="small" color={COLORS.primary} />
+            </View>
+          )}
         </ScrollView>
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Nhập câu hỏi của bạn tại đây..."
-            placeholderTextColor={COLORS.black}
-            value={message}
-            onChangeText={setMessage}
-            multiline
-          />
-          <TouchableOpacity 
-              style={styles.sendButton} 
-              onPress={sendMessage} 
-              disabled={message.trim() === ''}
-          >
-            <Ionicons name="send" size={24} color={COLORS.primary} />
-          </TouchableOpacity>
+        <View style={styles.inputWrapper}>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="Nhập câu hỏi của bạn tại đây..."
+              placeholderTextColor={COLORS.black}
+              value={message}
+              onChangeText={setMessage}
+              multiline
+            />
+            <TouchableOpacity 
+                style={styles.sendButton} 
+                onPress={sendMessage} 
+                disabled={message.trim() === '' || isTyping}
+            >
+              <Ionicons name="send" size={24} color={COLORS.primary} />
+            </TouchableOpacity>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </LinearGradient>
   );
 };
 
+// Styles remain the same
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -168,7 +192,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     padding: 16,
-    paddingBottom: 80,
   },
   messageContainer: {
     borderRadius: 16,
@@ -186,11 +209,11 @@ const styles = StyleSheet.create({
     fontSize: SIZES.body,
     textAlign: 'left',
   },
+  inputWrapper: {
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
   inputContainer: {
-    position: 'absolute',
-    bottom: 16,
-    left: 16,
-    right: 16,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
@@ -198,7 +221,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.buttonLight,
     borderRadius: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 1.5,
     elevation: 2,

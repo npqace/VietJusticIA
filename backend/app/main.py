@@ -176,10 +176,18 @@ def require_roles(*allowed_roles):
         return current_user
     return role_checker
 
-# --- Demo admin-only endpoint ---
-@app.get("/admin")
 async def admin_only_route(current_user = Depends(require_roles("admin"))):
     return {"message": f"Hello {current_user.full_name}, you have admin access"}
+
+class ChatQuery(BaseModel):
+    message: str
+
+@app.post("/chat/query")
+async def chat_query(query: ChatQuery, current_user: User = Depends(get_current_user)):
+    logger.info(f'Received chat query from {current_user.email}: "{query.message}"')
+    # Placeholder response - RAG logic will be added later
+    response_text = f'This is a placeholder response to your message: "{query.message}"'
+    return {"response": response_text, "sources": []}
 
 if __name__ == "__main__":
     import uvicorn

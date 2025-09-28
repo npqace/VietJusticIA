@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   Image,
   Dimensions,
   Alert
@@ -15,9 +14,8 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import CustomButton from '../../components/CustomButton';
 import { COLORS, SIZES, FONTS, LOGO_PATH, GOOGLE_LOGO_PATH } from '../../constants/styles';
-import { Ionicons } from '@expo/vector-icons'; 
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import api from '../../api';
+import { Ionicons } from '@expo/vector-icons';
+import { signup } from '../../services/authService'; // Use the new signup service
 
 const { width } = Dimensions.get('window');
 
@@ -31,11 +29,8 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleSignup = async () => {
-    // Add actual signup logic here
-    // Example: Validate inputs, then call API
-    console.log('Signup attempt:', { fullName, email, phoneNumber, password, confirmPassword });
     if (password !== confirmPassword) {
-        alert("Passwords do not match!");
+        Alert.alert("Lỗi", "Mật khẩu không khớp!");
         return;
     }
     try {
@@ -47,25 +42,23 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
         confirm_pwd: confirmPassword,
       };
 
-      const response = await api.post('/signup', payload);
-      const { access_token, refresh_token } = response.data as any;
-      if (access_token) {
-        await AsyncStorage.setItem('access_token', access_token);
-        if (refresh_token) {
-          await AsyncStorage.setItem('refresh_token', refresh_token);
-        }
+      const data = await signup(payload); // Use the service function
+
+      if (data.access_token) {
+        // Instead of navigating to Login, you might want to navigate to the main app
+        // or an OTP screen in the future. For now, Login is fine.
+        Alert.alert("Thành công", "Tài khoản đã được tạo thành công!");
         navigation.navigate('Login');
-      } else {
-        Alert.alert('Lỗi', 'Đăng ký thất bại');
       }
     } catch (err: any) {
-        let message = 'Đăng ký thất bại';
+        let message = 'Đăng ký thất bại. Vui lòng thử lại.';
         if (err?.response?.data?.detail) {
-          message = err.response.data.detail as string;
+          message = err.response.data.detail;
+        } else if (err.message) {
+          message = err.message;
         }
-        Alert.alert('Lỗi', message);
+        Alert.alert('Lỗi Đăng Ký', message);
       }
-    // navigation.navigate('Login'); // Navigate on successful signup
   };
 
   const navigateToLogin = () => {
@@ -97,7 +90,7 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
               <TextInput
                   style={styles.input}
                   placeholder="Họ và Tên"
-                  placeholderTextColor={COLORS.gray} 
+                  placeholderTextColor={COLORS.gray}
                   value={fullName}
                   onChangeText={setFullName}
                   autoCapitalize="words"
@@ -196,6 +189,7 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
   );
 };
 
+// Styles remain the same
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -211,16 +205,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   logo: {
-    width: width * 0.25, 
-    height: width * 0.25, 
+    width: width * 0.25,
+    height: width * 0.25,
     marginBottom: 10,
     // marginTop: 20,
   },
   title: {
     fontFamily: FONTS.bold,
-    fontSize: SIZES.heading1, 
-    color: COLORS.black, 
-    marginBottom: 10, 
+    fontSize: SIZES.heading1,
+    color: COLORS.black,
+    marginBottom: 10,
     textAlign: 'center',
   },
   inputOuterContainer: {
@@ -253,30 +247,30 @@ const styles = StyleSheet.create({
     fontSize: SIZES.small,
     color: COLORS.black,
     textAlign: 'justify',
-    lineHeight: SIZES.small * 1.5, 
-    paddingHorizontal: 8, 
+    lineHeight: SIZES.small * 1.5,
+    paddingHorizontal: 8,
   },
   linkText: {
     fontFamily: FONTS.regular,
-    color: COLORS.primary, 
+    color: COLORS.primary,
     textDecorationLine: 'underline',
   },
   signupButton: {
-    backgroundColor: COLORS.primary, 
-    height: 55, 
-    marginTop: 15, 
-    width: '100%', 
+    backgroundColor: COLORS.primary,
+    height: 55,
+    marginTop: 15,
+    width: '100%',
   },
   signupButtonText: {
-    fontFamily: FONTS.bold, 
-    fontSize: SIZES.body, 
+    fontFamily: FONTS.bold,
+    fontSize: SIZES.body,
     color: COLORS.white,
   },
   orText: {
     fontFamily: FONTS.regular,
     fontSize: SIZES.small,
-    color: COLORS.black, 
-    marginVertical: 12, 
+    color: COLORS.black,
+    marginVertical: 12,
   },
   googleButton: {
     flexDirection: 'row',
@@ -286,9 +280,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
     width: '100%',
-    height: 55, 
+    height: 55,
     borderWidth: 1,
-    borderColor: '#D3D3D3', 
+    borderColor: '#D3D3D3',
     marginBottom: 12,
   },
   googleLogo: {
