@@ -80,7 +80,7 @@ const metadataFields = [
 ];
 
 const renderers = {
-  p: (props) => {
+  p: (props: any) => {
     const { TDefaultRenderer, tnode } = props;
     const attribs = tnode.attributes;
     const style = attribs.style || '';
@@ -89,7 +89,7 @@ const renderers = {
     }
     return <TDefaultRenderer {...props} />;
   },
-  span: (props) => {
+  span: (props: any) => {
     const { TDefaultRenderer, tnode } = props;
     const style = tnode.attributes.style || '';
     if (style.includes('font-size:12.0pt')) {

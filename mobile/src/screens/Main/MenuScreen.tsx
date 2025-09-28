@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -12,81 +12,35 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SIZES, FONTS, LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
-import api from '../../api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '../../context/AuthContext'; // Import useAuth
 
 const { width } = Dimensions.get('window');
 const height = Dimensions.get('window').height;
 
 const MenuScreen = ({ navigation }: { navigation: any }) => {
-  const [fullName, setFullName] = useState('Guest User');
-  const [email, setEmail] = useState('');
+  const { user, logout } = useAuth(); // Get user and logout from context
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const token = await AsyncStorage.getItem('access_token');
-        if (token) {
-          const response = await api.get('/profile');
-          const { full_name, email } = response.data as { full_name: string; email: string };
-          setFullName(full_name);
-          setEmail(email);
-        }
-      } catch (error) {
-        console.error('Failed to fetch user data:', error);
-      }
-    };
-
-    fetchUserData();
-  }, []);
   // Menu options
   const menuOptions = [
-    {
-      id: 'chat',
-      title: 'Chat',
-      icon: 'chatbox-ellipses-outline'
-    },
-    {
-      id: 'documents',
-      title: 'Tra cứu văn bản',
-      icon: 'document-text-outline'
-    },
-    {
-      id: 'procedures',
-      title: 'Tra cứu thủ tục hành chính',
-      icon: 'list-outline'
-    },
-    {
-      id: 'lawyer',
-      title: 'Liên hệ luật sư',
-      icon: 'person-outline'
-    },
-    {
-      id: 'help',
-      title: 'Hỗ trợ',
-      icon: 'help-circle-outline'
-    }
+    { id: 'chat', title: 'Chat', icon: 'chatbox-ellipses-outline' },
+    { id: 'documents', title: 'Tra cứu văn bản', icon: 'document-text-outline' },
+    { id: 'procedures', title: 'Tra cứu thủ tục hành chính', icon: 'list-outline' },
+    { id: 'lawyer', title: 'Liên hệ luật sư', icon: 'person-outline' },
+    { id: 'help', title: 'Hỗ trợ', icon: 'help-circle-outline' }
   ];
 
   const handleMenuOption = (optionId: string) => {
     console.log(`Selected option: ${optionId}`);
-    // Navigate to appropriate screen based on option
-    // Example: navigation.navigate('DocumentSearch');
-    if (optionId === 'chat') {
-      navigation.navigate('Chat');
-    }
-    if (optionId === 'help') {
-      navigation.navigate('FAQs');
-    }
-    if (optionId === 'documents') {
-      navigation.navigate('DocumentLookup');
-    }
-    if (optionId === 'procedures') {
-      navigation.navigate('ProcedureLookup');
-    }
-    if (optionId === 'lawyer') {
-      navigation.navigate('Lawyer');
-    }
+    if (optionId === 'chat') navigation.navigate('Chat');
+    if (optionId === 'help') navigation.navigate('FAQs');
+    if (optionId === 'documents') navigation.navigate('DocumentLookup');
+    if (optionId === 'procedures') navigation.navigate('ProcedureLookup');
+    if (optionId === 'lawyer') navigation.navigate('Lawyer');
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    // Navigation will be handled automatically by AppNavigator
   };
 
   const handleClose = () => {
@@ -116,18 +70,18 @@ const MenuScreen = ({ navigation }: { navigation: any }) => {
           <View style={styles.profileContainer}>
             <View style={styles.profileImageContainer}>
               <Image
-                source={LOGO_PATH} // Use logo image as a placeholder
+                source={LOGO_PATH} // Placeholder
                 style={styles.profileImage}
                 resizeMode="cover"
               />
             </View>
             <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{fullName}</Text>
-              <Text style={styles.profileEmail}>{email}</Text>
+              <Text style={styles.profileName}>{user?.full_name || 'User'}</Text>
+              <Text style={styles.profileEmail}>{user?.email || ''}</Text>
             </View>
             <TouchableOpacity
               style={styles.logoutButton}
-              onPress={() => navigation.navigate('Login')}
+              onPress={handleLogout} // Use the new logout handler
             >
               <Ionicons name="log-out-outline" size={30} color={COLORS.primary} />
             </TouchableOpacity>
@@ -152,7 +106,7 @@ const MenuScreen = ({ navigation }: { navigation: any }) => {
             <Text style={styles.chatHistoryTitle}>Lịch sử trò chuyện</Text>
             <View style={styles.separator} />
             <ScrollView style={styles.chatHistory}>
-
+              {/* Chat history items will go here */}
             </ScrollView>
           </View>
 
@@ -162,6 +116,7 @@ const MenuScreen = ({ navigation }: { navigation: any }) => {
   );
 };
 
+// Styles remain the same
 const styles = StyleSheet.create({
   container: {
     flex: 1,
