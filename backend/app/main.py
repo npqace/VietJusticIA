@@ -6,13 +6,15 @@ from fastapi.security import APIKeyHeader
 from sqlalchemy.orm import Session
 import logging
 import time
+from contextlib import asynccontextmanager
+
 from .database import models
 from .database.models import User
 from .model.userModel import SignUpModel, LoginModel, UserResponse
 from .services.auth import create_access_token, create_refresh_token, verify_token, verify_refresh_token
 from .database.database import get_db, init_db
 from .repository import user_repository
-from contextlib import asynccontextmanager
+from .services.ai_service import rag_service # Import the RAG service instance
 
 # Lifespan Manager
 @asynccontextmanager
@@ -20,14 +22,17 @@ async def lifespan(app: FastAPI):
     # Code to run on startup
     print("Application startup...")
     init_db()
+    rag_service.initialize_service() # Initialize the RAG service
     yield
     # Code to run on shutdown (if any)
     print("Application shutdown.")
 
-app = FastAPI(title="LawSphere API", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="VietJusticIA API", version="1.0.0", lifespan=lifespan)
+
+# ... (rest of the file is mostly the same) ...
 
 # Configure basic logging
-logger = logging.getLogger("lawsphere.api")
+logger = logging.getLogger("vietjusticia.api")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
 
@@ -179,15 +184,19 @@ def require_roles(*allowed_roles):
 async def admin_only_route(current_user = Depends(require_roles("admin"))):
     return {"message": f"Hello {current_user.full_name}, you have admin access"}
 
+
+# --- Chat Query Endpoint ---
 class ChatQuery(BaseModel):
     message: str
 
 @app.post("/chat/query")
 async def chat_query(query: ChatQuery, current_user: User = Depends(get_current_user)):
     logger.info(f'Received chat query from {current_user.email}: "{query.message}"')
-    # Placeholder response - RAG logic will be added later
-    response_text = f'This is a placeholder response to your message: "{query.message}"'
-    return {"response": response_text, "sources": []}
+    
+    # Replace placeholder with a call to the RAG service
+    result = rag_service.invoke_chain(query.message)
+    
+    return result
 
 if __name__ == "__main__":
     import uvicorn

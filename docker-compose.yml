@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database Service
   postgres:
@@ -24,6 +22,18 @@ services:
     networks:
       - vietjusticia_network
 
+  # MongoDB Document Store Service
+  mongodb:
+    image: mongo:latest
+    container_name: vietjusticia_mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - vietjusticia_network
+
   # Backend API Service
   backend:
     build:
@@ -33,15 +43,37 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-vietjusticia}
+      MONGO_URL: "mongodb://mongodb:27017/"
       ENVIRONMENT: ${ENVIRONMENT:-development}
+      QDRANT_URL: http://qdrant:6333 # Add Qdrant URL for the backend
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     depends_on:
       postgres:
         condition: service_healthy
+      qdrant: # Make backend wait for Qdrant to be ready
+        condition: service_started
+      mongodb:
+        condition: service_started
     volumes:
       - ./backend:/app
+      - ./ai-engine:/app/ai-engine # Mount ai-engine for document access
       - backend_logs:/app/logs
+      - huggingface_cache:/home/appuser/.cache/huggingface/hub # Persist model cache
+    networks:
+      - vietjusticia_network
+
+  # Qdrant Vector Database Service (NEW)
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: vietjusticia_qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333" # API port
+      - "6334:6334" # gRPC port
+    volumes:
+      - qdrant_data:/qdrant/storage
     networks:
       - vietjusticia_network
 
@@ -66,9 +98,15 @@ services:
 volumes:
   postgres_data:
     driver: local
+  mongo_data:
+    driver: local
   pgadmin_data:
     driver: local
   backend_logs:
+    driver: local
+  qdrant_data: # Add volume for Qdrant
+    driver: local
+  huggingface_cache: # Persist Hugging Face model cache
     driver: local
 
 networks:

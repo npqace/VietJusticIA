@@ -9,26 +9,16 @@ import {
   Image,
   Dimensions
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SIZES, FONTS, LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
 import ProceduresFilterModal, { ProceduresFilterState } from '../../components/Filter/ProceduresFilterModal';
 
-export interface FilterState {
-  startDate: string;
-  endDate: string;
-  status: string;
-  documentType: string;
-  field: string;
-  location: string;
-}
-
 const { width } = Dimensions.get('window');
-const height = Dimensions.get('window').height;
-
-import Header from '../../components/Header';
 
 const ProcedureLookupScreen = ({ navigation }: { navigation: any }) => {
+  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [procedures, setProcedures] = useState<Array<{ 
     id: number;
@@ -40,30 +30,11 @@ const ProcedureLookupScreen = ({ navigation }: { navigation: any }) => {
   const [filterVisible, setFilterVisible] = useState(false);
 
   const searchProcedures = () => {
-    // mock data for demonstration
     if (searchQuery.trim() !== '') {
       setProcedures([
-        { 
-          id: 1,
-          title: 'Cấp hộ chiếu phổ thông ở trong nước (thực hiện tại cấp tỉnh)',
-          issuingAgency: 'Bộ Công an',
-          implementingAgency: 'Công an Tỉnh',
-          implementationLevel: 'Cấp Tỉnh'
-        },
-        { 
-          id: 2, 
-          title: 'Đăng ký tạm trú', 
-          issuingAgency: 'Bộ Công an',
-          implementingAgency: 'Công an Xã',
-          implementationLevel: 'Cấp Xã'
-        },
-        { 
-          id: 3, 
-          title: 'Xác nhận thông tin về cư trú', 
-          issuingAgency: 'Bộ Công an',
-          implementingAgency: 'Công an Xã',
-          implementationLevel: 'Cấp Xã'
-        },
+        { id: 1, title: 'Cấp hộ chiếu phổ thông ở trong nước (thực hiện tại cấp tỉnh)', issuingAgency: 'Bộ Công an', implementingAgency: 'Công an Tỉnh', implementationLevel: 'Cấp Tỉnh' },
+        { id: 2, title: 'Đăng ký tạm trú', issuingAgency: 'Bộ Công an', implementingAgency: 'Công an Xã', implementationLevel: 'Cấp Xã' },
+        { id: 3, title: 'Xác nhận thông tin về cư trú', issuingAgency: 'Bộ Công an', implementingAgency: 'Công an Xã', implementationLevel: 'Cấp Xã' },
       ]);
     } else {
       setProcedures([]);
@@ -72,17 +43,8 @@ const ProcedureLookupScreen = ({ navigation }: { navigation: any }) => {
 
   const handleApplyFilter = (filters: ProceduresFilterState) => {
     console.log('Applied filters:', filters);
-    // Add your filter logic here
     setFilterVisible(false);
   };
-
-  const open_modal = () => {
-    setFilterVisible(true);
-  }
-
-  const close_modal = () => {
-    setFilterVisible(false);
-  }
 
   return (
     <LinearGradient
@@ -90,7 +52,21 @@ const ProcedureLookupScreen = ({ navigation }: { navigation: any }) => {
       locations={[0, 0.44, 0.67, 1]}
       style={styles.container}
     >
-      <Header title="Thủ tục hành chính" showFilter={true} onFilterPress={open_modal} />
+      <View style={[styles.header, { paddingTop: insets.top, paddingBottom: 8 }]}>
+        <Image
+          source={LOGO_PATH}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+        <View style={styles.headerIcons}>
+          <TouchableOpacity style={styles.iconButton}>
+            <Ionicons name="add-circle-outline" size={30} color={COLORS.gray} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Menu')}>
+            <Ionicons name="menu" size={30} color={COLORS.gray} />
+          </TouchableOpacity>
+        </View>
+      </View>
 
       <View style={styles.titleContainer}>
         <Text style={styles.title}>Thủ tục hành chính</Text>
@@ -108,7 +84,7 @@ const ProcedureLookupScreen = ({ navigation }: { navigation: any }) => {
             onSubmitEditing={searchProcedures}
           />
           <TouchableOpacity 
-            onPress={open_modal} 
+            onPress={() => setFilterVisible(true)} 
             style={styles.filterButton}
           >  
             <Ionicons name="filter" size={20} color={COLORS.gray} />
@@ -124,7 +100,6 @@ const ProcedureLookupScreen = ({ navigation }: { navigation: any }) => {
           <TouchableOpacity 
             key={proc.id} 
             style={styles.documentItem}
-            // onPress={() => navigation.navigate('DocumentDetail', { document: doc })}
           >
             <View style={styles.documentContent}>
               <Text style={styles.documentTitle}>{proc.title}</Text>
@@ -135,20 +110,11 @@ const ProcedureLookupScreen = ({ navigation }: { navigation: any }) => {
             <Ionicons name="chevron-forward" size={24} color={COLORS.gray} />
           </TouchableOpacity>
         ))}
-        
-        {procedures.length === 0 && (
-          <>
-            <View style={styles.emptySection} />
-            <View style={styles.emptySection} />
-            <View style={styles.emptySection} />
-            <View style={styles.emptySection} />
-          </>
-        )}
       </ScrollView>
       <ProceduresFilterModal
         isVisible={filterVisible}
         onApplyFilter={handleApplyFilter}
-        onClose={close_modal}
+        onClose={() => setFilterVisible(false)}
       />
     </LinearGradient>
   );
@@ -158,7 +124,36 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    height: 'auto',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 4,
+    zIndex: 10,
+  },
+  logo: {
+    width: width * 0.15,
+    height: width * 0.15,
+  },
+  headerIcons: {
+    flexDirection: 'row',
+  },
+  iconButton: {
+    padding: 8,
+    marginLeft: 8,
+  },
+  titleContainer: {
+    backgroundColor: '#E9EFF5',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
   title: {
     fontFamily: FONTS.bold,
     fontSize: SIZES.heading2,
@@ -230,53 +225,6 @@ const styles = StyleSheet.create({
     color: COLORS.gray,
     marginBottom: 2,
   },
-  documentNumber: {
-    fontFamily: FONTS.regular,
-    fontSize: SIZES.small,
-    color: COLORS.gray,
-    marginBottom: 2,
-  },
-  documentDate: {
-    fontFamily: FONTS.regular,
-    fontSize: SIZES.small,
-    color: COLORS.gray,
-  },
-  emptySection: {
-    height: 80,
-    backgroundColor: '#E9EFF5',
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  filterModalContainer: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  filterModalContent: {
-    backgroundColor: '#F5F5F5',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 20,
-    maxHeight: '90%',
-  },
-  filterHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  filterHeaderTitle: {
-    fontFamily: FONTS.regular,
-    fontSize: SIZES.body,
-    fontWeight: '600',
-    color: COLORS.black,
-  },
-  filterComponent: {
-    margin: 16,
-    borderRadius: 12,
-  }
 });
 
 export default ProcedureLookupScreen;

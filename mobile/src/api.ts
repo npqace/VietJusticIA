@@ -1,5 +1,5 @@
 import axios from "axios";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from 'expo-secure-store';
 import { API_URL } from "@env";
 
 const api = axios.create({
@@ -12,7 +12,7 @@ api.interceptors.request.use(
     try {
       console.log(`[API] -> ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
     } catch {}
-    const token = await AsyncStorage.getItem('access_token');
+    const token = await SecureStore.getItemAsync('access_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -39,7 +39,7 @@ api.interceptors.response.use(
     if (status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
-        const refreshToken = await AsyncStorage.getItem('refresh_token');
+        const refreshToken = await SecureStore.getItemAsync('refresh_token');
         console.log('Attempting to refresh token with:', refreshToken);
         if (!refreshToken) {
           throw new Error('No refresh token');
@@ -48,7 +48,7 @@ api.interceptors.response.use(
         const newAccessToken = refreshResponse.data?.access_token;
         if (newAccessToken) {
           console.log('Successfully refreshed token:', newAccessToken);
-          await AsyncStorage.setItem('access_token', newAccessToken);
+          await SecureStore.setItemAsync('access_token', newAccessToken);
           // Update header and retry original request
           originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
           return api(originalRequest);
@@ -58,8 +58,8 @@ api.interceptors.response.use(
         // fall through to logout
       }
       console.log('Logging out due to refresh failure.');
-      await AsyncStorage.removeItem('access_token');
-      await AsyncStorage.removeItem('refresh_token');
+      await SecureStore.deleteItemAsync('access_token');
+      await SecureStore.deleteItemAsync('refresh_token');
       // TODO: Optionally trigger a navigation to Login screen from a global handler
     }
     return Promise.reject(error);
