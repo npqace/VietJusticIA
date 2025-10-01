@@ -11,11 +11,12 @@ import {
   Dimensions,
   Alert
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import CustomButton from '../../components/CustomButton';
 import { COLORS, SIZES, FONTS, LOGO_PATH, GOOGLE_LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
-import { signup } from '../../services/authService'; // Use the new signup service
+import { signup } from '../../services/authService';
 
 const { width } = Dimensions.get('window');
 
@@ -42,11 +43,9 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
         confirm_pwd: confirmPassword,
       };
 
-      const data = await signup(payload); // Use the service function
+      const data = await signup(payload);
 
       if (data.access_token) {
-        // Instead of navigating to Login, you might want to navigate to the main app
-        // or an OTP screen in the future. For now, Login is fine.
         Alert.alert("Thành công", "Tài khoản đã được tạo thành công!");
         navigation.navigate('Login');
       }
@@ -66,21 +65,22 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
   };
 
   return (
-    <LinearGradient
-      colors={[COLORS.gradientStart, COLORS.gradientMiddle1, COLORS.gradientMiddle2, COLORS.gradientEnd]}
-      locations={[0, 0.44, 0.67, 1]}
-      style={styles.container}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.keyboardAvoidView}
+    <SafeAreaView style={styles.safeArea}>
+      <LinearGradient
+        colors={[COLORS.gradientStart, COLORS.gradientMiddle1, COLORS.gradientMiddle2, COLORS.gradientEnd]}
+        locations={[0, 0.44, 0.67, 1]}
+        style={styles.container}
       >
-        <View style={styles.innerContainer}>
-          <Image
-            source={LOGO_PATH}
-            style={styles.logo}
-            resizeMode="contain"
-          />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.keyboardAvoidView}
+        >
+          <View style={styles.innerContainer}>
+            <Image
+              source={LOGO_PATH}
+              style={styles.logo}
+              resizeMode="contain"
+            />
 
             <Text style={styles.title}>Tạo tài khoản</Text>
 
@@ -186,11 +186,16 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
           </View>
       </KeyboardAvoidingView>
     </LinearGradient>
+    </SafeAreaView>
   );
 };
 
 // Styles remain the same
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    // backgroundColor: COLORS.white,
+  },
   container: {
     flex: 1,
   },
@@ -208,7 +213,6 @@ const styles = StyleSheet.create({
     width: width * 0.25,
     height: width * 0.25,
     marginBottom: 10,
-    // marginTop: 20,
   },
   title: {
     fontFamily: FONTS.bold,

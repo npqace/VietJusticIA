@@ -127,6 +127,15 @@ docker-compose restart backend
 docker-compose ps
 ```
 
+## Data Ingestion (Building the Vector Store)
+
+Before using the AI chat feature, you must process your source documents and populate the Qdrant vector database. This is a one-time process you should run after adding or changing your source documents.
+
+```bash
+# Run the ingestion script from within the backend container
+docker-compose exec backend python scripts/build_vector_store.py
+```
+
 ## Database Migration
 
 The backend service automatically connects to PostgreSQL and creates tables using SQLAlchemy. For production deployments, you may want to run Alembic migrations:

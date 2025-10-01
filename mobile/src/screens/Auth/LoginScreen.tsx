@@ -11,16 +11,17 @@ import {
   Dimensions,
   Alert
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import CustomButton from '../../components/CustomButton';
 import { COLORS, SIZES, FONTS, LOGO_PATH, GOOGLE_LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../context/AuthContext'; // Import useAuth
+import { useAuth } from '../../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
 const LoginScreen = ({ navigation }: { navigation: any }) => {
-  const { login } = useAuth(); // Get the login function from context
+  const { login } = useAuth();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -28,10 +29,7 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
 
   const handleLogin = async () => {
     try {
-      console.log('Login attempt:', { identifier, rememberMe });
-      // Use the login function from the context
       await login({ identifier, password_val: password });
-      // Navigation will happen automatically in AppNavigator
     } catch (err: any) {
       let message = 'An unexpected error occurred.';
       if (err?.response?.data?.detail) {
@@ -52,100 +50,106 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
   };
 
   return (
-    <LinearGradient
-      colors={[COLORS.gradientStart, COLORS.gradientMiddle1, COLORS.gradientMiddle2, COLORS.gradientEnd]}
-      locations={[0, 0.44, 0.67, 1]}
-      style={styles.container}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.keyboardAvoidView}
+    <SafeAreaView style={styles.safeArea}>
+      <LinearGradient
+        colors={[COLORS.gradientStart, COLORS.gradientMiddle1, COLORS.gradientMiddle2, COLORS.gradientEnd]}
+        locations={[0, 0.44, 0.67, 1]}
+        style={styles.container}
       >
-        <View style={styles.innerContainer}>
-          <Image
-            source={LOGO_PATH}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-
-          <Text style={styles.title}>Đăng nhập</Text>
-
-          {/* Input Fields */}
-          <Text style={styles.inputLabel}>Email / Số điện thoại</Text>
-          <View style={styles.inputOuterContainer}>
-            <TextInput
-              style={styles.input}
-              placeholder="hello@example.com"
-              placeholderTextColor={COLORS.black}
-              value={identifier}
-              onChangeText={setIdentifier}
-              keyboardType="email-address"
-              autoCapitalize="none"
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.keyboardAvoidView}
+        >
+          <View style={styles.innerContainer}>
+            <Image
+              source={LOGO_PATH}
+              style={styles.logo}
+              resizeMode="contain"
             />
-          </View>
 
-          <View style={styles.labelRow}>
-            <Text style={styles.inputLabel}>Mật khẩu</Text>
-            <TouchableOpacity onPress={handleForgotPassword}>
-              <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
+            <Text style={styles.title}>Đăng nhập</Text>
+
+            {/* Input Fields */}
+            <Text style={styles.inputLabel}>Email / Số điện thoại</Text>
+            <View style={styles.inputOuterContainer}>
+              <TextInput
+                style={styles.input}
+                placeholder="hello@example.com"
+                placeholderTextColor={COLORS.black}
+                value={identifier}
+                onChangeText={setIdentifier}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+
+            <View style={styles.labelRow}>
+              <Text style={styles.inputLabel}>Mật khẩu</Text>
+              <TouchableOpacity onPress={handleForgotPassword}>
+                <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.inputOuterContainer}>
+              <Ionicons name="lock-closed-outline" size={22} color={COLORS.black} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="••••••••••••"
+                placeholderTextColor={COLORS.black}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIconTouchable}>
+                <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={24} color={COLORS.black} />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity style={styles.rememberMeContainer} onPress={() => setRememberMe(!rememberMe)}>
+                <Ionicons
+                  name={rememberMe ? "checkbox" : "square-outline"}
+                  size={24}
+                  color={rememberMe ? COLORS.primary : COLORS.black}
+                  style={styles.checkboxIcon}
+                />
+                <Text style={styles.rememberMeText}>Ghi nhớ đăng nhập</Text>
+            </TouchableOpacity>
+
+            <CustomButton
+              title="Đăng nhập"
+              onPress={handleLogin}
+              buttonStyle={styles.loginButton}
+              textStyle={styles.loginButtonText}
+            />
+
+            <Text style={styles.orText}>hoặc</Text>
+
+            {/* Google Button */}
+            <TouchableOpacity style={styles.googleButton} onPress={() => { }}>
+                <Image
+                  source={GOOGLE_LOGO_PATH}
+                  style={styles.googleLogo}
+                  resizeMode="contain"
+                />
+                <Text style={styles.googleButtonText}>Tiếp tục với Google</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={navigateToSignup} style={styles.signupLink}>
+              <Text style={styles.signupLinkText}>Tạo tài khoản</Text>
             </TouchableOpacity>
           </View>
-          <View style={styles.inputOuterContainer}>
-            <Ionicons name="lock-closed-outline" size={22} color={COLORS.black} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="••••••••••••"
-              placeholderTextColor={COLORS.black}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-            />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIconTouchable}>
-              <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={24} color={COLORS.black} />
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity style={styles.rememberMeContainer} onPress={() => setRememberMe(!rememberMe)}>
-              <Ionicons
-                name={rememberMe ? "checkbox" : "square-outline"}
-                size={24}
-                color={rememberMe ? COLORS.primary : COLORS.black}
-                style={styles.checkboxIcon}
-              />
-              <Text style={styles.rememberMeText}>Ghi nhớ đăng nhập</Text>
-          </TouchableOpacity>
-
-          <CustomButton
-            title="Đăng nhập"
-            onPress={handleLogin}
-            buttonStyle={styles.loginButton}
-            textStyle={styles.loginButtonText}
-          />
-
-          <Text style={styles.orText}>hoặc</Text>
-
-          {/* Google Button */}
-          <TouchableOpacity style={styles.googleButton} onPress={() => { }}>
-              <Image
-                source={GOOGLE_LOGO_PATH}
-                style={styles.googleLogo}
-                resizeMode="contain"
-              />
-              <Text style={styles.googleButtonText}>Tiếp tục với Google</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={navigateToSignup} style={styles.signupLink}>
-            <Text style={styles.signupLinkText}>Tạo tài khoản</Text>
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
-    </LinearGradient>
+        </KeyboardAvoidingView>
+      </LinearGradient>
+    </SafeAreaView>
   );
 };
 
 // Styles remain the same...
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    // backgroundColor: COLORS.white,
+  },
   container: {
     flex: 1,
   },
@@ -164,7 +168,6 @@ const styles = StyleSheet.create({
     width: width * 0.25,
     height: width * 0.25,
     marginBottom: 10,
-    // marginTop: 20,
   },
   title: {
     fontFamily: FONTS.bold,
