@@ -6,9 +6,10 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  Dimensions
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SIZES, FONTS,  LOGO_PATH } from '../../constants/styles';
-import { Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import FAQsTab from '../../components/Help/FAQsTab';
@@ -17,9 +18,7 @@ import PolicyTab from '../../components/Help/PolicyTab';
 import TermsTab from '../../components/Help/TermsTab';
 
 const { width } = Dimensions.get('window');
-const height = Dimensions.get('window').height;
 
-// Tab names
 const tabs = [
   { id: 'faqs', name: 'FAQs' },
   { id: 'contact', name: 'Liên hệ' },
@@ -28,20 +27,16 @@ const tabs = [
 ];
 
 const HelpScreen = ({ navigation }: { navigation: any }) => {
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState('faqs');
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'faqs':
-        return <FAQsTab />;
-      case 'contact':
-        return <ContactUsTab />;
-      case 'policy':
-        return <PolicyTab />;
-      case 'terms':
-        return <TermsTab /> ;
-      default:
-        return null;
+      case 'faqs': return <FAQsTab />;
+      case 'contact': return <ContactUsTab />;
+      case 'policy': return <PolicyTab />;
+      case 'terms': return <TermsTab /> ;
+      default: return null;
     }
   };
 
@@ -51,7 +46,7 @@ const HelpScreen = ({ navigation }: { navigation: any }) => {
       locations={[0, 0.44, 0.67, 1]}
       style={styles.container}
     >
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top, paddingBottom: 8 }]}>
         <Image
           source={LOGO_PATH}
           style={styles.logo}
@@ -107,17 +102,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     paddingHorizontal: 16,
     marginBottom: 16,
-    height: height * 0.07,
+    height: 'auto',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 4,
     zIndex: 10,
-  },
-  logoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   logo: {
     width: width * 0.15,
@@ -160,15 +151,6 @@ const styles = StyleSheet.create({
     padding: 8,
     paddingHorizontal: 16,
   },
-  contentContainer: {
-    padding: 16,
-    alignItems: 'center',
-  },
-  contentText: {
-    fontFamily: FONTS.regular,
-    fontSize: SIZES.body,
-    color: '#E5E5E5',
-  }
 });
 
 export default HelpScreen;
