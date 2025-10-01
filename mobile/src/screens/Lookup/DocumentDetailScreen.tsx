@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ScrollView, View, Text, StyleSheet, Dimensions, TouchableOpacity, Image } from 'react-native';
-import RenderHTML, { TDefaultRenderer } from 'react-native-render-html';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import RenderHTML from 'react-native-render-html';
 import { COLORS, FONTS, SIZES, LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -8,66 +9,23 @@ const { width } = Dimensions.get('window');
 const height = Dimensions.get('window').height;
 
 const tagsStyles = {
-  p: {
-    marginBottom: 10,
-    lineHeight: 24,
-    fontSize: SIZES.body,
-    fontFamily: FONTS.regular,
-    color: COLORS.black,
-  },
-  b: {
-    fontFamily: FONTS.bold,
-  },
-  strong: {
-    fontFamily: FONTS.bold,
-  },
-  i: {
-    fontFamily: FONTS.italic,
-  },
-  em: {
-    fontFamily: FONTS.italic,
-  },
-  h1: {
-    fontFamily: FONTS.bold,
-    fontSize: SIZES.heading1,
-    marginBottom: 10,
-    marginTop: 10,
-  },
-  h2: {
-    fontFamily: FONTS.bold,
-    fontSize: SIZES.heading2,
-    marginBottom: 10,
-    marginTop: 10,
-  },
-  h3: {
-    fontFamily: FONTS.bold,
-    fontSize: SIZES.heading3,
-    marginBottom: 10,
-    marginTop: 10,
-  },
-  table: {
-    marginBottom: 10,
-  },
-  tr: {
-    flexDirection: 'row' as const,
-  },
-  td: {
-    flex: 1,
-    padding: 5,
-  },
-  a: {
-    color: COLORS.black,
-    textDecorationLine: 'none' as const,
-  },
+  p: { marginBottom: 10, lineHeight: 24, fontSize: SIZES.body, fontFamily: FONTS.regular, color: COLORS.black },
+  b: { fontFamily: FONTS.bold },
+  strong: { fontFamily: FONTS.bold },
+  i: { fontFamily: FONTS.italic },
+  em: { fontFamily: FONTS.italic },
+  h1: { fontFamily: FONTS.bold, fontSize: SIZES.heading1, marginBottom: 10, marginTop: 10 },
+  h2: { fontFamily: FONTS.bold, fontSize: SIZES.heading2, marginBottom: 10, marginTop: 10 },
+  h3: { fontFamily: FONTS.bold, fontSize: SIZES.heading3, marginBottom: 10, marginTop: 10 },
+  table: { marginBottom: 10 },
+  tr: { flexDirection: 'row' as const },
+  td: { flex: 1, padding: 5 },
+  a: { color: COLORS.black, textDecorationLine: 'none' as const },
 };
 
 const classesStyles = {
-  'font-bold': {
-    fontFamily: FONTS.bold,
-  },
-  'text-blue': {
-    color: COLORS.primary,
-  },
+  'font-bold': { fontFamily: FONTS.bold },
+  'text-blue': { color: COLORS.primary },
 };
 
 const metadataFields = [
@@ -100,21 +58,17 @@ const renderers = {
 };
 
 const DocumentDetailScreen = ({ route, navigation }: { route: any, navigation: any }) => {
+  const insets = useSafeAreaInsets();
   const { document, documentsData } = route.params;
   const [activeTab, setActiveTab] = useState('content');
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Còn hiệu lực':
-        return '#22C55E'; // green
-      case 'Hết hiệu lực':
-        return '#EF4444'; // red
-      case 'Không còn phù hợp':
-        return '#EF4444'; // red
-      case 'Không xác định':
-        return '#6B7280'; // grey
-      default:
-        return COLORS.text;
+      case 'Còn hiệu lực': return '#22C55E';
+      case 'Hết hiệu lực': return '#EF4444';
+      case 'Không còn phù hợp': return '#EF4444';
+      case 'Không xác định': return '#6B7280';
+      default: return COLORS.text;
     }
   };
 
@@ -136,11 +90,7 @@ const DocumentDetailScreen = ({ route, navigation }: { route: any, navigation: a
           classesStyles={classesStyles}
           systemFonts={[FONTS.regular, FONTS.bold, FONTS.italic]}
           renderers={renderers}
-          renderersProps={{
-            a: {
-              onPress: handleLinkPress,
-            },
-          }}
+          renderersProps={{ a: { onPress: handleLinkPress } }}
         />
       );
     } else {
@@ -149,7 +99,6 @@ const DocumentDetailScreen = ({ route, navigation }: { route: any, navigation: a
           {metadataFields.map(({ key, label }) => {
             const value = document[key];
             if (!value) return null;
-
             if (key === 'tinh_trang') {
               return (
                 <View key={key} style={styles.metadataRow}>
@@ -160,7 +109,6 @@ const DocumentDetailScreen = ({ route, navigation }: { route: any, navigation: a
                 </View>
               );
             }
-
             return (
               <View key={key} style={styles.metadataRow}>
                 <Text style={styles.metadataLabel}>{label}:</Text>
@@ -174,8 +122,8 @@ const DocumentDetailScreen = ({ route, navigation }: { route: any, navigation: a
   };
 
   return (
-    <View style={{ flex: 1 }}>
-      <View style={styles.header}>
+    <View style={{ flex: 1, backgroundColor: '#fff' }}>
+      <View style={[styles.header, { paddingTop: insets.top, paddingBottom: 8 }]}>
         <Image
           source={LOGO_PATH}
           style={styles.logo}
@@ -230,7 +178,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#fff',
     paddingHorizontal: 16,
-    height: height * 0.07,
+    height: 'auto',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
