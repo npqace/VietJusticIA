@@ -7,9 +7,9 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
-  Dimensions,
-  SafeAreaView
+  Dimensions
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SIZES, FONTS, LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,7 +17,6 @@ import DocumentsFilterModal from '../../components/Filter/DocumentsFilterModal';
 import LoadingIndicator from '../../components/LoadingIndicator';
 
 const { width } = Dimensions.get('window');
-const height = Dimensions.get('window').height;
 
 export interface FilterState {
   startDate: string;
@@ -29,9 +28,9 @@ export interface FilterState {
 }
 
 import documentsData from '../../../assets/data/documents.json';
-import Header from '../../components/Header';
 
 const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
+  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [documents, setDocuments] = useState<Array<{ 
     id: string; 
@@ -63,30 +62,16 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
 
   const handleApplyFilter = (filters: FilterState) => {
     console.log('Applied filters:', filters);
-    // Add your filter logic here
     setFilterVisible(false);
   };
 
-  const open_modal = () => {
-    setFilterVisible(true);
-  }
-
-  const close_modal = () => {
-    setFilterVisible(false);
-  }
-
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Còn hiệu lực':
-        return '#22C55E'; // Green
-      case 'Hết hiệu lực':
-        return '#EF4444'; // Red
-      case 'Không xác định':
-        return '#F59E0B'; // Orange
-      case 'Không còn phù hợp':
-        return '#6B7280'; // Gray
-      default:
-        return COLORS.gray;
+      case 'Còn hiệu lực': return '#22C55E';
+      case 'Hết hiệu lực': return '#EF4444';
+      case 'Không xác định': return '#F59E0B';
+      case 'Không còn phù hợp': return '#6B7280';
+      default: return COLORS.gray;
     }
   };
 
@@ -94,7 +79,6 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
     if (loading) {
       return <LoadingIndicator />;
     }
-
     return (
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -116,15 +100,6 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
             <Ionicons name="chevron-forward" size={24} color={COLORS.gray} />
           </TouchableOpacity>
         ))}
-        
-        {documents.length === 0 && !loading && (
-          <>
-            <View style={styles.emptySection} />
-            <View style={styles.emptySection} />
-            <View style={styles.emptySection} />
-            <View style={styles.emptySection} />
-          </>
-        )}
       </ScrollView>
     );
   };
@@ -133,39 +108,55 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
     <LinearGradient
       colors={[COLORS.gradientStart, COLORS.gradientMiddle1, COLORS.gradientMiddle2, COLORS.gradientEnd]}
       locations={[0, 0.44, 0.67, 1]}
-      style={{ flex: 1 }}
+      style={styles.container}
     >
-      <SafeAreaView style={styles.container}>
-        <Header title="Tra cứu văn bản" showFilter={true} onFilterPress={open_modal} />
-
-        <View style={styles.searchContainer}>
-          <View style={styles.searchBar}>
-            <Ionicons name="search" size={20} color={COLORS.gray} style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Tìm tiêu đề, số hiệu"
-              placeholderTextColor={COLORS.gray}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              onSubmitEditing={searchDocuments}
-            />
-            <TouchableOpacity 
-              onPress={open_modal} 
-              style={styles.filterButton}
-            >  
-              <Ionicons name="filter" size={20} color={COLORS.gray} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {renderContent()}
-
-        <DocumentsFilterModal
-          isVisible={filterVisible}
-          onApplyFilter={handleApplyFilter}
-          onClose={close_modal}
+      <View style={[styles.header, { paddingTop: insets.top, paddingBottom: 8 }]}>
+        <Image
+          source={LOGO_PATH}
+          style={styles.logo}
+          resizeMode="contain"
         />
-      </SafeAreaView>
+        <View style={styles.headerIcons}>
+          <TouchableOpacity style={styles.iconButton}>
+            <Ionicons name="add-circle-outline" size={30} color={COLORS.gray} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Menu')}>
+            <Ionicons name="menu" size={30} color={COLORS.gray} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.titleContainer}>
+        <Text style={styles.title}>Tra cứu văn bản</Text>
+      </View>
+
+      <View style={styles.searchContainer}>
+        <View style={styles.searchBar}>
+          <Ionicons name="search" size={20} color={COLORS.gray} style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Tìm tiêu đề, số hiệu"
+            placeholderTextColor={COLORS.gray}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onSubmitEditing={searchDocuments}
+          />
+          <TouchableOpacity 
+            onPress={() => setFilterVisible(true)} 
+            style={styles.filterButton}
+          >  
+            <Ionicons name="filter" size={20} color={COLORS.gray} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {renderContent()}
+
+      <DocumentsFilterModal
+        isVisible={filterVisible}
+        onApplyFilter={handleApplyFilter}
+        onClose={() => setFilterVisible(false)}
+      />
     </LinearGradient>
   );
 };
@@ -174,7 +165,36 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    height: 'auto',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 4,
+    zIndex: 10,
+  },
+  logo: {
+    width: width * 0.15,
+    height: width * 0.15,
+  },
+  headerIcons: {
+    flexDirection: 'row',
+  },
+  iconButton: {
+    padding: 8,
+    marginLeft: 8,
+  },
+  titleContainer: {
+    backgroundColor: '#E9EFF5',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
   title: {
     fontFamily: FONTS.bold,
     fontSize: SIZES.heading2,
@@ -184,7 +204,7 @@ const styles = StyleSheet.create({
   searchContainer: {
     backgroundColor: '#E9EFF5',
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingBottom: 12,
   },
   searchBar: {
     flexDirection: 'row',
@@ -250,42 +270,6 @@ const styles = StyleSheet.create({
     fontSize: SIZES.small,
     color: COLORS.gray,
   },
-  emptySection: {
-    height: 80,
-    backgroundColor: '#E9EFF5',
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  filterModalContainer: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  filterModalContent: {
-    backgroundColor: '#F5F5F5',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 20,
-    maxHeight: '90%',
-  },
-  filterHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  filterHeaderTitle: {
-    fontFamily: FONTS.regular,
-    fontSize: SIZES.body,
-    fontWeight: '600',
-    color: COLORS.black,
-  },
-  filterComponent: {
-    margin: 16,
-    borderRadius: 12,
-  }
 });
 
 export default DocumentLookupScreen;

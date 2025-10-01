@@ -19,13 +19,6 @@ class User(Base):
         LAWYER = "lawyer"
         USER = "user"
 
-    role = Column(SqlEnum(Role, native_enum=False), nullable=False, server_default=Role.USER.value)
+    role = Column(SqlEnum(Role, native_enum=False), nullable=False, default=Role.USER)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-
-    # ensure python-side default as well when creating new User objects
-    # SQLAlchemy will use this value unless overridden
-    def __init__(self, **kwargs):
-        if 'role' not in kwargs:
-            kwargs['role'] = self.Role.USER
-        super().__init__(**kwargs)
