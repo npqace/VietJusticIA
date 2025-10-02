@@ -1,32 +1,43 @@
-import React from 'react';
-import Constants from 'expo-constants';
+import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View } from 'react-native'; // SafeAreaView removed from here
-import { SafeAreaView } from 'react-native-safe-area-context'; // And imported from here
-import { COLORS } from './src/constants/styles';
+import { StyleSheet, View } from 'react-native';
 import useFontsLoader from './src/hooks/useFontsLoader';
 import * as SplashScreen from 'expo-splash-screen';
 import AppNavigator from './src/navigation/AppNavigator';
-import { AuthProvider } from './src/context/AuthContext';
+import { AuthProvider, useAuth } from './src/context/AuthContext';
 
-// Keep the splash screen visible until the fonts are loaded
+// Keep the splash screen visible while the app loads
 SplashScreen.preventAutoHideAsync();
 
-export default function App(): React.JSX.Element | null {
+const Layout = () => {
   const fontsLoaded = useFontsLoader();
+  const { isLoading } = useAuth(); // Get loading state from AuthContext
 
-  if (!fontsLoaded) {
+  useEffect(() => {
+    // Hide the splash screen once fonts are loaded AND the auth check is complete
+    if (fontsLoaded && !isLoading) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded, isLoading]);
+
+  // Render nothing until both fonts and auth status are loaded
+  // This prevents a flash of the wrong screen
+  if (!fontsLoaded || isLoading) {
     return null;
   }
 
   return (
+    <View style={styles.container}>
+      <StatusBar style="dark" />
+      <AppNavigator />
+    </View>
+  );
+};
+
+export default function App(): React.JSX.Element {
+  return (
     <AuthProvider>
-      <SafeAreaView style={styles.container}>
-        <StatusBar style="dark" />
-        <View style={styles.content}>
-          <AppNavigator />
-        </View>
-      </SafeAreaView>
+      <Layout />
     </AuthProvider>
   );
 }
@@ -34,10 +45,6 @@ export default function App(): React.JSX.Element | null {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.gradientStart,
-    // paddingTop is no longer needed as SafeAreaView handles it
-  },
-  content: {
-    flex: 1,
+    backgroundColor: '#fff', // A neutral background color
   },
 });

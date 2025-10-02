@@ -1,76 +1,78 @@
 import React from 'react';
 import { StyleSheet, Text, View, Image, Dimensions } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import CustomButton from '../components/CustomButton';
 import { COLORS, SIZES, FONTS, LOGO_PATH } from '../constants/styles';
-import { useIsFocused } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
 const WelcomeScreen = ({ navigation }: { navigation: any }) => {
-  const isFocused = useIsFocused();
-
   return (
-    <LinearGradient
-      colors={[COLORS.gradientStart, COLORS.gradientMiddle1, COLORS.gradientMiddle2, COLORS.gradientEnd]}
-      locations={[0, 0.44, 0.67, 1]}
-      style={styles.container}
-    >
-      <View style={styles.logoContainer}>
-        <Image 
-          source={LOGO_PATH} 
-          style={styles.logo as any}
-          resizeMode="contain"
-        />
-      </View>
-      
-      <View 
-        key={`welcome-${isFocused}`} 
-        style={styles.contentContainer}
+    <SafeAreaView style={styles.safeArea}>
+      <LinearGradient
+        colors={[COLORS.gradientStart, COLORS.gradientMiddle1, COLORS.gradientMiddle2, COLORS.gradientEnd]}
+        locations={[0, 0.44, 0.67, 1]}
+        style={styles.container}
       >
-        <Text style={styles.titleText}>Welcome to</Text>
-        <Text style={styles.appNameText}>LawSphere</Text>
+        <View style={styles.logoContainer}>
+          <Image 
+            source={LOGO_PATH} 
+            style={styles.logo as any}
+            resizeMode="contain"
+          />
+        </View>
         
-        <Text style={styles.descriptionText}>
-          Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed sodales fringilla diam eget ornare.
-        </Text>
-      </View>
+        <View style={styles.contentContainer}>
+          <Text style={styles.titleText}>Welcome to</Text>
+          <Text style={styles.appNameText}>LawSphere</Text>
+          
+          <Text style={styles.descriptionText}>
+            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed sodales fringilla diam eget ornare.
+          </Text>
+        </View>
 
-      <View style={styles.buttonContainer}>
-        <CustomButton 
-          title="Đăng nhập" 
-          onPress={() => navigation.navigate('Login')}
-          buttonStyle={styles.loginButton}
-          textStyle={styles.loginButtonText}
-        />
-        
-        <CustomButton 
-          title="Đăng ký" 
-          onPress={() => navigation.navigate('Signup')}
-          buttonStyle={styles.registerButton}
-          textStyle={styles.registerButtonText}
-        />
-      </View>
-    </LinearGradient>
+        <View style={styles.buttonContainer}>
+          <CustomButton 
+            title="Đăng nhập" 
+            onPress={() => navigation.navigate('Login')}
+            buttonStyle={styles.loginButton}
+            textStyle={styles.loginButtonText}
+          />
+          
+          <CustomButton 
+            title="Đăng ký" 
+            onPress={() => navigation.navigate('Signup')}
+            buttonStyle={styles.registerButton}
+            textStyle={styles.registerButtonText}
+          />
+        </View>
+      </LinearGradient>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    // backgroundColor: COLORS.white, // Set a background color for the safe area itself
+  },
   container: {
     flex: 1,
     paddingHorizontal: 24,
+    justifyContent: 'center', // Better centering
   },
   logoContainer: {
     alignItems: 'center',
-    marginTop: 64,
+    // Removed marginTop to allow flexbox to center vertically
   },
   logo: {
     width: width * 0.5,
     height: width * 0.5,
-    
   },
   contentContainer: {
     alignItems: 'center',
+    marginVertical: 48, // Add vertical margin
   },
   titleText: {
     fontFamily: FONTS.regular,
@@ -94,8 +96,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   buttonContainer: {
-    marginTop: 'auto',
-    marginBottom: 40,
     width: '100%',
   },
   loginButton: {
@@ -115,4 +115,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default WelcomeScreen; 
+export default WelcomeScreen;

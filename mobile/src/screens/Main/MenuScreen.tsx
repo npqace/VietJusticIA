@@ -7,22 +7,21 @@ import {
   Image,
   ScrollView,
   Dimensions,
-  SafeAreaView
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SIZES, FONTS, LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../context/AuthContext'; // Import useAuth
+import { useAuth } from '../../context/AuthContext';
 
 const { width } = Dimensions.get('window');
-const height = Dimensions.get('window').height;
 
 const MenuScreen = ({ navigation }: { navigation: any }) => {
-  const { user, logout } = useAuth(); // Get user and logout from context
+  const { user, logout } = useAuth();
+  const insets = useSafeAreaInsets();
 
-  // Menu options
   const menuOptions = [
-    { id: 'chat', title: 'Chat', icon: 'chatbox-ellipses-outline' },
+    // { id: 'chat', title: 'Chat', icon: 'chatbox-ellipses-outline' },
     { id: 'documents', title: 'Tra cứu văn bản', icon: 'document-text-outline' },
     { id: 'procedures', title: 'Tra cứu thủ tục hành chính', icon: 'list-outline' },
     { id: 'lawyer', title: 'Liên hệ luật sư', icon: 'person-outline' },
@@ -30,7 +29,6 @@ const MenuScreen = ({ navigation }: { navigation: any }) => {
   ];
 
   const handleMenuOption = (optionId: string) => {
-    console.log(`Selected option: ${optionId}`);
     if (optionId === 'chat') navigation.navigate('Chat');
     if (optionId === 'help') navigation.navigate('FAQs');
     if (optionId === 'documents') navigation.navigate('DocumentLookup');
@@ -40,7 +38,6 @@ const MenuScreen = ({ navigation }: { navigation: any }) => {
 
   const handleLogout = async () => {
     await logout();
-    // Navigation will be handled automatically by AppNavigator
   };
 
   const handleClose = () => {
@@ -53,65 +50,62 @@ const MenuScreen = ({ navigation }: { navigation: any }) => {
       locations={[0, 0.44, 0.67, 1]}
       style={styles.container}
     >
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <Image
-            source={LOGO_PATH}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-            <Ionicons name="close" size={30} color={COLORS.gray} />
+      <View style={[styles.header, { paddingTop: insets.top, paddingBottom: 8 }]}>
+        <Image
+          source={LOGO_PATH}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+        <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+          <Ionicons name="close" size={30} color={COLORS.gray} />
+        </TouchableOpacity>
+      </View>
+      
+      <ScrollView style={styles.content}>
+        {/* User Profile */}
+        <View style={styles.profileContainer}>
+          <View style={styles.profileImageContainer}>
+            <Image
+              source={LOGO_PATH} // Placeholder
+              style={styles.profileImage}
+              resizeMode="cover"
+            />
+          </View>
+          <View style={styles.profileInfo}>
+            <Text style={styles.profileName}>{user?.full_name || 'User'}</Text>
+            <Text style={styles.profileEmail}>{user?.email || ''}</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+          >
+            <Ionicons name="log-out-outline" size={30} color={COLORS.primary} />
           </TouchableOpacity>
         </View>
         
-        <View style={styles.content}>
-          {/* User Profile */}
-          <View style={styles.profileContainer}>
-            <View style={styles.profileImageContainer}>
-              <Image
-                source={LOGO_PATH} // Placeholder
-                style={styles.profileImage}
-                resizeMode="cover"
-              />
-            </View>
-            <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{user?.full_name || 'User'}</Text>
-              <Text style={styles.profileEmail}>{user?.email || ''}</Text>
-            </View>
+        {/* Menu Options */}
+        <View style={styles.menuContainer}>
+          {menuOptions.map((option) => (
             <TouchableOpacity
-              style={styles.logoutButton}
-              onPress={handleLogout} // Use the new logout handler
+              key={option.id}
+              style={styles.menuOption}
+              onPress={() => handleMenuOption(option.id)}
             >
-              <Ionicons name="log-out-outline" size={30} color={COLORS.primary} />
+              <Ionicons name={option.icon as any} size={24} color={COLORS.black} style={styles.menuIcon} />
+              <Text style={styles.menuText}>{option.title}</Text>
             </TouchableOpacity>
-          </View>
-          
-          {/* Menu Options */}
-          <View style={styles.menuContainer}>
-            {menuOptions.map((option) => (
-              <TouchableOpacity
-                key={option.id}
-                style={styles.menuOption}
-                onPress={() => handleMenuOption(option.id)}
-              >
-                <Ionicons name={option.icon as any} size={24} color={COLORS.black} style={styles.menuIcon} />
-                <Text style={styles.menuText}>{option.title}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          
-          {/* Chat History */}
-          <View style={styles.chatHistoryContainer}>
-            <Text style={styles.chatHistoryTitle}>Lịch sử trò chuyện</Text>
-            <View style={styles.separator} />
-            <ScrollView style={styles.chatHistory}>
-              {/* Chat history items will go here */}
-            </ScrollView>
-          </View>
-
+          ))}
         </View>
-      </SafeAreaView>
+        
+        {/* Chat History */}
+        <View style={styles.chatHistoryContainer}>
+          <Text style={styles.chatHistoryTitle}>Lịch sử trò chuyện</Text>
+          <View style={styles.separator} />
+          <ScrollView style={styles.chatHistory}>
+            {/* Chat history items will go here */}
+          </ScrollView>
+        </View>
+      </ScrollView>
     </LinearGradient>
   );
 };
@@ -121,16 +115,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  safeArea: {
-    flex: 1,
-  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#fff',
     paddingHorizontal: 16,
-    height: height * 0.07,
+    height: 'auto',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 4,
+    zIndex: 10,
   },
   logo: {
     width: width * 0.15,

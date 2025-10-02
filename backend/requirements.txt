@@ -12,3 +12,14 @@ sqlalchemy
 alembic
 psycopg2-binary
 python-multipart
+pymongo
+tiktoken
+
+# Added for RAG Implementation
+langchain-google-genai
+langchain-community
+sentence-transformers
+faiss-cpu
+pyvi
+rank_bm25
+qdrant-client

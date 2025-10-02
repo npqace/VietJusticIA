@@ -12,23 +12,40 @@ import {
   Dimensions,
   ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SIZES, FONTS, LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
-import api from '../../api'; // Import the api instance
+import api from '../../api';
+import Markdown from 'react-native-markdown-display';
+
+// --- Type Definitions ---
+interface Source {
+  title: string;
+  document_number: string;
+  source_url: string;
+  page_content_preview: string;
+}
+
+interface ChatMessage {
+  id: number;
+  text: string;
+  sender: 'user' | 'bot';
+  sources?: Source[];
+}
 
 const { width } = Dimensions.get('window');
 const height = Dimensions.get('window').height;
 
 const ChatScreen = ({ navigation }: { navigation: any }) => {
+  const insets = useSafeAreaInsets();
   const [message, setMessage] = useState('');
-  const [chatHistory, setChatHistory] = useState<Array<{ id: number; text: string; sender: 'user' | 'bot' }>>([
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
     { id: 1, text: 'LawSphere có thể giúp gì cho bạn?', sender: 'bot' }
   ]);
-  const [isTyping, setIsTyping] = useState(false); // For the typing indicator
+  const [isTyping, setIsTyping] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // Auto-scroll to bottom when chat history changes
   useEffect(() => {
     setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
@@ -37,36 +54,23 @@ const ChatScreen = ({ navigation }: { navigation: any }) => {
 
   const sendMessage = async () => {
     if (message.trim() === '') return;
-
     const userMessage = message;
-    
-    // Add user message to chat
-    setChatHistory(prev => [...prev, {
-        id: prev.length + 1,
-        text: userMessage,
-        sender: 'user' as const
-    }]);
+    setChatHistory(prev => [...prev, { id: prev.length + 1, text: userMessage, sender: 'user' as const }]);
     setMessage('');
     setIsTyping(true);
-
     try {
-      // Call the real API endpoint
       const response = await api.post('/chat/query', { message: userMessage });
-      const botResponseText = response.data.response;
-
+      const botResponseData = response.data;
+      
       setChatHistory(prev => [...prev, {
         id: prev.length + 1,
-        text: botResponseText,
-        sender: 'bot' as const
+        text: botResponseData.response,
+        sender: 'bot' as const,
+        sources: botResponseData.sources,
       }]);
-
     } catch (error) {
       console.error("Failed to send message:", error);
-      setChatHistory(prev => [...prev, {
-        id: prev.length + 1,
-        text: 'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại.',
-        sender: 'bot' as const
-      }]);
+      setChatHistory(prev => [...prev, { id: prev.length + 1, text: 'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại.', sender: 'bot' as const }]);
     } finally {
       setIsTyping(false);
     }
@@ -78,7 +82,7 @@ const ChatScreen = ({ navigation }: { navigation: any }) => {
       locations={[0, 0.44, 0.67, 1]}
       style={styles.container}
     >
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top }]}>
         <Image
           source={LOGO_PATH}
           style={styles.logo}
@@ -105,34 +109,66 @@ const ChatScreen = ({ navigation }: { navigation: any }) => {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {chatHistory.map((chat) => (
-            <View 
-              key={chat.id} 
-              style={[
-                styles.messageContainer, 
-                { 
-                  alignSelf: chat.sender === 'user' ? 'flex-end' : 'flex-start',
-                  backgroundColor: chat.sender === 'user' ? COLORS.primary : COLORS.buttonLight,
-                }
-              ]}
-            >
-              <Text 
-                style={[
-                  styles.messageText, 
-                  { color: chat.sender === 'user' ? COLORS.white : COLORS.black }
-                ]}
-              >
-                {chat.text}
-              </Text>
-            </View>
-          ))}
+          {chatHistory.map((chat) => {
+            const markdownStyle = {
+              body: {
+                color: chat.sender === 'user' ? COLORS.white : COLORS.black,
+                fontFamily: FONTS.regular,
+                fontSize: SIZES.body,
+              },
+              strong: {
+                fontFamily: FONTS.bold,
+              },
+              bullet_list: {
+                marginBottom: 8,
+              },
+              list_item: {
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginBottom: 4,
+              },
+            };
+
+            return (
+              <View key={chat.id}>
+                <View 
+                  style={[
+                    styles.messageContainer, 
+                    { 
+                      alignSelf: chat.sender === 'user' ? 'flex-end' : 'flex-start',
+                      backgroundColor: chat.sender === 'user' ? COLORS.primary : COLORS.buttonLight,
+                    }
+                  ]}
+                >
+                  <Markdown style={markdownStyle}>
+                    {chat.text}
+                  </Markdown>
+                </View>
+
+                {/* Render sources if they exist for a bot message */}
+                {chat.sender === 'bot' && chat.sources && chat.sources.length > 0 && (
+                  <View style={styles.sourcesContainer}>
+                    <Text style={styles.sourcesTitle}>Nguồn tham khảo:</Text>
+                    {chat.sources.map((source, index) => (
+                      <TouchableOpacity key={index} style={styles.sourceItem}>
+                        <Ionicons name="document-text-outline" size={16} color={COLORS.primary} />
+                        <Text style={styles.sourceText} numberOfLines={1} ellipsizeMode="tail">
+                          {source.title}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )
+          })}
           {isTyping && (
             <View style={[styles.messageContainer, { alignSelf: 'flex-start', backgroundColor: COLORS.buttonLight }]}>
               <ActivityIndicator size="small" color={COLORS.primary} />
             </View>
           )}
         </ScrollView>
-        <View style={styles.inputWrapper}>
+        <View style={[styles.inputWrapper, { paddingBottom: insets.bottom > 0 ? insets.bottom : 20 }]}>
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
@@ -167,7 +203,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#fff',
     paddingHorizontal: 16,
-    height: height * 0.07,
+    paddingBottom: 8,
+    height: 'auto',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -204,10 +241,36 @@ const styles = StyleSheet.create({
     shadowRadius: 1,
     elevation: 1,
   },
-  messageText: {
+  sourcesContainer: {
+    marginTop: 4,
+    marginBottom: 8,
+    marginLeft: 16,
+    alignSelf: 'flex-start',
+    maxWidth: width * 0.8,
+  },
+  sourcesTitle: {
+    fontFamily: FONTS.semiBold,
+    fontSize: SIZES.small,
+    color: COLORS.black,
+    marginBottom: 6,
+  },
+  sourceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 6,
+    borderColor: COLORS.lightGray,
+    borderWidth: 1,
+  },
+  sourceText: {
     fontFamily: FONTS.regular,
-    fontSize: SIZES.body,
-    textAlign: 'left',
+    fontSize: SIZES.small,
+    color: COLORS.black,
+    marginLeft: 8,
+    flexShrink: 1,
   },
   inputWrapper: {
     paddingHorizontal: 8,
