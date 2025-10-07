@@ -13,6 +13,7 @@ import { COLORS, SIZES, FONTS,  LOGO_PATH } from '../../constants/styles';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import LegalConsultantTab from '../../components/Legal/LegalConsultantTab';
+import Header from '../../components/Header';
 
 const { width } = Dimensions.get('window');
 
@@ -39,21 +40,7 @@ const LawyerScreen = ({ navigation }: { navigation: any }) => {
       locations={[0, 0.44, 0.67, 1]}
       style={styles.container}
     >
-      <View style={[styles.header, { paddingTop: insets.top, paddingBottom: 8 }]}>
-        <Image
-          source={LOGO_PATH}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-        <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.iconButton}>
-            <Ionicons name="add-circle-outline" size={30} color={COLORS.gray} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Menu')}>
-            <Ionicons name="menu" size={30} color={COLORS.gray} />
-          </TouchableOpacity>
-        </View>
-      </View>
+      <Header title="Liên hệ luật sư" showAddChat={true} />
 
       <View style={styles.tabsContainer}>
         {tabs.map((tab) => (
@@ -116,7 +103,7 @@ const styles = StyleSheet.create({
   },
   tabsContainer: {
     flexDirection: 'row',
-    paddingVertical: 8,
+    paddingVertical: 16,
     paddingHorizontal: 16,
     borderRadius: 8,
     marginHorizontal: 8,
@@ -141,7 +128,7 @@ const styles = StyleSheet.create({
   },
   contentScrollView: {
     flex: 1,
-    padding: 8,
+    // padding: 8,
     paddingHorizontal: 16,
   },
 });

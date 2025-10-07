@@ -9,7 +9,9 @@ import {
   Platform,
   Image,
   Dimensions,
-  Alert
+  Alert,
+  Keyboard,
+  TouchableWithoutFeedback
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -56,6 +58,7 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
         locations={[0, 0.44, 0.67, 1]}
         style={styles.container}
       >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboardAvoidView}
@@ -139,6 +142,7 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
+        </TouchableWithoutFeedback>
       </LinearGradient>
     </SafeAreaView>
   );

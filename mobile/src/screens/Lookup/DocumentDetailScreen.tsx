@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { ScrollView, View, Text, StyleSheet, Dimensions, TouchableOpacity, Image } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import RenderHTML from 'react-native-render-html';
-import { COLORS, FONTS, SIZES, LOGO_PATH } from '../../constants/styles';
+import { COLORS, FONTS, SIZES } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
+import Header from '../../components/Header';
 
 const { width } = Dimensions.get('window');
-const height = Dimensions.get('window').height;
 
 const tagsStyles = {
   p: { marginBottom: 10, lineHeight: 24, fontSize: SIZES.body, fontFamily: FONTS.regular, color: COLORS.black },
@@ -29,12 +29,12 @@ const classesStyles = {
 };
 
 const metadataFields = [
-  { key: 'tieu_de', label: 'Tiêu đề' },
-  { key: 'so_hieu', label: 'Số hiệu' },
-  { key: 'loai_van_ban', label: 'Loại văn bản' },
-  { key: 'noi_ban_hanh', label: 'Nơi ban hành' },
-  { key: 'ngay_ban_hanh', label: 'Ngày ban hành' },
-  { key: 'tinh_trang', label: 'Tình trạng' },
+  { key: 'title', label: 'Tiêu đề' },
+  { key: 'document_number', label: 'Số hiệu' },
+  { key: 'document_type', label: 'Loại văn bản' },
+  { key: 'issuer', label: 'Nơi ban hành' },
+  { key: 'issue_date', label: 'Ngày ban hành' },
+  { key: 'status', label: 'Tình trạng' },
 ];
 
 const renderers = {
@@ -58,7 +58,6 @@ const renderers = {
 };
 
 const DocumentDetailScreen = ({ route, navigation }: { route: any, navigation: any }) => {
-  const insets = useSafeAreaInsets();
   const { document, documentsData } = route.params;
   const [activeTab, setActiveTab] = useState('content');
 
@@ -123,21 +122,7 @@ const DocumentDetailScreen = ({ route, navigation }: { route: any, navigation: a
 
   return (
     <View style={{ flex: 1, backgroundColor: '#fff' }}>
-      <View style={[styles.header, { paddingTop: insets.top, paddingBottom: 8 }]}>
-        <Image
-          source={LOGO_PATH}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-        <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.iconButton}>
-            <Ionicons name="add-circle-outline" size={30} color={COLORS.gray} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Menu')}>
-            <Ionicons name="menu" size={30} color={COLORS.gray} />
-          </TouchableOpacity>
-        </View>
-      </View>
+            <Header title="Chi tiết văn bản" showAddChat={true} />
 
       <View style={styles.tabBar}>
         <TouchableOpacity

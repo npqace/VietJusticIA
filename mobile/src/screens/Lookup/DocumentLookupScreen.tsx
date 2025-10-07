@@ -1,20 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
   View,
   TextInput,
   TouchableOpacity,
-  ScrollView,
-  Image,
-  Dimensions
+  FlatList,
+  Dimensions,
+  ActivityIndicator,
+  Keyboard,
+  TouchableWithoutFeedback
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, SIZES, FONTS, LOGO_PATH } from '../../constants/styles';
+import { COLORS, SIZES, FONTS } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
 import DocumentsFilterModal from '../../components/Filter/DocumentsFilterModal';
 import LoadingIndicator from '../../components/LoadingIndicator';
+import Header from '../../components/Header';
+import api from '../../api';
+import { debounce } from 'lodash';
 
 const { width } = Dimensions.get('window');
 
@@ -27,41 +32,74 @@ export interface FilterState {
   location: string;
 }
 
-import documentsData from '../../../assets/data/documents.json';
+// Define the structure of a document based on the new API response
+interface Document {
+  _id: string;
+  title: string;
+  issue_date: string;
+  status: string;
+  // Add other fields from your MongoDB document as needed
+}
 
 const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
-  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
-  const [documents, setDocuments] = useState<Array<{ 
-    id: string; 
-    tieu_de: string; 
-    ngay_ban_hanh: string; 
-    tinh_trang: string; 
-    html_content: string;
-  }>>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [filterVisible, setFilterVisible] = useState(false);
 
-  useEffect(() => {
-    setTimeout(() => {
-      setDocuments(documentsData);
-      setLoading(false);
-    }, 300);
-  }, []);
-
-  const searchDocuments = () => {
-    if (searchQuery.trim() !== '') {
-      const filteredDocuments = documentsData.filter((doc) =>
-        doc.tieu_de.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setDocuments(filteredDocuments);
+  const fetchDocuments = async (searchText = '', pageNum = 1, isNewSearch = false) => {
+    if (isNewSearch) {
+      setLoading(true);
+      setDocuments([]); // Clear documents for a new search
     } else {
-      setDocuments(documentsData);
+      setLoadingMore(true);
+    }
+
+    try {
+      const response = await api.get('/api/v1/documents', {
+        params: {
+          search: searchText,
+          page: pageNum,
+          page_size: 20
+        }
+      });
+      
+      const { documents: newDocs, total_pages } = response.data as { documents: Document[], total_pages: number };
+
+      setDocuments(prevDocs => isNewSearch ? newDocs : [...prevDocs, ...newDocs]);
+      setTotalPages(total_pages);
+      setPage(pageNum);
+
+    } catch (error) {
+      console.error("Failed to fetch documents:", error);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  // Debounce the search handler to avoid excessive API calls
+  const debouncedSearch = useCallback(debounce(fetchDocuments, 500), []);
+
+  useEffect(() => {
+    // Initial fetch or when search query changes
+    debouncedSearch(searchQuery, 1, true);
+  }, [searchQuery]);
+
+
+  const handleLoadMore = () => {
+    if (!loadingMore && page < totalPages) {
+      fetchDocuments(searchQuery, page + 1);
     }
   };
 
   const handleApplyFilter = (filters: FilterState) => {
     console.log('Applied filters:', filters);
+    // Here you would refetch documents with filter parameters
+    // e.g., fetchDocuments(searchQuery, 1, true, filters);
     setFilterVisible(false);
   };
 
@@ -69,40 +107,31 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
     switch (status) {
       case 'Còn hiệu lực': return '#22C55E';
       case 'Hết hiệu lực': return '#EF4444';
-      case 'Không xác định': return '#F59E0B';
-      case 'Không còn phù hợp': return '#6B7280';
       default: return COLORS.gray;
     }
   };
 
-  const renderContent = () => {
-    if (loading) {
-      return <LoadingIndicator />;
-    }
-    return (
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {documents.map((doc) => (
-          <TouchableOpacity 
-            key={doc.id} 
-            style={styles.documentItem}
-            onPress={() => navigation.navigate('DocumentDetail', { document: doc, documentsData: documentsData })}
-          >
-            <View style={styles.documentContent}>
-              <Text style={styles.documentTitle}>{doc.tieu_de}</Text>
-              <Text style={styles.documentDate}>Ban hành: {doc.ngay_ban_hanh}</Text>
-              <Text style={[styles.documentStatus, { color: getStatusColor(doc.tinh_trang) }]}>
-                Tình trạng: {doc.tinh_trang}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color={COLORS.gray} />
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    );
+  const renderFooter = () => {
+    if (!loadingMore) return null;
+    return <ActivityIndicator style={{ marginVertical: 20 }} size="large" color={COLORS.primary} />;
   };
+
+  const renderItem = ({ item }: { item: Document }) => (
+    <TouchableOpacity 
+      key={item._id} 
+      style={styles.documentItem}
+      onPress={() => navigation.navigate('DocumentDetail', { document: item })}
+    >
+      <View style={styles.documentContent}>
+        <Text style={styles.documentTitle}>{item.title}</Text>
+        <Text style={styles.documentDate}>Ban hành: {item.issue_date}</Text>
+        <Text style={[styles.documentStatus, { color: getStatusColor(item.status) }]}>
+          Tình trạng: {item.status}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={24} color={COLORS.gray} />
+    </TouchableOpacity>
+  );
 
   return (
     <LinearGradient
@@ -110,53 +139,51 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
       locations={[0, 0.44, 0.67, 1]}
       style={styles.container}
     >
-      <View style={[styles.header, { paddingTop: insets.top, paddingBottom: 8 }]}>
-        <Image
-          source={LOGO_PATH}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-        <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.iconButton}>
-            <Ionicons name="add-circle-outline" size={30} color={COLORS.gray} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Menu')}>
-            <Ionicons name="menu" size={30} color={COLORS.gray} />
-          </TouchableOpacity>
+      <Header title="Tra cứu văn bản" showAddChat={true} />
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <View style={styles.contentContainer}>
+
+        <View style={styles.searchContainer}>
+          <View style={styles.searchBar}>
+            <Ionicons name="search" size={20} color={COLORS.gray} style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Tìm tiêu đề, số hiệu"
+              placeholderTextColor={COLORS.gray}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            <TouchableOpacity 
+              onPress={() => setFilterVisible(true)} 
+              style={styles.filterButton}
+            >  
+              <Ionicons name="filter" size={20} color={COLORS.gray} />
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
 
-      <View style={styles.titleContainer}>
-        <Text style={styles.title}>Tra cứu văn bản</Text>
-      </View>
-
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color={COLORS.gray} style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Tìm tiêu đề, số hiệu"
-            placeholderTextColor={COLORS.gray}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            onSubmitEditing={searchDocuments}
+        {loading && documents.length === 0 ? (
+          <LoadingIndicator />
+        ) : (
+          <FlatList
+            data={documents}
+            renderItem={renderItem}
+            keyExtractor={(item) => item._id}
+            contentContainerStyle={styles.scrollContent}
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={renderFooter}
+            showsVerticalScrollIndicator={false}
           />
-          <TouchableOpacity 
-            onPress={() => setFilterVisible(true)} 
-            style={styles.filterButton}
-          >  
-            <Ionicons name="filter" size={20} color={COLORS.gray} />
-          </TouchableOpacity>
-        </View>
+        )}
+
+        <DocumentsFilterModal
+          isVisible={filterVisible}
+          onApplyFilter={handleApplyFilter}
+          onClose={() => setFilterVisible(false)}
+        />
       </View>
-
-      {renderContent()}
-
-      <DocumentsFilterModal
-        isVisible={filterVisible}
-        onApplyFilter={handleApplyFilter}
-        onClose={() => setFilterVisible(false)}
-      />
+      </TouchableWithoutFeedback>
     </LinearGradient>
   );
 };
@@ -165,46 +192,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    height: 'auto',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 4,
-    zIndex: 10,
-  },
-  logo: {
-    width: width * 0.15,
-    height: width * 0.15,
-  },
-  headerIcons: {
-    flexDirection: 'row',
-  },
-  iconButton: {
-    padding: 8,
-    marginLeft: 8,
-  },
-  titleContainer: {
-    backgroundColor: '#E9EFF5',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  title: {
-    fontFamily: FONTS.bold,
-    fontSize: SIZES.heading2,
-    color: COLORS.black,
-    textAlign: 'center',
+  contentContainer: {
+    flex: 1,
   },
   searchContainer: {
-    backgroundColor: '#E9EFF5',
+    // backgroundColor: '#E9EFF5',
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingVertical: 12,
   },
   searchBar: {
     flexDirection: 'row',
@@ -230,11 +224,12 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   filterButton: {
-    padding: 4,
+    padding: 4
   },
   scrollContent: {
     flexGrow: 1,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   documentItem: {
     flexDirection: 'row',
@@ -268,7 +263,6 @@ const styles = StyleSheet.create({
   documentStatus: {
     fontFamily: FONTS.regular,
     fontSize: SIZES.small,
-    color: COLORS.gray,
   },
 });
 

@@ -7,18 +7,20 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
-  Dimensions
+  Dimensions,
+  Keyboard,
+  TouchableWithoutFeedback
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, SIZES, FONTS, LOGO_PATH } from '../../constants/styles';
+import { COLORS, SIZES, FONTS } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
 import ProceduresFilterModal, { ProceduresFilterState } from '../../components/Filter/ProceduresFilterModal';
+import Header from '../../components/Header';
 
 const { width } = Dimensions.get('window');
 
 const ProcedureLookupScreen = ({ navigation }: { navigation: any }) => {
-  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [procedures, setProcedures] = useState<Array<{ 
     id: number;
@@ -47,76 +49,63 @@ const ProcedureLookupScreen = ({ navigation }: { navigation: any }) => {
   };
 
   return (
-    <LinearGradient
-      colors={[COLORS.gradientStart, COLORS.gradientMiddle1, COLORS.gradientMiddle2, COLORS.gradientEnd]}
-      locations={[0, 0.44, 0.67, 1]}
-      style={styles.container}
-    >
-      <View style={[styles.header, { paddingTop: insets.top, paddingBottom: 8 }]}>
-        <Image
-          source={LOGO_PATH}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-        <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.iconButton}>
-            <Ionicons name="add-circle-outline" size={30} color={COLORS.gray} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Menu')}>
-            <Ionicons name="menu" size={30} color={COLORS.gray} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={styles.titleContainer}>
-        <Text style={styles.title}>Thủ tục hành chính</Text>
-      </View>
-
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color={COLORS.gray} style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Nhập từ khóa tìm kiếm"
-            placeholderTextColor={COLORS.gray}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            onSubmitEditing={searchProcedures}
-          />
-          <TouchableOpacity 
-            onPress={() => setFilterVisible(true)} 
-            style={styles.filterButton}
-          >  
-            <Ionicons name="filter" size={20} color={COLORS.gray} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[COLORS.gradientStart, COLORS.gradientMiddle1, COLORS.gradientMiddle2, COLORS.gradientEnd]}
+        locations={[0, 0.44, 0.67, 1]}
+        style={styles.container}
       >
-        {procedures.map((proc) => (
-          <TouchableOpacity 
-            key={proc.id} 
-            style={styles.documentItem}
-          >
-            <View style={styles.documentContent}>
-              <Text style={styles.documentTitle}>{proc.title}</Text>
-              <Text style={styles.documentInfo}>Cơ quan ban hành: {proc.issuingAgency}</Text>
-              <Text style={styles.documentInfo}>Cơ quan thực hiện: {proc.implementingAgency}</Text>
-              <Text style={styles.documentInfo}>Cấp thực hiện: {proc.implementationLevel}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color={COLORS.gray} />
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-      <ProceduresFilterModal
-        isVisible={filterVisible}
-        onApplyFilter={handleApplyFilter}
-        onClose={() => setFilterVisible(false)}
-      />
+                <Header title="Thủ tục hành chính" showAddChat={true} />
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <View style={{ flex: 1 }}>
+        <View style={styles.searchContainer}>
+          <View style={styles.searchBar}>
+            <Ionicons name="search" size={20} color={COLORS.gray} style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Nhập từ khóa tìm kiếm"
+              placeholderTextColor={COLORS.gray}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onSubmitEditing={searchProcedures}
+            />
+            <TouchableOpacity 
+              onPress={() => setFilterVisible(true)} 
+              style={styles.filterButton}
+            >  
+              <Ionicons name="filter" size={20} color={COLORS.gray} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {procedures.map((proc) => (
+            <TouchableOpacity 
+              key={proc.id} 
+              style={styles.documentItem}
+            >
+              <View style={styles.documentContent}>
+                <Text style={styles.documentTitle}>{proc.title}</Text>
+                <Text style={styles.documentInfo}>Cơ quan ban hành: {proc.issuingAgency}</Text>
+                <Text style={styles.documentInfo}>Cơ quan thực hiện: {proc.implementingAgency}</Text>
+                <Text style={styles.documentInfo}>Cấp thực hiện: {proc.implementationLevel}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={24} color={COLORS.gray} />
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        <ProceduresFilterModal
+          isVisible={filterVisible}
+          onApplyFilter={handleApplyFilter}
+          onClose={() => setFilterVisible(false)}
+        />
+        </View>
+      </TouchableWithoutFeedback>
     </LinearGradient>
+  </View>
   );
 };
 
@@ -161,9 +150,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   searchContainer: {
-    backgroundColor: '#E9EFF5',
+    // backgroundColor: '#E9EFF5',
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingVertical: 12,
   },
   searchBar: {
     flexDirection: 'row',

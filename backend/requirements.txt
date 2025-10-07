@@ -23,3 +23,5 @@ faiss-cpu
 pyvi
 rank_bm25
 qdrant-client
+langchain-huggingface
+beautifulsoup4

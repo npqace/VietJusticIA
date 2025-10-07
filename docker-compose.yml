@@ -63,6 +63,13 @@ services:
       - huggingface_cache:/home/appuser/.cache/huggingface/hub # Persist model cache
     networks:
       - vietjusticia_network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
   # Qdrant Vector Database Service (NEW)
   qdrant:

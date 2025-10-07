@@ -12,8 +12,8 @@ import SignupScreen from '../screens/Auth/SignupScreen';
 import MenuScreen from '../screens/Main/MenuScreen';
 import HelpScreen from '../screens/Support/HelpScreen';
 import LawyerScreen from '../screens/Support/LawyerScreen';
-import DocumentLookupScreen from '../screens/Lookup/DocumentLookup';
-import ProcedureLookupScreen from '../screens/Lookup/ProcedureLookup';
+import DocumentLookupScreen from '../screens/Lookup/DocumentLookupScreen';
+import ProcedureLookupScreen from '../screens/Lookup/ProcedureLookupScreen';
 import DocumentDetailScreen from '../screens/Lookup/DocumentDetailScreen';
 import { COLORS } from '../constants/styles';
 

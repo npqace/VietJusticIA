@@ -11,6 +11,9 @@ import {
   Image,
   Dimensions,
   ActivityIndicator,
+  Keyboard,
+  TouchableWithoutFeedback,
+  Animated
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -37,6 +40,61 @@ interface ChatMessage {
 const { width } = Dimensions.get('window');
 const height = Dimensions.get('window').height;
 
+const TypingIndicator = () => {
+  const dot1 = useRef(new Animated.Value(0)).current;
+  const dot2 = useRef(new Animated.Value(0)).current;
+  const dot3 = useRef(new Animated.Value(0)).current;
+
+  const animateDot = (dot: Animated.Value, delay: number) => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.delay(delay),
+        Animated.timing(dot, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(dot, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.delay(600 - delay),
+      ]),
+    ).start();
+  };
+
+  useEffect(() => {
+    animateDot(dot1, 0);
+    animateDot(dot2, 150);
+    animateDot(dot3, 300);
+  }, []);
+
+  return (
+    <View style={typingIndicatorStyles.container}>
+      <Animated.View style={[typingIndicatorStyles.dot, { opacity: dot1 }]} />
+      <Animated.View style={[typingIndicatorStyles.dot, { opacity: dot2 }]} />
+      <Animated.View style={[typingIndicatorStyles.dot, { opacity: dot3 }]} />
+    </View>
+  );
+};
+
+const typingIndicatorStyles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 20,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.primary,
+    marginHorizontal: 2,
+  },
+});
+
 const ChatScreen = ({ navigation }: { navigation: any }) => {
   const insets = useSafeAreaInsets();
   const [message, setMessage] = useState('');
@@ -44,13 +102,34 @@ const ChatScreen = ({ navigation }: { navigation: any }) => {
     { id: 1, text: 'LawSphere có thể giúp gì cho bạn?', sender: 'bot' }
   ]);
   const [isTyping, setIsTyping] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      () => {
+        setIsKeyboardVisible(true);
+      }
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => {
+        setIsKeyboardVisible(false);
+      }
+    );
+
+    return () => {
+      keyboardDidHideListener.remove();
+      keyboardDidShowListener.remove();
+    };
+  }, []);
 
   useEffect(() => {
     setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
     }, 100);
-  }, [chatHistory, isTyping]);
+  }, [chatHistory, isTyping, isKeyboardVisible]);
 
   const sendMessage = async () => {
     if (message.trim() === '') return;
@@ -97,17 +176,16 @@ const ChatScreen = ({ navigation }: { navigation: any }) => {
           </TouchableOpacity>
         </View>
       </View>
-
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardAvoidView}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? height * 0.07 : 0}
       >
         <ScrollView
           ref={scrollViewRef}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          onScrollBeginDrag={Keyboard.dismiss}
         >
           {chatHistory.map((chat) => {
             const markdownStyle = {
@@ -164,11 +242,11 @@ const ChatScreen = ({ navigation }: { navigation: any }) => {
           })}
           {isTyping && (
             <View style={[styles.messageContainer, { alignSelf: 'flex-start', backgroundColor: COLORS.buttonLight }]}>
-              <ActivityIndicator size="small" color={COLORS.primary} />
+              <TypingIndicator />
             </View>
           )}
         </ScrollView>
-        <View style={[styles.inputWrapper, { paddingBottom: insets.bottom > 0 ? insets.bottom : 20 }]}>
+        <View style={[styles.inputWrapper, { paddingBottom: isKeyboardVisible ? 10 : (insets.bottom > 0 ? insets.bottom : 20) }]}>
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
@@ -232,7 +310,8 @@ const styles = StyleSheet.create({
   },
   messageContainer: {
     borderRadius: 16,
-    padding: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     marginVertical: 8,
     maxWidth: width * 0.8,
     shadowColor: '#000',
