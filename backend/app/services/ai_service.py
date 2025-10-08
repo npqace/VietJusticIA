@@ -217,7 +217,7 @@ class RAGService:
             }
         except Exception as e:
             print(f"[ERROR] An unexpected error occurred in invoke_chain: {e}")
-            return {"response": "An error occurred while processing your request.", "sources": []}
+            return {"response": f"An error occurred: {str(e)}", "sources": []}
 
 # --- Create and initialize the service instance ---
 rag_service = RAGService()

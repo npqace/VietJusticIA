@@ -37,14 +37,14 @@ def create_database_if_not_exists(database_url):
         exists = cursor.fetchone()
         if not exists:
             cursor.execute(f'CREATE DATABASE "{db}"')
-            print(f"✅ Database '{db}' created.")
+            print(f"Database '{db}' created.")
         else:
-            print(f"✅ Database '{db}' already exists.")
+            print(f"Database '{db}' already exists.")
 
         cursor.close()
         conn.close()
     except psycopg2.OperationalError as e:
-        print(f"❌ Could not connect to PostgreSQL server: {e}")
+        print(f"Could not connect to PostgreSQL server: {e}")
         print("Please ensure PostgreSQL is running and the connection details are correct.")
         # exit(1) # Or handle it more gracefully
 

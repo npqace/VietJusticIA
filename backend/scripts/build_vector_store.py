@@ -7,6 +7,7 @@ from typing import List
 from langchain_community.vectorstores import Qdrant
 from langchain_core.documents import Document
 from langchain_community.embeddings import SentenceTransformerEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 # Add the parent directory to the path to allow imports from the app
@@ -64,7 +65,7 @@ if __name__ == "__main__":
     # 1. Define Paths and Configuration
     # Construct the absolute path to the documents directory
     SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-    PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..'))
+    PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '../..'))
     SOURCE_DOCUMENTS_PATH = os.path.join(PROJECT_ROOT, "ai-engine", "data", "raw_data", "documents")
     QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
     COLLECTION_NAME = "vietjusticia_legal_docs"
@@ -83,7 +84,8 @@ if __name__ == "__main__":
     # 4. Initialize Embedding Model
     print(f"\n[PHASE 3/4] Initializing embedding model...")
     embeddings = SentenceTransformerEmbeddings(
-        model_name='sentence-transformers/paraphrase-multilingual-mpnet-base-v2'
+        model_name='sentence-transformers/paraphrase-multilingual-mpnet-base-v2',
+        model_kwargs={'device': 'cuda'}
     )
     print("-> Embedding model initialized.")
 

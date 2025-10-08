@@ -8,6 +8,7 @@
   } from 'react-native';
   import { COLORS, SIZES, FONTS } from '../../constants/styles';
   import { Ionicons } from '@expo/vector-icons';
+  import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
   const LegalConsultantTab = () => {
     const [consultationForm, setConsultationForm] = useState({
@@ -34,9 +35,11 @@
       alert('Cảm ơn bạn đã gửi thông tin! Chúng tôi sẽ liên hệ lại trong thời gian sớm nhất.');
     };
 
+    const insets = useSafeAreaInsets();
+
     return (
       <View style={styles.formContainer}>
-        <Text style={styles.formHeading}>Liên hệ luật sư</Text>
+        {/* <Text style={styles.formHeading}>Liên hệ luật sư</Text> */}
         <Text style={styles.formDescription}>
           Hãy để lại thông tin liên lạc và yêu cầu của bạn. Chúng tôi sẽ liên hệ ngay khi tìm được luật sư phù hợp và có giải đáp của bạn.
         </Text>
@@ -162,7 +165,7 @@
     },
     dropdownText: {
       fontFamily: FONTS.regular,
-      fontSize: SIZES.body,
+      fontSize: SIZES.medium,
       color: COLORS.gray,
     },
     dropdownArrow: {
@@ -188,7 +191,6 @@
       paddingVertical: 16,
       borderRadius: 8,
       alignItems: 'center',
-      marginTop: 16,
     },
     submitButtonText: {
       fontFamily: FONTS.semiBold,

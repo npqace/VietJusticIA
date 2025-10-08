@@ -32,7 +32,6 @@ const ContactUsTab = () => {
 
   return (
     <View style={styles.contactContainer}>
-      <Text style={styles.contactHeading}>Liên hệ</Text>
       <Text style={styles.contactDescription}>
         Nếu bạn có bất kỳ thắc mắc nào hoặc cần hỗ trợ về dịch vụ, vui lòng liên hệ với chúng tôi bằng cách điền vào nội dung bên dưới.
       </Text>

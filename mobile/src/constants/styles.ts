@@ -32,7 +32,7 @@ export const COLORS = {
 export const SIZES = {
   heading1: 36,
   heading2: 28,
-  heading3: 22,
+  heading3: 25,
   heading4: 20,
   body: 18,
   medium: 15,

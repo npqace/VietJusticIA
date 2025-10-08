@@ -2,7 +2,7 @@ import os
 import sys
 import json
 from pymongo import MongoClient
-from langchain_core.documents import Document
+from bs4 import BeautifulSoup
 
 # Add the project root to the path to allow imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -15,6 +15,7 @@ def load_legal_docs_from_folders(root_dir: str) -> list[dict]:
     for dir_entry in all_dirs:
         metadata_path = os.path.join(dir_entry.path, "metadata.json")
         content_path = os.path.join(dir_entry.path, "content.txt")
+        html_content_path = os.path.join(dir_entry.path, "page_content.html")
 
         if os.path.exists(metadata_path) and os.path.exists(content_path):
             try:
@@ -22,11 +23,21 @@ def load_legal_docs_from_folders(root_dir: str) -> list[dict]:
                     metadata_json = json.load(f)
                 with open(content_path, 'r', encoding='utf-8') as f:
                     full_text = f.read()
+                
+                html_content = ""
+                if os.path.exists(html_content_path):
+                    with open(html_content_path, 'r', encoding='utf-8') as f:
+                        soup = BeautifulSoup(f.read(), 'html.parser')
+                        # This selector should match the one used in the crawler/consolidate script
+                        content_div = soup.select_one("div.legislation-page__container")
+                        if content_div:
+                            html_content = str(content_div)
 
                 id_metadata = metadata_json.get("metadata", {})
                 diagram_metadata = id_metadata.get("diagram", {})
                 
                 doc_data = {
+                    "_id": id_metadata.get('_id'), # Use the original ID from the source
                     "title": metadata_json.get('title', ''),
                     "document_number": diagram_metadata.get('so_hieu', ''),
                     "document_type": diagram_metadata.get('loai_van_ban', ''),
@@ -34,6 +45,7 @@ def load_legal_docs_from_folders(root_dir: str) -> list[dict]:
                     "issue_date": diagram_metadata.get('ngay_ban_hanh', ''),
                     "status": diagram_metadata.get('tinh_trang', ''),
                     "full_text": full_text,
+                    "html_content": html_content, # Add the HTML content
                     "source_path": content_path,
                 }
                 documents.append(doc_data)
@@ -47,7 +59,7 @@ if __name__ == "__main__":
 
     # 1. Define Paths and Configuration
     SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-    PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..')) # This will be /app in the container
+    PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '../..')) # This will be /app in the container
     SOURCE_DOCUMENTS_PATH = os.path.join(PROJECT_ROOT, "ai-engine", "data", "raw_data", "documents")
     
     MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017/")

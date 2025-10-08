@@ -9,7 +9,9 @@ import {
   Platform,
   Image,
   Dimensions,
-  Alert
+  Alert,
+  Keyboard,
+  TouchableWithoutFeedback
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -71,6 +73,7 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
         locations={[0, 0.44, 0.67, 1]}
         style={styles.container}
       >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboardAvoidView}
@@ -183,13 +186,13 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
             <TouchableOpacity onPress={navigateToLogin} style={styles.loginLink}>
             <Text style={styles.loginLinkText}>Đăng nhập</Text>
             </TouchableOpacity>
-          </View>
-      </KeyboardAvoidingView>
-    </LinearGradient>
-    </SafeAreaView>
-  );
-};
-
+                    </View>
+                  </KeyboardAvoidingView>
+                  </TouchableWithoutFeedback>
+                </LinearGradient>
+              </SafeAreaView>
+            );
+          };
 // Styles remain the same
 const styles = StyleSheet.create({
   safeArea: {

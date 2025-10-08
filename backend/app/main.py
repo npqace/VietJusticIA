@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, status, Depends, Security
 from fastapi import Request
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from fastapi.security import APIKeyHeader
 from sqlalchemy.orm import Session
 import logging
@@ -15,6 +16,7 @@ from .services.auth import create_access_token, create_refresh_token, verify_tok
 from .database.database import get_db, init_db
 from .repository import user_repository
 from .services.ai_service import rag_service # Import the RAG service instance
+from .routers import documents
 
 # Lifespan Manager
 @asynccontextmanager
@@ -28,6 +30,11 @@ async def lifespan(app: FastAPI):
     print("Application shutdown.")
 
 app = FastAPI(title="VietJusticIA API", version="1.0.0", lifespan=lifespan)
+
+app.include_router(documents.router, prefix="/api/v1", tags=["documents"])
+
+# Mount static files directory
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # ... (rest of the file is mostly the same) ...
 
