@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, Boolean
 from sqlalchemy.sql import func
 from .database import Base
 from sqlalchemy import Enum as SqlEnum
@@ -13,6 +13,7 @@ class User(Base):
     email = Column(String(100), unique=True, index=True)
     phone = Column(String(20), unique=True, index=True)
     hashed_password = Column(String(255))
+    is_verified = Column(Boolean, default=False)
     # New role column with default value "user"
     class Role(enum.Enum):
         ADMIN = "admin"
