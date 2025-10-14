@@ -6,7 +6,7 @@ import re
 class UserBase(BaseModel):
     full_name: str = Field(..., min_length=2, max_length=100)
     email: EmailStr
-    phone: str = Field(..., pattern=r'^\+?84?[0-9]{9,10}$')  # Vietnamese phone format
+    phone: str = Field(..., pattern=r'^(\+?84|0)[0-9]{9,10}$')  # Vietnamese phone format
 
 class SignUpModel(UserBase):
     pwd: str = Field(..., min_length=8)

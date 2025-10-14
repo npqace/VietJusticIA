@@ -8,6 +8,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (credentials: any) => Promise<void>;
   logout: () => Promise<void>;
+  checkAuthStatus: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -17,35 +18,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const checkAuthStatus = async () => {
-      try {
-        const token = await authService.getAccessToken();
-        if (token) {
-          // If a token exists, we can fetch user profile
-          const response = await api.get('/profile');
-          setUser(response.data);
-          setIsAuthenticated(true);
-        }
-      } catch (e) {
-        console.error('Auth check failed, user is not authenticated.', e);
-        // If token is invalid or profile fetch fails, ensure user is logged out
-        await authService.logout();
-      } finally {
-        setIsLoading(false);
+  const checkAuthStatus = async () => {
+    // Set loading to true when we start a check
+    setIsLoading(true);
+    try {
+      const token = await authService.getAccessToken();
+      if (token) {
+        const response = await api.get('/profile');
+        setUser(response.data);
+        setIsAuthenticated(true);
+      } else {
+        // Explicitly set to not authenticated if no token
+        setIsAuthenticated(false);
+        setUser(null);
       }
-    };
+    } catch (e) {
+      console.error('Auth check failed, user is not authenticated.', e);
+      setIsAuthenticated(false);
+      setUser(null);
+      // If token is invalid or profile fetch fails, ensure tokens are cleared
+      await authService.logout();
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  useEffect(() => {
     checkAuthStatus();
   }, []);
 
   const login = async (credentials: any) => {
-    const data = await authService.login(credentials);
-    if (data.access_token) {
-      const response = await api.get('/profile');
-      setUser(response.data);
-      setIsAuthenticated(true);
-    }
+    // Perform login to get and store tokens
+    await authService.login(credentials);
+    // Re-run the auth check to update the context state
+    await checkAuthStatus();
   };
 
   const logout = async () => {
@@ -55,7 +61,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, isLoading, login, logout, checkAuthStatus }}>
       {children}
     </AuthContext.Provider>
   );

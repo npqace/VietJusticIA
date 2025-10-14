@@ -10,5 +10,5 @@ PORT=${PORT:-8000}
 
 # Use gosu to drop privileges and execute the uvicorn server.
 # We are overriding the Dockerfile's CMD to ensure we use the correct port
-# and disable the --reload flag for production.
-exec gosu appuser uvicorn app.main:app --host 0.0.0.0 --port $PORT
+# and enable the --reload flag for development.
+exec gosu appuser uvicorn app.main:app --host 0.0.0.0 --port $PORT --reload

@@ -31,7 +31,7 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
 
   const handleLogin = async () => {
     try {
-      await login({ identifier, password_val: password });
+      await login({ identifier, pwd: password });
     } catch (err: any) {
       let message = 'An unexpected error occurred.';
       if (err?.response?.data?.detail) {

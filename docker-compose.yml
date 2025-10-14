@@ -8,7 +8,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-vietjusticia}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
-      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
@@ -59,6 +59,7 @@ services:
       mongodb:
         condition: service_started
     volumes:
+      - ./backend/app:/app/app # Mount the application source code for hot-reloading
       - ./ai-engine:/app/ai-engine # Mount ai-engine for document access
       - backend_logs:/app/logs
       - huggingface_cache:/home/appuser/.cache/huggingface/hub # Persist model cache
