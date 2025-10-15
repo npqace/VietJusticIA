@@ -28,3 +28,4 @@ beautifulsoup4
 
 # OTP verificatioin
 fastapi-mail
+sendgrid
