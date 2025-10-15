@@ -10,7 +10,7 @@ interface AuthResponse {
 // Interface for login credentials
 interface LoginCredentials {
   identifier: string;
-  password_val: string;
+  pwd: string;
 }
 
 // Interface for signup data
@@ -23,14 +23,29 @@ interface SignupData {
 }
 
 /**
+ * Handles new user registration.
+ * The backend will send an OTP and return a message, not tokens.
+ * @param signupData - The data for the new user.
+ * @returns The response data from the server.
+ */
+export const signup = async (signupData: SignupData) => {
+  try {
+    const response = await api.post('/signup', signupData);
+    return response.data; // e.g., { message: "Signup successful..." }
+  } catch (err: any) {
+    throw err;
+  }
+};
+
+/**
  * Handles user login.
  * @param credentials - The user's login credentials.
  * @returns The response data from the server, including tokens.
  */
-export const login = async ({ identifier, password_val }: LoginCredentials) => {
+export const login = async (credentials: LoginCredentials) => {
   try {
-    const response = await api.post('/login', { identifier, pwd: password_val });
-    const { access_token, refresh_token } = response.data as AuthResponse; // Type assertion
+    const response = await api.post('/login', credentials);
+    const { access_token, refresh_token } = response.data as AuthResponse;
 
     if (access_token) {
       await SecureStore.setItemAsync('access_token', access_token);
@@ -47,27 +62,42 @@ export const login = async ({ identifier, password_val }: LoginCredentials) => {
 };
 
 /**
- * Handles new user registration.
- * @param signupData - The data for the new user.
+ * Verifies the OTP and logs the user in by storing tokens.
+ * @param email - The user's email.
+ * @param otp - The 6-digit code.
  * @returns The response data from the server, including tokens.
  */
-export const signup = async (signupData: SignupData) => {
-  try {
-    const response = await api.post('/signup', signupData);
-    const { access_token, refresh_token } = response.data as AuthResponse; // Type assertion
+export const verifyOTP = async (email: string, otp: string) => {
+    try {
+        const response = await api.post('/verify-otp', { email, otp });
+        const { access_token, refresh_token } = response.data as AuthResponse;
 
-    if (access_token) {
-      await SecureStore.setItemAsync('access_token', access_token);
-      if (refresh_token) {
-        await SecureStore.setItemAsync('refresh_token', refresh_token);
-      }
-      return response.data;
-    } else {
-      throw new Error('Đăng ký không thành công');
+        if (access_token) {
+            await SecureStore.setItemAsync('access_token', access_token);
+            if (refresh_token) {
+                await SecureStore.setItemAsync('refresh_token', refresh_token);
+            }
+            return response.data;
+        } else {
+            throw new Error('OTP verification failed.');
+        }
+    } catch (err: any) {
+        throw err;
     }
-  } catch (err: any) {
-    throw err;
-  }
+};
+
+/**
+ * Requests a new OTP for a given email.
+ * @param email - The user's email.
+ * @returns The response data from the server.
+ */
+export const resendOTP = async (email: string) => {
+    try {
+        const response = await api.post('/resend-otp', { email });
+        return response.data;
+    } catch (err: any) {
+        throw err;
+    }
 };
 
 /**

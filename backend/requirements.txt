@@ -25,3 +25,7 @@ rank_bm25
 qdrant-client
 langchain-huggingface
 beautifulsoup4
+
+# OTP verificatioin
+fastapi-mail
+sendgrid
