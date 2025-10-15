@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
-import { ScrollView, View, Text, StyleSheet, Dimensions, TouchableOpacity, Image } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useState, useEffect } from 'react';
+import { ScrollView, View, Text, StyleSheet, Dimensions, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
 import RenderHTML from 'react-native-render-html';
 import { COLORS, FONTS, SIZES } from '../../constants/styles';
-import { Ionicons } from '@expo/vector-icons';
 import Header from '../../components/Header';
+import api from '../../api';
 
 const { width } = Dimensions.get('window');
 
+// --- Reusable styles and configs ---
 const tagsStyles = {
   p: { marginBottom: 10, lineHeight: 24, fontSize: SIZES.body, fontFamily: FONTS.regular, color: COLORS.black },
   b: { fontFamily: FONTS.bold },
@@ -29,7 +29,6 @@ const classesStyles = {
 };
 
 const metadataFields = [
-  { key: 'title', label: 'Tiêu đề' },
   { key: 'document_number', label: 'Số hiệu' },
   { key: 'document_type', label: 'Loại văn bản' },
   { key: 'issuer', label: 'Nơi ban hành' },
@@ -37,6 +36,7 @@ const metadataFields = [
   { key: 'status', label: 'Tình trạng' },
 ];
 
+// Custom renderers for HTML content
 const renderers = {
   p: (props: any) => {
     const { TDefaultRenderer, tnode } = props;
@@ -58,8 +58,38 @@ const renderers = {
 };
 
 const DocumentDetailScreen = ({ route, navigation }: { route: any, navigation: any }) => {
-  const { document, documentsData } = route.params;
+  const { documentId } = route.params;
+  const [document, setDocument] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('content');
+
+  useEffect(() => {
+    const fetchDocumentDetails = async () => {
+      if (!documentId) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await api.get(`/api/v1/documents/${documentId}`);
+        setDocument(response.data);
+      } catch (err: any) {
+        setError(err.response?.data?.detail || "Failed to load document.");
+        console.error("Failed to fetch document details:", err);
+      }
+      setLoading(false);
+    };
+
+    fetchDocumentDetails();
+  }, [documentId]);
+
+  const handleLinkPress = (event: any, href: string) => {
+    const docId = href.split('/').pop();
+    if (docId) {
+      // Push a new detail screen onto the stack for the linked document.
+      // The new screen will then fetch its own data via its useEffect hook.
+      navigation.push('DocumentDetail', { documentId: docId });
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -71,20 +101,12 @@ const DocumentDetailScreen = ({ route, navigation }: { route: any, navigation: a
     }
   };
 
-  const handleLinkPress = (event: any, href: string) => {
-    const docId = href.split('/').pop();
-    const linkedDoc = documentsData.find((doc: any) => doc.id === docId);
-    if (linkedDoc) {
-      navigation.push('DocumentDetail', { document: linkedDoc, documentsData });
-    }
-  };
-
   const renderContent = () => {
     if (activeTab === 'content') {
       return (
         <RenderHTML
           contentWidth={width}
-          source={{ html: document.html_content }}
+          source={{ html: document.html_content || '' }}
           tagsStyles={tagsStyles}
           classesStyles={classesStyles}
           systemFonts={[FONTS.regular, FONTS.bold, FONTS.italic]}
@@ -95,34 +117,43 @@ const DocumentDetailScreen = ({ route, navigation }: { route: any, navigation: a
     } else {
       return (
         <View>
+          {/* Metadata Section */}
           {metadataFields.map(({ key, label }) => {
             const value = document[key];
             if (!value) return null;
-            if (key === 'tinh_trang') {
-              return (
-                <View key={key} style={styles.metadataRow}>
-                  <Text style={styles.metadataLabel}>{label}:</Text>
-                  <Text style={[styles.metadataValue, { color: getStatusColor(String(value)) }]}>
-                    {String(value)}
-                  </Text>
-                </View>
-              );
-            }
             return (
               <View key={key} style={styles.metadataRow}>
                 <Text style={styles.metadataLabel}>{label}:</Text>
-                <Text style={styles.metadataValue}>{String(value)}</Text>
+                <Text style={[styles.metadataValue, key === 'status' && { color: getStatusColor(String(value)) }]}>
+                  {String(value)}
+                </Text>
               </View>
             );
           })}
+
+          {/* ASCII Diagram Section */}
+          {document.ascii_diagram && (
+            <View style={styles.diagramContainer}>
+              <Text style={styles.diagramTitle}>Sơ đồ tóm tắt</Text>
+              <Text style={styles.diagramText}>{document.ascii_diagram}</Text>
+            </View>
+          )}
         </View>
       );
     }
   };
 
+  if (loading) {
+    return <View style={styles.center}><ActivityIndicator size="large" color={COLORS.primary} /></View>;
+  }
+
+  if (error || !document) {
+    return <View style={styles.center}><Text style={styles.errorText}>{error || 'Document not found.'}</Text></View>;
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: '#fff' }}>
-            <Header title="Chi tiết văn bản" showAddChat={true} />
+      <Header title={document.title} showAddChat={true} />
 
       <View style={styles.tabBar}>
         <TouchableOpacity
@@ -131,7 +162,7 @@ const DocumentDetailScreen = ({ route, navigation }: { route: any, navigation: a
         >
           <Text style={[styles.tabButtonText, activeTab === 'content' && styles.activeTabButtonText]}>
             Nội dung
-          </Text>        
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tabButton, activeTab === 'schema' && styles.activeTabButton]}
@@ -153,78 +184,21 @@ const DocumentDetailScreen = ({ route, navigation }: { route: any, navigation: a
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    backgroundColor: COLORS.white,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    height: 'auto',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 4,
-    zIndex: 10,
-  },
-  logo: {
-    width: width * 0.15,
-    height: width * 0.15,
-  },
-  headerIcons: {
-    flexDirection: 'row',
-  },
-  iconButton: {
-    padding: 8,
-    marginLeft: 8,
-  },
-  contentContainer: {
-    padding: 16,
-  },
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  tabButton: {
-    flex: 1,
-    paddingVertical: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  activeTabButton: {
-    borderBottomWidth: 2,
-    borderBottomColor: COLORS.primary,
-  },
-  tabButtonText: {
-    fontFamily: FONTS.semiBold,
-    fontSize: SIZES.body,
-    color: COLORS.gray,
-  },
-  activeTabButtonText: {
-    color: COLORS.primary,
-  },
-  metadataRow: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  metadataLabel: {
-    fontFamily: FONTS.boldItalic,
-    fontSize: SIZES.body,
-    color: COLORS.black,
-    marginRight: 8,
-  },
-  metadataValue: {
-    fontFamily: FONTS.regular,
-    fontSize: SIZES.body,
-    color: COLORS.text,
-    flex: 1,
-  },
+  container: { flexGrow: 1, backgroundColor: COLORS.white },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  errorText: { fontFamily: FONTS.regular, fontSize: SIZES.body, color: COLORS.primary, textAlign: 'center' },
+  contentContainer: { padding: 16 },
+  tabBar: { flexDirection: 'row', backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: '#eee' },
+  tabButton: { flex: 1, paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },
+  activeTabButton: { borderBottomWidth: 2, borderBottomColor: COLORS.primary },
+  tabButtonText: { fontFamily: FONTS.semiBold, fontSize: SIZES.body, color: COLORS.gray },
+  activeTabButtonText: { color: COLORS.primary },
+  metadataRow: { flexDirection: 'row', marginBottom: 12 },
+  metadataLabel: { fontFamily: FONTS.bold, fontSize: SIZES.body, color: COLORS.black, marginRight: 8, width: '35%' },
+  metadataValue: { fontFamily: FONTS.regular, fontSize: SIZES.body, color: COLORS.text, flex: 1 },
+  diagramContainer: { backgroundColor: '#F5F5F5', borderRadius: 8, padding: 15, marginBottom: 20 },
+  diagramTitle: { fontFamily: FONTS.bold, fontSize: SIZES.heading4, color: COLORS.primary, marginBottom: 15 },
+  diagramText: { fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: SIZES.small, color: COLORS.text, lineHeight: SIZES.small * 1.4 },
 });
 
 export default DocumentDetailScreen;
