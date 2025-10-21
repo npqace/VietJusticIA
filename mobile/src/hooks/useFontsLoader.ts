@@ -9,6 +9,7 @@ const fontAssets = {
   'Montserrat-Medium': require('../../assets/fonts/Montserrat-Medium.ttf'),
   'Montserrat-Semi-Bold': require('../../assets/fonts/Montserrat-SemiBold.ttf'),
   'Montserrat-Bold': require('../../assets/fonts/Montserrat-Bold.ttf'),
+  'RobotoMono-Regular': require('../../assets/fonts/RobotoMono-Regular.ttf')
 };
 
 export default function useFontsLoader() {

@@ -17,14 +17,17 @@ import pandas as pd
 from bs4 import BeautifulSoup, Tag
 from playwright.sync_api import sync_playwright, Browser, BrowserContext
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from urllib.robotparser import RobotFileParser
+import backoff
 
-# --- Configuration ---
+# --- Configuration --
 load_dotenv()
 CHROME_DEBUGGING_PORT = 9222
 SITE_BASE_URL = "https://aitracuuluat.vn"
 API_BASE_URL = "https://api.aitracuuluat.vn/api/v2/legal-documents"
 BEARER_TOKEN = os.getenv("AUTH_TOKEN")
-OUTPUT_DIR = Path("../raw_data")
+CRAWLER_SCRIPT_DIR = Path(__file__).parent
+OUTPUT_DIR = CRAWLER_SCRIPT_DIR / ".." / "raw_data"
 API_PAGE_SIZE = 10
 
 CRAWLER_SETTINGS = {
@@ -60,6 +63,15 @@ class Crawler:
         self.scraped_lock = threading.Lock()
         self.category = None
         self.shutdown_event = threading.Event()
+
+        # Robots.txt parser
+        self.robot_parser = RobotFileParser()
+        self.robot_parser.set_url(f"{SITE_BASE_URL}/robots.txt")
+        try:
+            self.robot_parser.read()
+            self.logger.info("Successfully read and parsed robots.txt")
+        except Exception as e:
+            self.logger.error(f"Could not read robots.txt: {e}")
 
     def _setup_logger(self):
         """Sets up a logger that outputs formatted messages to both console and a file."""
@@ -99,6 +111,11 @@ class Crawler:
 
         return logger
 
+    def _is_allowed(self, url: str) -> bool:
+        """Checks if the given URL is allowed to be fetched by the crawler."""
+        return self.robot_parser.can_fetch(self.api_headers['User-Agent'], url)
+
+    @backoff.on_exception(backoff.expo, requests.exceptions.RequestException, max_tries=5, factor=2)
     def _get_docs_from_api(self, page_num: int) -> tuple[list, int]:
         """Fetches a page of documents from the API."""
         params = {"page": page_num, "pageSize": API_PAGE_SIZE}
@@ -119,6 +136,7 @@ class Crawler:
             self.logger.error(f"API request for page {page_num} failed: {e}")
             return [], 0
 
+    @backoff.on_exception(backoff.expo, requests.exceptions.RequestException, max_tries=3, factor=2)
     def _get_full_metadata_from_api(self, doc_id: str) -> dict | None:
         """Fetches the full metadata for a single document from the API."""
         metadata_url = f"{API_BASE_URL}/{doc_id}"
@@ -162,6 +180,11 @@ class Crawler:
             return None
 
         content_url = f"{SITE_BASE_URL}/legal-documents/{doc_id}?tab=noi_dung"
+        
+        if not self._is_allowed(content_url):
+            self.logger.warning(f"Scraping disallowed for {content_url} by robots.txt. Skipping.")
+            return None
+
         page = browser_context.new_page()
         try:
             self.logger.info(f"[Thread] Navigating to: {content_url}")

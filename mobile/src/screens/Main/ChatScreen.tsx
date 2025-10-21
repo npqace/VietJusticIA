@@ -134,12 +134,15 @@ const ChatScreen = ({ navigation }: { navigation: any }) => {
   const sendMessage = async () => {
     if (message.trim() === '') return;
     const userMessage = message;
+    console.log("User Query:", userMessage);
+
     setChatHistory(prev => [...prev, { id: prev.length + 1, text: userMessage, sender: 'user' as const }]);
     setMessage('');
     setIsTyping(true);
     try {
       const response = await api.post('/chat/query', { message: userMessage });
       const botResponseData = response.data;
+      console.log("Bot Response:", JSON.stringify(botResponseData, null, 2));
       
       setChatHistory(prev => [...prev, {
         id: prev.length + 1,

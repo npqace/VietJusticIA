@@ -58,6 +58,7 @@ export const FONTS = {
   semiBoldItalic: 'Montserrat-Semi-Bold-Italic',
   thin: 'Montserrat-Thin',
   thinItalic: 'Montserrat-Thin-Italic',
+  mono: 'RobotoMono-Regular',
 };
 
 

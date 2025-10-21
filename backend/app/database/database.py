@@ -69,7 +69,7 @@ def get_db():
         db.close()
 
 def init_db():
-    from . import models  # This line is crucial
+    from . import models
     print("Creating database tables if they don't exist...")
     Base.metadata.create_all(bind=engine)
     print("Database tables are ready.")

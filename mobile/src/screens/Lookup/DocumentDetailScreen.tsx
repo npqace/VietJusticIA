@@ -135,7 +135,13 @@ const DocumentDetailScreen = ({ route, navigation }: { route: any, navigation: a
           {document.ascii_diagram && (
             <View style={styles.diagramContainer}>
               <Text style={styles.diagramTitle}>Sơ đồ tóm tắt</Text>
-              <Text style={styles.diagramText}>{document.ascii_diagram}</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator>
+                <View style={{ paddingVertical: 5 }}>
+                  {document.ascii_diagram.split('\n').map((line: string, index: number) => (
+                    <Text key={index} style={styles.diagramText}>{line}</Text>
+                  ))}
+                </View>
+              </ScrollView>
             </View>
           )}
         </View>
@@ -198,7 +204,7 @@ const styles = StyleSheet.create({
   metadataValue: { fontFamily: FONTS.regular, fontSize: SIZES.body, color: COLORS.text, flex: 1 },
   diagramContainer: { backgroundColor: '#F5F5F5', borderRadius: 8, padding: 15, marginBottom: 20 },
   diagramTitle: { fontFamily: FONTS.bold, fontSize: SIZES.heading4, color: COLORS.primary, marginBottom: 15 },
-  diagramText: { fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: SIZES.small, color: COLORS.text, lineHeight: SIZES.small * 1.4 },
+  diagramText: { fontFamily: FONTS.mono, fontSize: SIZES.small, color: COLORS.text, lineHeight: SIZES.small * 1.4 },
 });
 
 export default DocumentDetailScreen;
