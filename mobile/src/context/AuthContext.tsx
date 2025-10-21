@@ -5,6 +5,7 @@ import api from '../api';
 interface AuthContextType {
   isAuthenticated: boolean;
   user: any; // Replace 'any' with a proper User type later
+  setUser: React.Dispatch<React.SetStateAction<any>>; // Expose setUser
   isLoading: boolean;
   login: (credentials: any) => Promise<void>;
   logout: () => Promise<void>;
@@ -24,7 +25,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const token = await authService.getAccessToken();
       if (token) {
-        const response = await api.get('/profile');
+        const response = await api.get('/api/v1/users/me');
         setUser(response.data);
         setIsAuthenticated(true);
       } else {
@@ -61,7 +62,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, isLoading, login, logout, checkAuthStatus }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, setUser, isLoading, login, logout, checkAuthStatus }}>
       {children}
     </AuthContext.Provider>
   );

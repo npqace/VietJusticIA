@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from ..database import models
-from ..services.auth import get_password_hash, verify_password
+from ..core.security import get_password_hash, verify_password
 from ..model.userModel import SignUpModel
 from fastapi import HTTPException, status
 
@@ -31,6 +31,9 @@ def create_user(db: Session, user: SignUpModel):
     db.refresh(db_user)
     
     return db_user
+
+def get_user_by_email(db: Session, email: str):
+    return db.query(models.User).filter(models.User.email == email).first()
 
 def authenticate_user(db: Session, identifier: str, password: str):
     # Check if user exists with email or phone

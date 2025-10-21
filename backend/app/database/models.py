@@ -13,6 +13,7 @@ class User(Base):
     email = Column(String(100), unique=True, index=True)
     phone = Column(String(20), unique=True, index=True)
     hashed_password = Column(String(255))
+    is_active = Column(Boolean, default=True, nullable=False)
     is_verified = Column(Boolean, default=False)
     otp = Column(String(6), nullable=True)
     otp_expires_at = Column(DateTime(timezone=True), nullable=True)

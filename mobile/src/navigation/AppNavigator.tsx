@@ -10,6 +10,7 @@ import WelcomeScreen from '../screens/WelcomeScreen';
 import LoginScreen from '../screens/Auth/LoginScreen';
 import SignupScreen from '../screens/Auth/SignupScreen';
 import MenuScreen from '../screens/Main/MenuScreen';
+import UserProfile from '../screens/Main/ProfileScreen';
 import HelpScreen from '../screens/Support/HelpScreen';
 import LawyerScreen from '../screens/Support/LawyerScreen';
 import DocumentLookupScreen from '../screens/Lookup/DocumentLookupScreen';
@@ -38,6 +39,7 @@ const AuthStack = () => (
 // Screens accessible after logging in
 const MainStack = () => (
   <Stack.Navigator initialRouteName="Chat" screenOptions={{ headerShown: false }}>
+    <Stack.Screen name='UserProfile' component={UserProfile} />
     <Stack.Screen name='Chat' component={ChatScreen} />
     <Stack.Screen name='Menu' component={MenuScreen} />
     <Stack.Screen name='FAQs' component={HelpScreen} />

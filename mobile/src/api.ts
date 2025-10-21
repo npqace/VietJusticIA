@@ -44,7 +44,7 @@ api.interceptors.response.use(
         if (!refreshToken) {
           throw new Error('No refresh token');
         }
-        const refreshResponse = await api.post<{access_token: string}>('/refresh', { refresh_token: refreshToken });
+        const refreshResponse = await api.post<{access_token: string}>('/api/v1/auth/refresh', { refresh_token: refreshToken });
         const newAccessToken = refreshResponse.data?.access_token;
         if (newAccessToken) {
           console.log('Successfully refreshed token:', newAccessToken);

@@ -30,7 +30,7 @@ interface SignupData {
  */
 export const signup = async (signupData: SignupData) => {
   try {
-    const response = await api.post('/signup', signupData);
+    const response = await api.post('/api/v1/auth/signup', signupData);
     return response.data; // e.g., { message: "Signup successful..." }
   } catch (err: any) {
     throw err;
@@ -44,7 +44,7 @@ export const signup = async (signupData: SignupData) => {
  */
 export const login = async (credentials: LoginCredentials) => {
   try {
-    const response = await api.post('/login', credentials);
+    const response = await api.post('/api/v1/auth/login', credentials);
     const { access_token, refresh_token } = response.data as AuthResponse;
 
     if (access_token) {
@@ -69,7 +69,7 @@ export const login = async (credentials: LoginCredentials) => {
  */
 export const verifyOTP = async (email: string, otp: string) => {
     try {
-        const response = await api.post('/verify-otp', { email, otp });
+        const response = await api.post('/api/v1/auth/verify-otp', { email, otp });
         const { access_token, refresh_token } = response.data as AuthResponse;
 
         if (access_token) {
@@ -93,7 +93,7 @@ export const verifyOTP = async (email: string, otp: string) => {
  */
 export const resendOTP = async (email: string) => {
     try {
-        const response = await api.post('/resend-otp', { email });
+        const response = await api.post('/api/v1/auth/resend-otp', { email });
         return response.data;
     } catch (err: any) {
         throw err;
