@@ -16,13 +16,16 @@ pymongo
 tiktoken
 
 # Added for RAG Implementation
-langchain-google-genai
-langchain-community
-sentence-transformers
-faiss-cpu
-pyvi
-rank_bm25
-qdrant-client
+langchain==0.3.27
+langchain-google-genai==2.1.12
+langchain-community==0.3.30
+langchain-core==0.3.78
+langchain-text-splitters==0.3.11
+sentence-transformers==5.1.1
+faiss-cpu==1.12.0
+pyvi==0.1.1
+rank_bm25==0.2.2
+qdrant-client==1.15.1
 langchain-huggingface
 beautifulsoup4
 

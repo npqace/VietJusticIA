@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Query, HTTPException
 from pymongo import MongoClient
+from pydantic import BaseModel, Field
+from typing import Optional, List
 import os
 import math
 
@@ -14,7 +16,42 @@ client = MongoClient(MONGO_URL)
 db = client[MONGO_DB_NAME]
 collection = db[MONGO_COLLECTION_NAME]
 
-@router.get("/documents")
+# --- Pydantic Models ---
+
+class DocumentInList(BaseModel):
+    id: str = Field(..., alias="_id")
+    title: str
+    document_number: Optional[str] = None
+    document_type: Optional[str] = None
+    issuer: Optional[str] = None
+    issue_date: Optional[str] = None
+    status: Optional[str] = None
+
+class DocumentListResponse(BaseModel):
+    total_pages: int
+    current_page: int
+    page_size: int
+    total_docs: int
+    documents: List[DocumentInList]
+
+class DocumentDetailResponse(BaseModel):
+    id: str = Field(..., alias="_id")
+    title: str
+    document_number: Optional[str] = None
+    document_type: Optional[str] = None
+    issuer: Optional[str] = None
+    issue_date: Optional[str] = None
+    status: Optional[str] = None
+    full_text: str
+    html_content: Optional[str] = None
+    ascii_diagram: Optional[str] = None
+
+    class Config:
+        populate_by_name = True
+
+# --- Endpoints ---
+
+@router.get("/documents", response_model=DocumentListResponse)
 async def get_documents(
     search: str = Query(None, description="Search term for document titles"),
     page: int = Query(1, ge=1, description="Page number"),
@@ -25,11 +62,9 @@ async def get_documents(
     """
     query = {}
     if search:
-        # Using regex for a case-insensitive partial match
         query["title"] = {"$regex": search, "$options": "i"}
 
     try:
-        # Get total number of documents matching the query
         total_docs = collection.count_documents(query)
         if total_docs == 0:
             return {
@@ -40,18 +75,12 @@ async def get_documents(
                 "documents": []
             }
 
-        # Calculate pagination
         total_pages = math.ceil(total_docs / page_size)
         skip_amount = (page - 1) * page_size
 
-        # Fetch documents for the current page
         documents_cursor = collection.find(query).skip(skip_amount).limit(page_size)
         
-        documents_list = []
-        for doc in documents_cursor:
-            # Convert ObjectId to string for JSON serialization
-            doc["_id"] = str(doc["_id"])
-            documents_list.append(doc)
+        documents_list = list(documents_cursor)
 
         return {
             "total_pages": total_pages,
@@ -60,5 +89,18 @@ async def get_documents(
             "total_docs": total_docs,
             "documents": documents_list
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/documents/{document_id}", response_model=DocumentDetailResponse)
+async def get_document_by_id(document_id: str):
+    """
+    Fetches a single legal document by its ID.
+    """
+    try:
+        document = collection.find_one({"_id": document_id})
+        if document:
+            return document
+        raise HTTPException(status_code=404, detail=f"Document with ID '{document_id}' not found")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

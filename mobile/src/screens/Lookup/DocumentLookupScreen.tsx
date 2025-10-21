@@ -120,7 +120,7 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
     <TouchableOpacity 
       key={item._id} 
       style={styles.documentItem}
-      onPress={() => navigation.navigate('DocumentDetail', { document: item })}
+      onPress={() => navigation.navigate('DocumentDetail', { documentId: item._id })}
     >
       <View style={styles.documentContent}>
         <Text style={styles.documentTitle}>{item.title}</Text>

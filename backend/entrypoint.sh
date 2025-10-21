@@ -4,11 +4,12 @@
 
 # Set ownership of the cache directory at container startup
 chown -R appuser:appuser /home/appuser/.cache
+chown -R appuser:appuser /app/ai-engine
 
 # Get port from environment variable provided by Railway, or default to 8000 for local use.
 PORT=${PORT:-8000}
 
 # Use gosu to drop privileges and execute the uvicorn server.
-# We are overriding the Dockerfile's CMD to ensure we use the correct port
+# We are overriding the Dockerfile\'s CMD to ensure we use the correct port
 # and enable the --reload flag for development.
 exec gosu appuser uvicorn app.main:app --host 0.0.0.0 --port $PORT --reload

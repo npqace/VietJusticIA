@@ -36,9 +36,7 @@ app = FastAPI(title="VietJusticIA API", version="1.0.0", lifespan=lifespan)
 app.include_router(documents.router, prefix="/api/v1", tags=["documents"])
 
 # Mount static files directory
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# ... (rest of the file is mostly the same) ...
+# app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Configure basic logging
 logger = logging.getLogger("vietjusticia.api")
