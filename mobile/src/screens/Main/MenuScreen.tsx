@@ -75,7 +75,7 @@ const MenuScreen = ({ navigation }: { navigation: any }) => {
           <View style={styles.profileContainer}>
             <View style={styles.profileImageContainer}>
               <Image
-                source={LOGO_PATH} // Placeholder
+                source={user?.avatar_url ? { uri: user.avatar_url } : LOGO_PATH}
                 style={styles.profileImage}
                 resizeMode="cover"
               />

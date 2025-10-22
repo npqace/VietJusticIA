@@ -10,6 +10,7 @@ class UserRead(BaseModel):
     is_active: bool
     is_verified: bool
     role: str
+    avatar_url: Optional[str] = None
 
     class Config:
         from_attributes = True # Used to be orm_mode
@@ -18,6 +19,7 @@ class UserUpdate(BaseModel):
     """Schema for updating user profile data."""
     full_name: Optional[str] = None
     phone: Optional[str] = None
+    avatar_url: Optional[str] = None
 
 class UpdateContactRequest(BaseModel):
     email: Optional[EmailStr] = None

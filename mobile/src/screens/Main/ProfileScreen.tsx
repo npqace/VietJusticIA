@@ -7,16 +7,22 @@ import {
   ActivityIndicator,
   Image,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../context/AuthContext';
 import { COLORS, FONTS, SIZES } from '../../constants/styles';
 import Header from '../../components/Header';
-import EditProfileModal from '../../components/Profile/EditProfileModal'; // Import the new modal component
+import EditProfileModal from '../../components/Profile/EditProfileModal';
+import * as ImagePicker from 'expo-image-picker';
+import { storage } from '../../firebaseConfig';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import api from '../../api';
 
 const ProfileScreen = ({ navigation }: { navigation: any }) => {
-  const { user } = useAuth();
+  const { user, refreshUserData } = useAuth();
   const [isModalVisible, setModalVisible] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Form state for the modal
   const [fullName, setFullName] = useState('');
@@ -24,20 +30,65 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [address, setAddress] = useState('');
 
-  // When the user object is available, update the form state
   useEffect(() => {
     if (user) {
       setFullName(user.full_name || '');
       setEmail(user.email || '');
       setPhoneNumber(user.phone || '');
-      setAddress(''); // Address is not in the user object yet
+      setAddress('');
     }
   }, [user]);
+
+  const handleChangeAvatar = async () => {
+    setIsUploading(true);
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert("Permission Denied", "You need to allow access to your photos to change your avatar.");
+        return;
+      }
+
+      const pickerResult = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+
+      if (pickerResult.canceled) {
+        return;
+      }
+
+      const imageUri = pickerResult.assets[0].uri;
+      const response = await fetch(imageUri);
+      const blob = await response.blob();
+
+      // Create a unique path for the image
+      const storageRef = ref(storage, `avatars/${user.id}/${Date.now()}`);
+      
+      const snapshot = await uploadBytes(storageRef, blob);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+
+      // Update the backend with the new avatar URL
+      await api.patch('/api/v1/users/me', { avatar_url: downloadURL });
+
+      // Refresh user data to show the new avatar
+      await refreshUserData();
+
+      Alert.alert("Success", "Your avatar has been updated.");
+
+    } catch (error) {
+      console.error("Avatar upload error:", error);
+      Alert.alert("Upload Failed", "Sorry, we couldn't update your avatar. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const openModal = () => setModalVisible(true);
   const closeModal = () => setModalVisible(false);
 
-  const profileImageUrl = 'https://www.gravatar.com/avatar/?d=mp';
+  const profileImageUrl = user?.avatar_url || 'https://www.gravatar.com/avatar/?d=mp';
 
   if (!user) {
     return <View style={styles.center}><ActivityIndicator size="large" color={COLORS.primary} /></View>;
@@ -58,8 +109,12 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
           <View style={styles.avatarSection}>
             <Image source={{ uri: profileImageUrl }} style={styles.avatar} />
             <View style={styles.avatarTextContainer}>
-                <TouchableOpacity style={styles.changeAvatarButtonContainer}>
+                <TouchableOpacity style={styles.changeAvatarButtonContainer} onPress={handleChangeAvatar} disabled={isUploading}>
+                  {isUploading ? (
+                    <ActivityIndicator color={COLORS.primary} />
+                  ) : (
                     <Text style={styles.changeAvatarButton}>Thay đổi ảnh đại diện</Text>
+                  )}
                 </TouchableOpacity>
                 <Text style={styles.avatarHint}>Định dạng hình ảnh JPEG, PNG, tối đa 2MB.</Text>
             </View>

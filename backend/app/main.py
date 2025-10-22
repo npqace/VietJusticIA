@@ -13,7 +13,7 @@ from .routers import documents, auth, users # Import the new routers
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Application startup...")
-    init_db()
+    # init_db() # Table creation is now handled by Alembic
     rag_service.initialize_service()
     yield
     print("Application shutdown.")

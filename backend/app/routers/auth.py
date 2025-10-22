@@ -28,7 +28,7 @@ async def signup(signup_request: SignUpModel, db: Session = Depends(get_db)):
     user.otp_expires_at = otp_service.get_otp_expiry_time()
     db.commit()
 
-    otp_service.send_otp_email(email=user.email, otp=otp)
+    await otp_service.send_otp_email(email=user.email, otp=otp)
     
     return {"message": "Signup successful. Please check your email for the verification OTP."}
 
@@ -101,7 +101,7 @@ async def resend_otp(request: ResendOTPRequest, db: Session = Depends(get_db)):
     user.otp_expires_at = otp_service.get_otp_expiry_time()
     db.commit()
 
-    otp_service.send_otp_email(email=user.email, otp=otp)
+    await otp_service.send_otp_email(email=user.email, otp=otp)
     
     return {"message": "A new OTP has been sent to your email address."}
 

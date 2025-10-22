@@ -28,8 +28,8 @@ const LoadingScreen = () => (
   </View>
 );
 
-const AuthStack = ({ isFirstLaunch }: { isFirstLaunch: boolean }) => (
-  <Stack.Navigator initialRouteName={isFirstLaunch ? "Welcome" : "Login"} screenOptions={{ headerShown: false }}>
+const AuthStack = () => (
+  <Stack.Navigator initialRouteName="Welcome" screenOptions={{ headerShown: false }}>
     <Stack.Screen name="Welcome" component={WelcomeScreen} />
     <Stack.Screen name="Signup" component={SignupScreen} />
     <Stack.Screen name="Login" component={LoginScreen} />
@@ -60,33 +60,14 @@ const AppNavigator = () => {
     onResend,
     onSuccess
   } = useAuth();
-  const [isFirstLaunch, setIsFirstLaunch] = useState<boolean | null>(null);
 
-  useEffect(() => {
-    const checkIfFirstLaunch = async () => {
-      try {
-        const hasLaunched = await AsyncStorage.getItem('hasLaunched');
-        if (hasLaunched === null) {
-          await AsyncStorage.setItem('hasLaunched', 'true');
-          setIsFirstLaunch(true);
-        } else {
-          setIsFirstLaunch(false);
-        }
-      } catch (error) {
-        setIsFirstLaunch(false);
-      }
-    };
-
-    checkIfFirstLaunch();
-  }, []);
-
-  if (isLoading || isFirstLaunch === null) {
+  if (isLoading) {
     return <LoadingScreen />;
   }
 
   return (
     <NavigationContainer>
-      {isAuthenticated ? <MainStack /> : <AuthStack isFirstLaunch={isFirstLaunch} />}
+      {isAuthenticated ? <MainStack /> : <AuthStack />}
       {isOtpModalVisible && otpEmail && onVerify && onResend && onSuccess && (
         <OtpVerificationModal
           visible={isOtpModalVisible}

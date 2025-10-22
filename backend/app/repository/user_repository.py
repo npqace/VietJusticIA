@@ -75,7 +75,8 @@ def update_user(db: Session, user: models.User, user_update: dict) -> models.Use
     Updates a user's profile.
     Accepts a dictionary of updates to apply to the user model.
     """
-    for key, value in user_update.items():
+    update_data = user_update.copy()
+    for key, value in update_data.items():
         setattr(user, key, value)
     
     db.commit()
