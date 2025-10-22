@@ -7,9 +7,11 @@ from datetime import datetime, timezone
 from app.database import models
 from app.model.userModel import SignUpModel, LoginModel
 from app.services.auth import create_access_token, create_refresh_token, verify_refresh_token
+from app.core.security import get_password_hash
 from app.database.database import get_db
 from app.repository import user_repository
 from app.services import otp_service
+from app.schemas.auth import ForgotPasswordRequest, ResetPasswordRequest
 
 router = APIRouter()
 
@@ -104,6 +106,38 @@ async def resend_otp(request: ResendOTPRequest, db: Session = Depends(get_db)):
     await otp_service.send_otp_email(email=user.email, otp=otp)
     
     return {"message": "A new OTP has been sent to your email address."}
+
+@router.post("/forgot-password", response_model=dict)
+async def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    user = user_repository.get_user_by_email(db, request.email)
+    if user:
+        await otp_service.send_verification_otp(db, user)
+    # Always return a generic message to prevent user enumeration
+    return {"message": "If an account with that email exists, a password reset OTP has been sent."}
+
+@router.post("/reset-password", response_model=dict)
+async def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db)):
+    user = user_repository.get_user_by_email(db, request.email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid OTP or email.",
+        )
+
+    if not user_repository.verify_otp(db, user, request.otp):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired OTP.",
+        )
+
+    # Hash the new password and update the user
+    user.hashed_password = get_password_hash(request.new_password)
+    # Clear the OTP fields
+    user.otp = None
+    user.otp_expires_at = None
+    db.commit()
+
+    return {"message": "Password has been reset successfully."}
 
 class RefreshRequest(BaseModel):
     refresh_token: str

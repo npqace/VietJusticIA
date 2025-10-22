@@ -19,6 +19,8 @@ import CustomButton from '../../components/CustomButton';
 import { COLORS, SIZES, FONTS, LOGO_PATH, GOOGLE_LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
+import ForgotPasswordModal from '../../components/Auth/ForgotPasswordModal';
+import ResetPasswordModal from '../../components/Auth/ResetPasswordModal';
 
 const { width } = Dimensions.get('window');
 
@@ -29,6 +31,9 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isForgotPasswordVisible, setForgotPasswordVisible] = useState(false);
+  const [isResetPasswordVisible, setResetPasswordVisible] = useState(false);
+  const [resetEmail, setResetEmail] = useState<string | null>(null);
 
   const handleLogin = async () => {
     setIsLoading(true);
@@ -51,8 +56,18 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
     navigation.navigate('Signup');
   };
 
-  const handleForgotPassword = () => {
-    console.log('Forgot password pressed');
+  const handleForgotPasswordSuccess = (email: string) => {
+    setForgotPasswordVisible(false);
+    setResetEmail(email);
+    setResetPasswordVisible(true);
+  };
+
+  const handleResetPasswordSuccess = () => {
+    setResetPasswordVisible(false);
+    Alert.alert(
+      'Thành công',
+      'Mật khẩu của bạn đã được đặt lại thành công. Vui lòng đăng nhập bằng mật khẩu mới.'
+    );
   };
 
   return (
@@ -92,7 +107,7 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
 
             <View style={styles.labelRow}>
               <Text style={styles.inputLabel}>Mật khẩu</Text>
-              <TouchableOpacity onPress={handleForgotPassword}>
+              <TouchableOpacity onPress={() => setForgotPasswordVisible(true)}>
                 <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
               </TouchableOpacity>
             </View>
@@ -121,15 +136,14 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
                 />
                 <Text style={styles.rememberMeText}>Ghi nhớ đăng nhập</Text>
             </TouchableOpacity>
-
-            <CustomButton
-              title="Đăng nhập"
-              onPress={handleLogin}
-              buttonStyle={styles.loginButton}
-              textStyle={styles.loginButtonText}
-              isLoading={isLoading}
-            />
-
+            
+                          <CustomButton
+                            title="Đăng nhập"
+                            onPress={handleLogin}
+                            buttonStyle={styles.loginButton}
+                            textStyle={styles.loginButtonText}
+                            isLoading={isLoading}
+                          />
             <Text style={styles.orText}>hoặc</Text>
 
             {/* Google Button */}
@@ -149,6 +163,17 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
         </KeyboardAvoidingView>
         </TouchableWithoutFeedback>
       </LinearGradient>
+      <ForgotPasswordModal
+        visible={isForgotPasswordVisible}
+        onClose={() => setForgotPasswordVisible(false)}
+        onSuccess={handleForgotPasswordSuccess}
+      />
+      <ResetPasswordModal
+        visible={isResetPasswordVisible}
+        onClose={() => setResetPasswordVisible(false)}
+        onSuccess={handleResetPasswordSuccess}
+        email={resetEmail}
+      />
     </SafeAreaView>
   );
 };
@@ -199,9 +224,13 @@ const styles = StyleSheet.create({
     width: '100%',
     marginBottom: 8,
   },
+  forgotPassword: {
+    alignSelf: 'flex-end',
+    marginBottom: 20,
+  },
   forgotPasswordText: {
-    fontFamily: FONTS.medium,
-    fontSize: SIZES.small,
+    fontFamily: FONTS.regular,
+    fontSize: SIZES.medium,
     color: COLORS.primary,
   },
   inputOuterContainer: {

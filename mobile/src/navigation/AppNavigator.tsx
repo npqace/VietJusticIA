@@ -18,6 +18,8 @@ import LawyerScreen from '../screens/Support/LawyerScreen';
 import DocumentLookupScreen from '../screens/Lookup/DocumentLookupScreen';
 import ProcedureLookupScreen from '../screens/Lookup/ProcedureLookupScreen';
 import DocumentDetailScreen from '../screens/Lookup/DocumentDetailScreen';
+import ForgotPasswordScreen from '../screens/Auth/ForgotPasswordScreen';
+import ResetPasswordScreen from '../screens/Auth/ResetPasswordScreen';
 import { COLORS } from '../constants/styles';
 
 const Stack = createStackNavigator();

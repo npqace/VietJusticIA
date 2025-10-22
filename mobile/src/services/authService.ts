@@ -152,10 +152,38 @@ export const requestContactUpdate = async (data: { email?: string; phone?: strin
  */
 export const verifyContactUpdate = async (data: { otp: string; email?: string; phone?: string }) => {
   try {
-    const response = await api.post<ContactUpdateResponse>('/api/v1/users/me/verify-contact-update', data);
-    if (response.data?.access_token) {
+    const response = await api.post('/api/v1/users/me/verify-contact-update', data);
+    if (response.data.access_token) {
       await SecureStore.setItemAsync('access_token', response.data.access_token);
     }
+    return response.data;
+  } catch (err: any) {
+    throw err;
+  }
+};
+
+/**
+ * Sends a password reset request for the given email.
+ * @param email - The user's email address.
+ * @returns The response data from the server.
+ */
+export const forgotPassword = async (email: string) => {
+  try {
+    const response = await api.post('/api/v1/auth/forgot-password', { email });
+    return response.data;
+  } catch (err: any) {
+    throw err;
+  }
+};
+
+/**
+ * Resets the user's password using the provided OTP.
+ * @param data - The email, OTP, and new password.
+ * @returns The response data from the server.
+ */
+export const resetPassword = async (data: { email: string; otp: string; new_password: string }) => {
+  try {
+    const response = await api.post('/api/v1/auth/reset-password', data);
     return response.data;
   } catch (err: any) {
     throw err;
