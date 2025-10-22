@@ -13,6 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SIZES, FONTS, LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
+// import UserProfile from '../Main/ProfileScreen';
 
 const { width } = Dimensions.get('window');
 
@@ -27,6 +28,11 @@ const MenuScreen = ({ navigation }: { navigation: any }) => {
     { id: 'lawyer', title: 'Liên hệ luật sư', icon: 'person-outline' },
     { id: 'help', title: 'Hỗ trợ', icon: 'help-circle-outline' }
   ];
+
+  const handleProfile = () => {
+    navigation.navigate('UserProfile');
+  };
+
 
   const handleMenuOption = (optionId: string) => {
     if (optionId === 'chat') navigation.navigate('Chat');
@@ -63,25 +69,29 @@ const MenuScreen = ({ navigation }: { navigation: any }) => {
       
       <ScrollView style={styles.content}>
         {/* User Profile */}
-        <View style={styles.profileContainer}>
-          <View style={styles.profileImageContainer}>
-            <Image
-              source={LOGO_PATH} // Placeholder
-              style={styles.profileImage}
-              resizeMode="cover"
-            />
+        <TouchableOpacity
+          onPress={handleProfile}
+        >
+          <View style={styles.profileContainer}>
+            <View style={styles.profileImageContainer}>
+              <Image
+                source={user?.avatar_url ? { uri: user.avatar_url } : LOGO_PATH}
+                style={styles.profileImage}
+                resizeMode="cover"
+              />
+            </View>
+            <View style={styles.profileInfo}>
+              <Text style={styles.profileName}>{user?.full_name || 'User'}</Text>
+              <Text style={styles.profileEmail}>{user?.email || ''}</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.logoutButton}
+              onPress={handleLogout}
+            >
+              <Ionicons name="log-out-outline" size={30} color={COLORS.primary} />
+            </TouchableOpacity>
           </View>
-          <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>{user?.full_name || 'User'}</Text>
-            <Text style={styles.profileEmail}>{user?.email || ''}</Text>
-          </View>
-          <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={handleLogout}
-          >
-            <Ionicons name="log-out-outline" size={30} color={COLORS.primary} />
-          </TouchableOpacity>
-        </View>
+        </TouchableOpacity>
         
         {/* Menu Options */}
         <View style={styles.menuContainer}>

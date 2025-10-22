@@ -7,6 +7,11 @@ interface AuthResponse {
   refresh_token: string;
 }
 
+// Interface for the expected response from contact update verification
+interface ContactUpdateResponse {
+  access_token?: string;
+}
+
 // Interface for login credentials
 interface LoginCredentials {
   identifier: string;
@@ -30,7 +35,7 @@ interface SignupData {
  */
 export const signup = async (signupData: SignupData) => {
   try {
-    const response = await api.post('/signup', signupData);
+    const response = await api.post('/api/v1/auth/signup', signupData);
     return response.data; // e.g., { message: "Signup successful..." }
   } catch (err: any) {
     throw err;
@@ -44,7 +49,7 @@ export const signup = async (signupData: SignupData) => {
  */
 export const login = async (credentials: LoginCredentials) => {
   try {
-    const response = await api.post('/login', credentials);
+    const response = await api.post('/api/v1/auth/login', credentials);
     const { access_token, refresh_token } = response.data as AuthResponse;
 
     if (access_token) {
@@ -69,7 +74,7 @@ export const login = async (credentials: LoginCredentials) => {
  */
 export const verifyOTP = async (email: string, otp: string) => {
     try {
-        const response = await api.post('/verify-otp', { email, otp });
+        const response = await api.post('/api/v1/auth/verify-otp', { email, otp });
         const { access_token, refresh_token } = response.data as AuthResponse;
 
         if (access_token) {
@@ -93,7 +98,7 @@ export const verifyOTP = async (email: string, otp: string) => {
  */
 export const resendOTP = async (email: string) => {
     try {
-        const response = await api.post('/resend-otp', { email });
+        const response = await api.post('/api/v1/auth/resend-otp', { email });
         return response.data;
     } catch (err: any) {
         throw err;
@@ -123,5 +128,104 @@ export const getAccessToken = async () => {
   } catch (err) {
     console.error("Could not get access token", err);
     return null;
+  }
+};
+
+/**
+ * Requests an update for the user's contact information.
+ * @param data - The new contact information (email or phone).
+ * @returns The response data from the server.
+ */
+export const requestContactUpdate = async (data: { email?: string; phone?: string }) => {
+  try {
+    const response = await api.post('/api/v1/users/me/update-contact', data);
+    return response.data;
+  } catch (err: any) {
+    throw err;
+  }
+};
+
+/**
+ * Verifies the OTP for a contact information update.
+ * @param data - The OTP and the new contact information.
+ * @returns The response data from the server.
+ */
+export const verifyContactUpdate = async (data: { otp: string; email?: string; phone?: string }) => {
+  try {
+    const response = await api.post('/api/v1/users/me/verify-contact-update', data);
+    if (response.data.access_token) {
+      await SecureStore.setItemAsync('access_token', response.data.access_token);
+    }
+    return response.data;
+  } catch (err: any) {
+    throw err;
+  }
+};
+
+/**
+ * Sends a password reset request for the given email.
+ * @param email - The user's email address.
+ * @returns The response data from the server.
+ */
+export const forgotPassword = async (email: string) => {
+  try {
+    const response = await api.post('/api/v1/auth/forgot-password', { email });
+    return response.data;
+  } catch (err: any) {
+    throw err;
+  }
+};
+
+/**
+ * Resets the user's password using the provided OTP.
+ * @param data - The email, OTP, and new password.
+ * @returns The response data from the server.
+ */
+export const resetPassword = async (data: { email: string; otp: string; new_password: string }) => {
+  try {
+    const response = await api.post('/api/v1/auth/reset-password', data);
+    return response.data;
+  } catch (err: any) {
+    throw err;
+  }
+};
+
+/**
+ * Changes the user's password.
+ * @param data - The current and new password.
+ * @returns The response data from the server.
+ */
+export const changePassword = async (data: { current_password: string; new_password: string; confirm_new_password: string }) => {
+  try {
+    const response = await api.post('/api/v1/users/me/change-password', data);
+    return response.data;
+  } catch (err: any) {
+    throw err;
+  }
+};
+
+/**
+ * Deactivates the current user's account.
+ * @returns The response data from the server.
+ */
+export const deactivateAccount = async () => {
+  try {
+    const response = await api.delete('/api/v1/users/me');
+    return response.data;
+  } catch (err: any) {
+    throw err;
+  }
+};
+
+/**
+ * Permanently deletes the current user's account.
+ * @returns The response data from the server.
+ */
+export const deleteAccount = async () => {
+  try {
+    const response = await api.delete('/api/v1/users/me/permanent');
+    return response.data;
+  } catch (err: any) {
+    throw err;
   }
 };

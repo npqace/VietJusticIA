@@ -4,6 +4,8 @@ import logging
 from datetime import datetime, timedelta, timezone
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
+from sqlalchemy.orm import Session
+from ..database.models import User
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -21,7 +23,19 @@ def get_otp_expiry_time(minutes: int = 15) -> datetime:
     """
     return datetime.now(timezone.utc) + timedelta(minutes=minutes)
 
-def send_otp_email(email: str, otp: str) -> bool:
+async def send_verification_otp(db: Session, user: User, email: str = None):
+    """
+    Generates, saves, and sends an OTP for verification.
+    """
+    otp = generate_otp()
+    user.otp = otp
+    user.otp_expires_at = get_otp_expiry_time()
+    db.commit()
+    
+    target_email = email if email else user.email
+    return await send_otp_email(target_email, otp)
+
+async def send_otp_email(email: str, otp: str) -> bool:
     """
     Sends the OTP to the user's email address using SendGrid.
     Returns True on success, False on failure.
@@ -56,7 +70,7 @@ def send_otp_email(email: str, otp: str) -> bool:
 
     try:
         sg = SendGridAPIClient(sendgrid_api_key)
-        response = sg.send(message)
+        response = await sg.send(message)
         
         if response.status_code == 202:
             logger.info(f"OTP email successfully sent to {email}")

@@ -15,6 +15,11 @@ export const COLORS = {
   lightGray: '#F5F5F5',
   border: '#E0E0E0',
   text: '#333333',
+  darkGray: '#A9A9A9',
+
+  // Semantic colors
+  green: '#28A745',
+  red: '#DC3545',
 
   
   // Gradient colors
@@ -22,6 +27,11 @@ export const COLORS = {
   gradientMiddle1: 'rgba(174, 197, 220, 0.9)',
   gradientMiddle2: 'rgba(153, 185, 219, 1)',
   gradientEnd: 'rgba(84, 146, 218, 0.9)',
+
+  // Profile Screen Gradient
+  profileGradientStart: '#FFFFFF',
+  profileGradientMid: '#E6F0F9',
+  profileGradientEnd: '#B0CBE2',
   
   // Button colors
   buttonLight: '#FFFFFF',
@@ -37,6 +47,10 @@ export const SIZES = {
   body: 18,
   medium: 15,
   small: 14,
+
+  // App-specific sizes
+  padding: 16,
+  radius: 12,
 };
 
 export const FONTS = {

@@ -58,5 +58,5 @@ HEALTHCHECK --interval=1m --timeout=30s --start-period=5m --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Run the application via entrypoint
-ENTRYPOINT ["/app/entrypoint.sh"]
+ENTRYPOINT ["sh", "/app/entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

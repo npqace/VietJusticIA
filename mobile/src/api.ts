@@ -23,44 +23,44 @@ api.interceptors.request.use(
 
 // Response interceptor to handle unauthorized responses
 api.interceptors.response.use(
-  (response: any) => {
-    try {
-      console.log(`[API] <- ${response.status} ${response.config.url}`, JSON.stringify(response.data).slice(0, 500));
-    } catch {}
-    return response;
-  },
-  async (error: any) => {
+  (response) => response,
+  async (error) => {
     const originalRequest = error.config;
-    const status = error?.response?.status;
-    try {
-      const url = originalRequest?.url || '';
-      console.log(`[API] xx ${status || 'ERR'} ${url}`, JSON.stringify(error?.response?.data || error?.message || {}).slice(0, 500));
-    } catch {}
-    if (status === 401 && !originalRequest._retry) {
+    
+    // Prevent token refresh for auth endpoints (login, signup, etc.)
+    if (error.response.status === 401 && originalRequest.url.includes('/auth/')) {
+      return Promise.reject(error);
+    }
+
+    if (error.response.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
         const refreshToken = await SecureStore.getItemAsync('refresh_token');
-        console.log('Attempting to refresh token with:', refreshToken);
         if (!refreshToken) {
-          throw new Error('No refresh token');
+          console.log('No refresh token, logging out.');
+          // It's better to delegate logout to the AuthContext to avoid circular dependencies
+          // Instead, we'll just reject, and the UI can decide what to do.
+          return Promise.reject(new Error('No refresh token'));
         }
-        const refreshResponse = await api.post<{access_token: string}>('/refresh', { refresh_token: refreshToken });
-        const newAccessToken = refreshResponse.data?.access_token;
-        if (newAccessToken) {
-          console.log('Successfully refreshed token:', newAccessToken);
-          await SecureStore.setItemAsync('access_token', newAccessToken);
-          // Update header and retry original request
-          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-          return api(originalRequest);
-        }
+        
+        console.log('Attempting to refresh token with:', refreshToken);
+        const { data } = await api.post('/api/v1/auth/refresh', { refresh_token: refreshToken });
+        
+        await SecureStore.setItemAsync('access_token', data.access_token);
+        api.defaults.headers.common['Authorization'] = `Bearer ${data.access_token}`;
+        originalRequest.headers['Authorization'] = `Bearer ${data.access_token}`;
+        
+        return api(originalRequest);
       } catch (refreshError) {
         console.error('Failed to refresh token:', refreshError);
-        // fall through to logout
+        // If refresh fails, we should clear tokens and effectively log the user out.
+        // This logic is often best handled in a central place like AuthContext.
+        console.log('Logging out due to refresh failure.');
+        await SecureStore.deleteItemAsync('access_token');
+        await SecureStore.deleteItemAsync('refresh_token');
+        // Here you might want to trigger a global logout state change.
+        return Promise.reject(refreshError);
       }
-      console.log('Logging out due to refresh failure.');
-      await SecureStore.deleteItemAsync('access_token');
-      await SecureStore.deleteItemAsync('refresh_token');
-      // TODO: Optionally trigger a navigation to Login screen from a global handler
     }
     return Promise.reject(error);
   }

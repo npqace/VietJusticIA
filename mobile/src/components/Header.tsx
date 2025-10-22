@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,7 +22,7 @@ const Header = ({ title, showAddChat = false }: HeaderProps) => {
       <Text style={styles.title}>{title}</Text>
       <View style={styles.rightIconsContainer}>
         {showAddChat && (
-          <TouchableOpacity onPress={() => navigation.navigate('Chat')} style={styles.iconButton}>
+          <TouchableOpacity onPress={() => navigation.navigate('Chat' as never)} style={styles.iconButton}>
             <Ionicons name="add-circle-outline" size={30} color={COLORS.gray} />
           </TouchableOpacity>
         )}

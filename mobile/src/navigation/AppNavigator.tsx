@@ -1,43 +1,46 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { useAuth } from '../context/AuthContext'; // Import the useAuth hook
+import { useAuth } from '../context/AuthContext';
+import OtpVerificationModal from '../components/Auth/OtpVerificationModal';
 
 import ChatScreen from '../screens/Main/ChatScreen';
 import WelcomeScreen from '../screens/WelcomeScreen';
 import LoginScreen from '../screens/Auth/LoginScreen';
 import SignupScreen from '../screens/Auth/SignupScreen';
 import MenuScreen from '../screens/Main/MenuScreen';
+import UserProfile from '../screens/Main/ProfileScreen';
 import HelpScreen from '../screens/Support/HelpScreen';
 import LawyerScreen from '../screens/Support/LawyerScreen';
 import DocumentLookupScreen from '../screens/Lookup/DocumentLookupScreen';
 import ProcedureLookupScreen from '../screens/Lookup/ProcedureLookupScreen';
 import DocumentDetailScreen from '../screens/Lookup/DocumentDetailScreen';
+import ForgotPasswordScreen from '../screens/Auth/ForgotPasswordScreen';
+import ResetPasswordScreen from '../screens/Auth/ResetPasswordScreen';
 import { COLORS } from '../constants/styles';
 
 const Stack = createStackNavigator();
 
-// A simple loading screen, can be replaced with the splash screen logic later
 const LoadingScreen = () => (
   <View style={styles.splashContainer}>
     <ActivityIndicator size="large" color={COLORS.primary} />
   </View>
 );
 
-// Screens accessible before logging in
 const AuthStack = () => (
-  <Stack.Navigator screenOptions={{ headerShown: false }}>
+  <Stack.Navigator initialRouteName="Welcome" screenOptions={{ headerShown: false }}>
     <Stack.Screen name="Welcome" component={WelcomeScreen} />
     <Stack.Screen name="Signup" component={SignupScreen} />
     <Stack.Screen name="Login" component={LoginScreen} />
   </Stack.Navigator>
 );
 
-// Screens accessible after logging in
 const MainStack = () => (
   <Stack.Navigator initialRouteName="Chat" screenOptions={{ headerShown: false }}>
+    <Stack.Screen name='UserProfile' component={UserProfile} />
     <Stack.Screen name='Chat' component={ChatScreen} />
     <Stack.Screen name='Menu' component={MenuScreen} />
     <Stack.Screen name='FAQs' component={HelpScreen} />
@@ -49,8 +52,16 @@ const MainStack = () => (
 );
 
 const AppNavigator = () => {
-  // Get state from the context instead of local state
-  const { isAuthenticated, isLoading } = useAuth();
+  const { 
+    isAuthenticated, 
+    isLoading, 
+    isOtpModalVisible, 
+    otpEmail, 
+    hideOtpModal, 
+    onVerify,
+    onResend,
+    onSuccess
+  } = useAuth();
 
   if (isLoading) {
     return <LoadingScreen />;
@@ -59,6 +70,16 @@ const AppNavigator = () => {
   return (
     <NavigationContainer>
       {isAuthenticated ? <MainStack /> : <AuthStack />}
+      {isOtpModalVisible && otpEmail && onVerify && onResend && onSuccess && (
+        <OtpVerificationModal
+          visible={isOtpModalVisible}
+          onClose={hideOtpModal}
+          email={otpEmail}
+          onVerify={onVerify}
+          onResend={onResend}
+          onSuccess={onSuccess}
+        />
+      )}
     </NavigationContainer>
   );
 };
