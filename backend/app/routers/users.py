@@ -144,3 +144,32 @@ async def verify_contact_update(
         "user": updated_user,
         "access_token": access_token,
     }
+
+@router.delete("/users/me", status_code=status.HTTP_204_NO_CONTENT)
+async def deactivate_user_me(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Deactivates the currently authenticated user's account.
+    """
+    if not current_user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Account is already inactive.",
+        )
+    
+    user_repository.update_user(db, current_user, {"is_active": False})
+    return
+
+@router.delete("/users/me/permanent", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user_me_permanently(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Permanently deletes the currently authenticated user's account.
+    """
+    db.delete(current_user)
+    db.commit()
+    return

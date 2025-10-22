@@ -203,3 +203,29 @@ export const changePassword = async (data: { current_password: string; new_passw
     throw err;
   }
 };
+
+/**
+ * Deactivates the current user's account.
+ * @returns The response data from the server.
+ */
+export const deactivateAccount = async () => {
+  try {
+    const response = await api.delete('/api/v1/users/me');
+    return response.data;
+  } catch (err: any) {
+    throw err;
+  }
+};
+
+/**
+ * Permanently deletes the current user's account.
+ * @returns The response data from the server.
+ */
+export const deleteAccount = async () => {
+  try {
+    const response = await api.delete('/api/v1/users/me/permanent');
+    return response.data;
+  } catch (err: any) {
+    throw err;
+  }
+};

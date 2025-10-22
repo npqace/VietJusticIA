@@ -46,12 +46,15 @@ def authenticate_user(db: Session, identifier: str, password: str):
     if not user:
         user = db.query(models.User).filter(models.User.phone == identifier).first()
 
-    # If still not found, return None
-    if not user:
+    # If still not found, or password does not match, return None
+    if not user or not verify_password(password, user.hashed_password):
         return None
 
-    if not verify_password(password, user.hashed_password):
-        return None
+    # Reactivate account if it was inactive
+    if not user.is_active:
+        user.is_active = True
+        db.commit()
+        db.refresh(user)
     
     return user
 

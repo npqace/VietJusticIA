@@ -19,12 +19,14 @@ import { storage } from '../../firebaseConfig';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import api from '../../api';
 import ChangePasswordModal from '../../components/Profile/ChangePasswordModal';
-import { changePassword, forgotPassword } from '../../services/authService';
+import DeleteAccountModal from '../../components/Profile/DeleteAccountModal';
+import { changePassword, forgotPassword, deactivateAccount, deleteAccount } from '../../services/authService';
 
 const ProfileScreen = ({ navigation }: { navigation: any }) => {
-  const { user, refreshUserData } = useAuth();
+  const { user, refreshUserData, logout } = useAuth();
   const [isModalVisible, setModalVisible] = useState(false);
   const [isChangePasswordModalVisible, setChangePasswordModalVisible] = useState(false);
+  const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
   // Form state for the modal
@@ -94,6 +96,9 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
   const openChangePasswordModal = () => setChangePasswordModalVisible(true);
   const closeChangePasswordModal = () => setChangePasswordModalVisible(false);
 
+  const openDeleteModal = () => setDeleteModalVisible(true);
+  const closeDeleteModal = () => setDeleteModalVisible(false);
+
   const handleChangePassword = async (currentPassword: string, newPassword: string) => {
     await changePassword({ current_password: currentPassword, new_password: newPassword, confirm_new_password: newPassword });
     closeChangePasswordModal();
@@ -111,6 +116,37 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
       );
     } catch (err: any) {
       Alert.alert('Lỗi', err.response?.data?.detail || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
+    }
+  };
+
+  const handleDeactivate = () => {
+    Alert.alert(
+      "Vô hiệu hóa tài khoản",
+      "Bạn có chắc chắn muốn vô hiệu hóa tài khoản của mình không? Bạn có thể kích hoạt lại bằng cách đăng nhập lại.",
+      [
+        { text: "Hủy", style: "cancel" },
+        {
+          text: "Vô hiệu hóa",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deactivateAccount();
+              await logout();
+            } catch (error) {
+              Alert.alert("Lỗi", "Không thể vô hiệu hóa tài khoản. Vui lòng thử lại.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteAccount = async () => {
+    try {
+      await deleteAccount();
+      await logout();
+    } catch (error) {
+      Alert.alert("Lỗi", "Không thể xóa tài khoản. Vui lòng thử lại.");
     }
   };
 
@@ -159,6 +195,12 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
           <TouchableOpacity style={[styles.mainButton, styles.secondaryButton]} onPress={openChangePasswordModal}>
             <Text style={[styles.mainButtonText, styles.secondaryButtonText]}>Đổi mật khẩu</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={[styles.mainButton, styles.destructiveButton]} onPress={handleDeactivate}>
+            <Text style={[styles.mainButtonText, styles.destructiveButtonText]}>Vô hiệu hóa tài khoản</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.mainButton, styles.deleteButton]} onPress={openDeleteModal}>
+            <Text style={[styles.mainButtonText, styles.deleteButtonText]}>Xóa tài khoản</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -179,6 +221,11 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
         onClose={closeChangePasswordModal}
         onChangePassword={handleChangePassword}
         onForgotPassword={handleForgotPasswordFromModal}
+      />
+      <DeleteAccountModal
+        visible={isDeleteModalVisible}
+        onClose={closeDeleteModal}
+        onConfirm={handleDeleteAccount}
       />
     </LinearGradient>
   );
@@ -237,11 +284,8 @@ const styles = StyleSheet.create({
     fontSize: SIZES.small,
     color: COLORS.gray,
   },
-  infoSection: {
-    marginBottom: SIZES.padding,
-  },
   infoRow: {
-    marginBottom: SIZES.padding * 1.5,
+    marginBottom: SIZES.padding,
   },
   label: {
     fontFamily: FONTS.regular,
@@ -273,6 +317,21 @@ mainButtonText: {
   secondaryButtonText: {
     color: COLORS.primary,
   },
+  destructiveButton: {
+    backgroundColor: 'transparent',
+    borderColor: COLORS.red,
+    borderWidth: 1,
+  },
+  destructiveButtonText: {
+    color: COLORS.red,
+  },
+  deleteButton: {
+    backgroundColor: COLORS.red,
+  },
+  deleteButtonText: {
+    color: COLORS.white,
+  },
+  
   center: {
     flex: 1,
     justifyContent: 'center',

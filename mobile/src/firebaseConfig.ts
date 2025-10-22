@@ -2,15 +2,14 @@
 import { initializeApp } from "firebase/app";
 import { getStorage } from "firebase/storage";
 
-// TODO: Add your own Firebase configuration from the Firebase console
-// IMPORTANT: REPLACE THE PLACEHOLDER VALUES BELOW WITH YOUR ACTUAL FIREBASE CONFIG
+// Get Firebase config from environment variables
 const firebaseConfig = {
-  apiKey: "AIzaSyCLWic4OMOzwXMryeO9rKNF1DSzV9Dh0GY",
-  authDomain: "vietjusticia-67e34.firebaseapp.com",
-  projectId: "vietjusticia-67e34",
-  storageBucket: "vietjusticia-67e34.firebasestorage.app",
-  messagingSenderId: "674210851279",
-  appId: "1:674210851279:web:8b33bf52bc05a475f4caba"
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID
 };
 
 // Initialize Firebase
