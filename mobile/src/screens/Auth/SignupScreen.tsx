@@ -18,7 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import CustomButton from '../../components/CustomButton';
 import { COLORS, SIZES, FONTS, LOGO_PATH, GOOGLE_LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
-import { signup } from '../../services/authService';
+import { signup, verifyOTP, resendOTP } from '../../services/authService';
 import { useAuth } from '../../context/AuthContext';
 
 const { width } = Dimensions.get('window');
@@ -33,7 +33,7 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const { showOtpModal } = useAuth();
+  const { showOtpModal, handleOtpVerified } = useAuth();
 
   const handleSignup = async () => {
     if (password !== confirmPassword) {
@@ -57,7 +57,12 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
       const data = await signup(payload);
 
       if (data.message) {
-        showOtpModal(email);
+        showOtpModal(
+          email,
+          (otp) => verifyOTP(email, otp),
+          () => resendOTP(email),
+          handleOtpVerified
+        );
       }
     } catch (err: any) {
       let message = 'Đăng ký thất bại. Vui lòng thử lại.';

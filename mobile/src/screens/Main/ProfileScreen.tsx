@@ -37,13 +37,6 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
   const openModal = () => setModalVisible(true);
   const closeModal = () => setModalVisible(false);
 
-  const handleSaveChanges = () => {
-    // Handle saving changes here
-    // You would typically make an API call to update the user profile
-    console.log({ fullName, email, phoneNumber, address });
-    closeModal();
-  };
-
   const profileImageUrl = 'https://www.gravatar.com/avatar/?d=mp';
 
   if (!user) {
@@ -96,7 +89,6 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
         setEmail={setEmail}
         setPhoneNumber={setPhoneNumber}
         setAddress={setAddress}
-        handleSaveChanges={handleSaveChanges}
       />
     </LinearGradient>
   );

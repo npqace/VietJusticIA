@@ -12,17 +12,24 @@ import {
 } from 'react-native';
 import CustomButton from '../CustomButton';
 import { COLORS, SIZES, FONTS } from '../../constants/styles';
-import { verifyOTP, resendOTP } from '../../services/authService';
-import { useAuth } from '../../context/AuthContext';
 
 interface OtpVerificationModalProps {
   visible: boolean;
-  onClose: () => void;
   email: string;
+  onClose: () => void;
+  onVerify: (otp: string) => Promise<any>;
+  onResend: () => Promise<any>;
+  onSuccess: () => void;
 }
 
-const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({ visible, onClose, email }) => {
-  const { handleOtpVerified } = useAuth();
+const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
+  visible,
+  email,
+  onClose,
+  onVerify,
+  onResend,
+  onSuccess,
+}) => {
   const [isLoading, setIsLoading] = useState(false);
   const [otp, setOtp] = useState(new Array(6).fill(''));
   const [resendDisabled, setResendDisabled] = useState(true);
@@ -32,10 +39,15 @@ const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({ visible, on
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
-    if (visible && resendDisabled) {
+
+    if (visible) {
+      setOtp(new Array(6).fill(''));
+      setResendDisabled(true);
+      setCountdown(60);
+
       timer = setInterval(() => {
         setCountdown((prev) => {
-          if (prev === 1) {
+          if (prev <= 1) {
             clearInterval(timer);
             setResendDisabled(false);
             return 0;
@@ -44,8 +56,13 @@ const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({ visible, on
         });
       }, 1000);
     }
-    return () => clearInterval(timer);
-  }, [visible, resendDisabled]);
+
+    return () => {
+      if (timer) {
+        clearInterval(timer);
+      }
+    };
+  }, [visible]);
 
   const handleVerify = async () => {
     const otpCode = otp.join('');
@@ -55,8 +72,8 @@ const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({ visible, on
     }
     setIsLoading(true);
     try {
-      await verifyOTP(email, otpCode);
-      handleOtpVerified();
+      await onVerify(otpCode);
+      onSuccess(); // Call the generic success handler
     } catch (error: any) {
       Alert.alert('Xác thực thất bại', error.response?.data?.detail || 'Đã có lỗi xảy ra.');
     } finally {
@@ -67,7 +84,7 @@ const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({ visible, on
   const handleResendOtp = async () => {
     setIsLoading(true);
     try {
-      await resendOTP(email);
+      await onResend();
       Alert.alert('Đã gửi lại OTP', 'Một mã OTP mới đã được gửi tới email của bạn.');
       setResendDisabled(true);
       setCountdown(60);

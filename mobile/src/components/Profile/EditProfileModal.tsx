@@ -1,8 +1,11 @@
-import React from 'react';
-import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import React, { useState } from 'react';
+import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, TouchableWithoutFeedback, Keyboard, Alert } from 'react-native';
 import CustomButton from '../CustomButton';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SIZES } from '../../constants/styles';
+import api from '../../api';
+import { useAuth } from '../../context/AuthContext';
+import { requestContactUpdate, verifyContactUpdate, resendOTP } from '../../services/authService';
 
 interface EditProfileModalProps {
   visible: boolean;
@@ -15,7 +18,6 @@ interface EditProfileModalProps {
   setEmail: (text: string) => void;
   setPhoneNumber: (text: string) => void;
   setAddress: (text: string) => void;
-  handleSaveChanges: () => void;
 }
 
 const EditProfileModal: React.FC<EditProfileModalProps> = ({
@@ -29,8 +31,53 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
   setEmail,
   setPhoneNumber,
   setAddress,
-  handleSaveChanges,
 }) => {
+  const { user, updateUser, showOtpModal, refreshUserData, hideOtpModal } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleUpdateSuccess = async () => {
+    hideOtpModal();
+    await refreshUserData();
+    Alert.alert('Thành công', 'Thông tin của bạn đã được cập nhật.');
+  };
+
+  const handleSaveChanges = async () => {
+    setIsLoading(true);
+    try {
+      const emailChanged = email !== user.email;
+      const phoneChanged = phoneNumber !== user.phone;
+
+      if (emailChanged || phoneChanged) {
+        const payload: { email?: string; phone?: string } = {};
+        if (emailChanged) payload.email = email;
+        if (phoneChanged) payload.phone = phoneNumber;
+
+        await requestContactUpdate(payload);
+        onClose(); // Close the edit modal first
+        
+        showOtpModal(
+          emailChanged ? email : user.email,
+          (otp) => verifyContactUpdate({ ...payload, otp }),
+          () => resendOTP(emailChanged ? email : user.email),
+          handleUpdateSuccess
+        );
+
+      } else {
+        const payload = {
+          full_name: fullName,
+        };
+        const response = await api.patch('/api/v1/users/me', payload);
+        updateUser(response.data);
+        onClose();
+        Alert.alert('Thành công', 'Thông tin của bạn đã được cập nhật.');
+      }
+    } catch (error: any) {
+      Alert.alert('Lỗi', error.response?.data?.detail || 'Không thể cập nhật thông tin.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <Modal
       animationType="fade"
@@ -106,6 +153,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 onPress={handleSaveChanges}
                 buttonStyle={styles.saveButton}
                 textStyle={styles.saveButtonText}
+                isLoading={isLoading}
               />
             </View>
           </TouchableWithoutFeedback>

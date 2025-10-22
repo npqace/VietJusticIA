@@ -17,6 +17,8 @@ class User(Base):
     is_verified = Column(Boolean, default=False)
     otp = Column(String(6), nullable=True)
     otp_expires_at = Column(DateTime(timezone=True), nullable=True)
+    new_email = Column(String(100), nullable=True)
+    new_phone = Column(String(20), nullable=True)
 
     # New role column with default value "user"
     class Role(enum.Enum):

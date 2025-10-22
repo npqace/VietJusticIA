@@ -50,7 +50,16 @@ const MainStack = () => (
 );
 
 const AppNavigator = () => {
-  const { isAuthenticated, isLoading, isOtpModalVisible, otpEmail, hideOtpModal, handleOtpVerified } = useAuth();
+  const { 
+    isAuthenticated, 
+    isLoading, 
+    isOtpModalVisible, 
+    otpEmail, 
+    hideOtpModal, 
+    onVerify,
+    onResend,
+    onSuccess
+  } = useAuth();
   const [isFirstLaunch, setIsFirstLaunch] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -78,11 +87,14 @@ const AppNavigator = () => {
   return (
     <NavigationContainer>
       {isAuthenticated ? <MainStack /> : <AuthStack isFirstLaunch={isFirstLaunch} />}
-      {isOtpModalVisible && otpEmail && (
+      {isOtpModalVisible && otpEmail && onVerify && onResend && onSuccess && (
         <OtpVerificationModal
           visible={isOtpModalVisible}
           onClose={hideOtpModal}
           email={otpEmail}
+          onVerify={onVerify}
+          onResend={onResend}
+          onSuccess={onSuccess}
         />
       )}
     </NavigationContainer>

@@ -7,6 +7,11 @@ interface AuthResponse {
   refresh_token: string;
 }
 
+// Interface for the expected response from contact update verification
+interface ContactUpdateResponse {
+  access_token?: string;
+}
+
 // Interface for login credentials
 interface LoginCredentials {
   identifier: string;
@@ -123,5 +128,36 @@ export const getAccessToken = async () => {
   } catch (err) {
     console.error("Could not get access token", err);
     return null;
+  }
+};
+
+/**
+ * Requests an update for the user's contact information.
+ * @param data - The new contact information (email or phone).
+ * @returns The response data from the server.
+ */
+export const requestContactUpdate = async (data: { email?: string; phone?: string }) => {
+  try {
+    const response = await api.post('/api/v1/users/me/update-contact', data);
+    return response.data;
+  } catch (err: any) {
+    throw err;
+  }
+};
+
+/**
+ * Verifies the OTP for a contact information update.
+ * @param data - The OTP and the new contact information.
+ * @returns The response data from the server.
+ */
+export const verifyContactUpdate = async (data: { otp: string; email?: string; phone?: string }) => {
+  try {
+    const response = await api.post<ContactUpdateResponse>('/api/v1/users/me/verify-contact-update', data);
+    if (response.data?.access_token) {
+      await SecureStore.setItemAsync('access_token', response.data.access_token);
+    }
+    return response.data;
+  } catch (err: any) {
+    throw err;
   }
 };

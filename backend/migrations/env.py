@@ -8,8 +8,14 @@ from sqlalchemy import pool
 from alembic import context
 from app.database.models import Base
 
-# Load .env file into environment
-load_dotenv()
+# Load .env file from the root directory
+dotenv_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
+if os.path.exists(dotenv_path):
+    load_dotenv(dotenv_path=dotenv_path)
+else:
+    # Fallback for environments where the .env file might be in the same directory as alembic.ini
+    load_dotenv()
+print(f"DATABASE_URL: {os.getenv('DATABASE_URL')}")
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
