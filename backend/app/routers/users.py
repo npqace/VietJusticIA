@@ -3,8 +3,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
-from app.schemas.user import UserRead, UserUpdate, UpdateContactRequest, VerifyUpdateContactRequest
+from app.schemas.user import UserRead, UserUpdate, UpdateContactRequest, VerifyUpdateContactRequest, ChangePasswordRequest
 from app.services.auth import get_current_user, create_access_token
+from app.core.security import verify_password, get_password_hash
 from app.database.models import User
 from app.repository import user_repository
 from app.services.otp_service import send_verification_otp
@@ -30,6 +31,32 @@ async def update_user_me(
     update_data = user_update.model_dump(exclude_unset=True)
     updated_user = user_repository.update_user(db, current_user, update_data)
     return updated_user
+
+@router.post("/users/me/change-password", response_model=dict)
+async def change_password(
+    request: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Changes the password for the currently authenticated user.
+    """
+    if not verify_password(request.current_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incorrect current password.",
+        )
+    
+    if request.new_password != request.confirm_new_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New passwords do not match.",
+        )
+
+    current_user.hashed_password = get_password_hash(request.new_password)
+    db.commit()
+
+    return {"message": "Password changed successfully."}
 
 @router.post("/users/me/update-contact")
 async def update_contact(

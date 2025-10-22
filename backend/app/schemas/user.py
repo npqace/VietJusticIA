@@ -29,3 +29,8 @@ class VerifyUpdateContactRequest(BaseModel):
     otp: str
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+    confirm_new_password: str

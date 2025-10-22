@@ -189,3 +189,17 @@ export const resetPassword = async (data: { email: string; otp: string; new_pass
     throw err;
   }
 };
+
+/**
+ * Changes the user's password.
+ * @param data - The current and new password.
+ * @returns The response data from the server.
+ */
+export const changePassword = async (data: { current_password: string; new_password: string; confirm_new_password: string }) => {
+  try {
+    const response = await api.post('/api/v1/users/me/change-password', data);
+    return response.data;
+  } catch (err: any) {
+    throw err;
+  }
+};

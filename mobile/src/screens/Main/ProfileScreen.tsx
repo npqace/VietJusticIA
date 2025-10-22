@@ -18,10 +18,13 @@ import * as ImagePicker from 'expo-image-picker';
 import { storage } from '../../firebaseConfig';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import api from '../../api';
+import ChangePasswordModal from '../../components/Profile/ChangePasswordModal';
+import { changePassword, forgotPassword } from '../../services/authService';
 
 const ProfileScreen = ({ navigation }: { navigation: any }) => {
   const { user, refreshUserData } = useAuth();
   const [isModalVisible, setModalVisible] = useState(false);
+  const [isChangePasswordModalVisible, setChangePasswordModalVisible] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
   // Form state for the modal
@@ -88,6 +91,29 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
   const openModal = () => setModalVisible(true);
   const closeModal = () => setModalVisible(false);
 
+  const openChangePasswordModal = () => setChangePasswordModalVisible(true);
+  const closeChangePasswordModal = () => setChangePasswordModalVisible(false);
+
+  const handleChangePassword = async (currentPassword: string, newPassword: string) => {
+    await changePassword({ current_password: currentPassword, new_password: newPassword, confirm_new_password: newPassword });
+    closeChangePasswordModal();
+    Alert.alert("Thành công", "Mật khẩu của bạn đã được thay đổi.");
+  };
+
+  const handleForgotPasswordFromModal = async () => {
+    closeChangePasswordModal();
+    try {
+      await forgotPassword(user.email);
+      Alert.alert(
+        'Kiểm tra Email của bạn',
+        'Nếu tài khoản tồn tại, một mã OTP để đặt lại mật khẩu đã được gửi đến email của bạn.',
+        [{ text: 'OK', onPress: () => navigation.navigate('ResetPassword', { email: user.email }) }]
+      );
+    } catch (err: any) {
+      Alert.alert('Lỗi', err.response?.data?.detail || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
+    }
+  };
+
   const profileImageUrl = user?.avatar_url || 'https://www.gravatar.com/avatar/?d=mp';
 
   if (!user) {
@@ -130,6 +156,9 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
           <TouchableOpacity style={styles.mainButton} onPress={openModal}>
             <Text style={styles.mainButtonText}>Thay đổi thông tin</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={[styles.mainButton, styles.secondaryButton]} onPress={openChangePasswordModal}>
+            <Text style={[styles.mainButtonText, styles.secondaryButtonText]}>Đổi mật khẩu</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -144,6 +173,12 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
         setEmail={setEmail}
         setPhoneNumber={setPhoneNumber}
         setAddress={setAddress}
+      />
+      <ChangePasswordModal
+        visible={isChangePasswordModalVisible}
+        onClose={closeChangePasswordModal}
+        onChangePassword={handleChangePassword}
+        onForgotPassword={handleForgotPasswordFromModal}
       />
     </LinearGradient>
   );
@@ -230,6 +265,13 @@ mainButtonText: {
     fontFamily: FONTS.bold,
     fontSize: SIZES.body,
     color: COLORS.white,
+  },
+  secondaryButton: {
+    backgroundColor: COLORS.lightGray,
+    marginTop: SIZES.padding / 2,
+  },
+  secondaryButtonText: {
+    color: COLORS.primary,
   },
   center: {
     flex: 1,
