@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 from app.database import models
 from app.model.userModel import SignUpModel, LoginModel
-from app.services.auth import create_access_token, create_refresh_token
+from app.services.auth import create_access_token, create_refresh_token, verify_refresh_token
 from app.database.database import get_db
 from app.repository import user_repository
 from app.services import otp_service

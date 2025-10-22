@@ -28,8 +28,10 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
+    setIsLoading(true);
     try {
       await login({ identifier, pwd: password });
     } catch (err: any) {
@@ -40,6 +42,8 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
         message = err.message;
       }
       Alert.alert('Lỗi Đăng Nhập', message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -123,6 +127,7 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
               onPress={handleLogin}
               buttonStyle={styles.loginButton}
               textStyle={styles.loginButtonText}
+              isLoading={isLoading}
             />
 
             <Text style={styles.orText}>hoặc</Text>

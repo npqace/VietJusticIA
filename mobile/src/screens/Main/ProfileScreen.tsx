@@ -1,18 +1,49 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Image, ScrollView, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  Image,
+  ScrollView,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../context/AuthContext';
 import { COLORS, FONTS, SIZES } from '../../constants/styles';
 import Header from '../../components/Header';
+import EditProfileModal from '../../components/Profile/EditProfileModal'; // Import the new modal component
 
 const ProfileScreen = ({ navigation }: { navigation: any }) => {
   const { user } = useAuth();
+  const [isModalVisible, setModalVisible] = useState(false);
 
-  const handleNavigateToEdit = () => {
-    Alert.alert("Coming Soon", "This will navigate to the edit profile screen.");
+  // Form state for the modal
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [address, setAddress] = useState('');
+
+  // When the user object is available, update the form state
+  useEffect(() => {
+    if (user) {
+      setFullName(user.full_name || '');
+      setEmail(user.email || '');
+      setPhoneNumber(user.phone || '');
+      setAddress(''); // Address is not in the user object yet
+    }
+  }, [user]);
+
+  const openModal = () => setModalVisible(true);
+  const closeModal = () => setModalVisible(false);
+
+  const handleSaveChanges = () => {
+    // Handle saving changes here
+    // You would typically make an API call to update the user profile
+    console.log({ fullName, email, phoneNumber, address });
+    closeModal();
   };
 
-  // Placeholder for profile picture
   const profileImageUrl = 'https://www.gravatar.com/avatar/?d=mp';
 
   if (!user) {
@@ -28,7 +59,6 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
 
   return (
     <LinearGradient colors={[COLORS.profileGradientStart, COLORS.profileGradientMid, COLORS.profileGradientEnd]} style={styles.container}>
-      {/* Per user request, using a simple title as they will handle the header */}
       <Header title="Thông tin cá nhân" showAddChat={true} />
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.card}>
@@ -46,14 +76,28 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
             <InfoRow label="Họ và Tên" value={user.full_name} />
             <InfoRow label="Email" value={user.email} />
             <InfoRow label="Số điện thoại" value={user.phone} />
-            <InfoRow label="Địa chỉ" value={null} /> 
+            <InfoRow label="Địa chỉ" value={null} />
           </View>
 
-          <TouchableOpacity style={styles.mainButton} onPress={handleNavigateToEdit}>
+          <TouchableOpacity style={styles.mainButton} onPress={openModal}>
             <Text style={styles.mainButtonText}>Thay đổi thông tin</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      <EditProfileModal
+        visible={isModalVisible}
+        onClose={closeModal}
+        fullName={fullName}
+        email={email}
+        phoneNumber={phoneNumber}
+        address={address}
+        setFullName={setFullName}
+        setEmail={setEmail}
+        setPhoneNumber={setPhoneNumber}
+        setAddress={setAddress}
+        handleSaveChanges={handleSaveChanges}
+      />
     </LinearGradient>
   );
 };
@@ -135,7 +179,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: SIZES.padding,
   },
-  mainButtonText: {
+mainButtonText: {
     fontFamily: FONTS.bold,
     fontSize: SIZES.body,
     color: COLORS.white,

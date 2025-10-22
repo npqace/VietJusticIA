@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { useAuth } from '../context/AuthContext'; // Import the useAuth hook
+import { useAuth } from '../context/AuthContext';
+import OtpVerificationModal from '../components/Auth/OtpVerificationModal';
 
 import ChatScreen from '../screens/Main/ChatScreen';
 import WelcomeScreen from '../screens/WelcomeScreen';
@@ -20,23 +22,20 @@ import { COLORS } from '../constants/styles';
 
 const Stack = createStackNavigator();
 
-// A simple loading screen, can be replaced with the splash screen logic later
 const LoadingScreen = () => (
   <View style={styles.splashContainer}>
     <ActivityIndicator size="large" color={COLORS.primary} />
   </View>
 );
 
-// Screens accessible before logging in
-const AuthStack = () => (
-  <Stack.Navigator screenOptions={{ headerShown: false }}>
+const AuthStack = ({ isFirstLaunch }: { isFirstLaunch: boolean }) => (
+  <Stack.Navigator initialRouteName={isFirstLaunch ? "Welcome" : "Login"} screenOptions={{ headerShown: false }}>
     <Stack.Screen name="Welcome" component={WelcomeScreen} />
     <Stack.Screen name="Signup" component={SignupScreen} />
     <Stack.Screen name="Login" component={LoginScreen} />
   </Stack.Navigator>
 );
 
-// Screens accessible after logging in
 const MainStack = () => (
   <Stack.Navigator initialRouteName="Chat" screenOptions={{ headerShown: false }}>
     <Stack.Screen name='UserProfile' component={UserProfile} />
@@ -51,16 +50,41 @@ const MainStack = () => (
 );
 
 const AppNavigator = () => {
-  // Get state from the context instead of local state
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, isOtpModalVisible, otpEmail, hideOtpModal, handleOtpVerified } = useAuth();
+  const [isFirstLaunch, setIsFirstLaunch] = useState<boolean | null>(null);
 
-  if (isLoading) {
+  useEffect(() => {
+    const checkIfFirstLaunch = async () => {
+      try {
+        const hasLaunched = await AsyncStorage.getItem('hasLaunched');
+        if (hasLaunched === null) {
+          await AsyncStorage.setItem('hasLaunched', 'true');
+          setIsFirstLaunch(true);
+        } else {
+          setIsFirstLaunch(false);
+        }
+      } catch (error) {
+        setIsFirstLaunch(false);
+      }
+    };
+
+    checkIfFirstLaunch();
+  }, []);
+
+  if (isLoading || isFirstLaunch === null) {
     return <LoadingScreen />;
   }
 
   return (
     <NavigationContainer>
-      {isAuthenticated ? <MainStack /> : <AuthStack />}
+      {isAuthenticated ? <MainStack /> : <AuthStack isFirstLaunch={isFirstLaunch} />}
+      {isOtpModalVisible && otpEmail && (
+        <OtpVerificationModal
+          visible={isOtpModalVisible}
+          onClose={hideOtpModal}
+          email={otpEmail}
+        />
+      )}
     </NavigationContainer>
   );
 };

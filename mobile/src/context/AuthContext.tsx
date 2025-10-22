@@ -4,40 +4,56 @@ import api from '../api';
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  user: any; // Replace 'any' with a proper User type later
-  setUser: React.Dispatch<React.SetStateAction<any>>; // Expose setUser
+  isVerified: boolean;
+  user: any;
   isLoading: boolean;
+  isOtpModalVisible: boolean;
+  otpEmail: string | null;
   login: (credentials: any) => Promise<void>;
   logout: () => Promise<void>;
   checkAuthStatus: () => Promise<void>;
+  showOtpModal: (email: string) => void;
+  hideOtpModal: () => void;
+  handleOtpVerified: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isOtpModalVisible, setOtpModalVisible] = useState(false);
+  const [otpEmail, setOtpEmail] = useState<string | null>(null);
 
   const checkAuthStatus = async () => {
-    // Set loading to true when we start a check
     setIsLoading(true);
     try {
       const token = await authService.getAccessToken();
       if (token) {
         const response = await api.get('/api/v1/users/me');
-        setUser(response.data);
-        setIsAuthenticated(true);
+        const userData = response.data;
+        setUser(userData);
+        if (userData.is_verified) {
+          setIsAuthenticated(true);
+          setIsVerified(true);
+        } else {
+          setIsAuthenticated(false);
+          setIsVerified(false);
+          setOtpEmail(userData.email);
+          setOtpModalVisible(true);
+        }
       } else {
-        // Explicitly set to not authenticated if no token
         setIsAuthenticated(false);
+        setIsVerified(false);
         setUser(null);
       }
     } catch (e) {
       console.error('Auth check failed, user is not authenticated.', e);
       setIsAuthenticated(false);
+      setIsVerified(false);
       setUser(null);
-      // If token is invalid or profile fetch fails, ensure tokens are cleared
       await authService.logout();
     } finally {
       setIsLoading(false);
@@ -49,9 +65,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = async (credentials: any) => {
-    // Perform login to get and store tokens
     await authService.login(credentials);
-    // Re-run the auth check to update the context state
     await checkAuthStatus();
   };
 
@@ -59,10 +73,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await authService.logout();
     setUser(null);
     setIsAuthenticated(false);
+    setIsVerified(false);
+  };
+
+  const showOtpModal = (email: string) => {
+    setOtpEmail(email);
+    setOtpModalVisible(true);
+  };
+
+  const hideOtpModal = () => {
+    setOtpModalVisible(false);
+    setOtpEmail(null);
+  };
+
+  const handleOtpVerified = () => {
+    hideOtpModal();
+    checkAuthStatus();
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, setUser, isLoading, login, logout, checkAuthStatus }}>
+    <AuthContext.Provider
+      value={{
+        isAuthenticated,
+        isVerified,
+        user,
+        isLoading,
+        isOtpModalVisible,
+        otpEmail,
+        login,
+        logout,
+        checkAuthStatus,
+        showOtpModal,
+        hideOtpModal,
+        handleOtpVerified,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
