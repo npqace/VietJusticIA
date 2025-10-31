@@ -34,17 +34,29 @@ class DocumentListResponse(BaseModel):
     total_docs: int
     documents: List[DocumentInList]
 
+class RelatedDocument(BaseModel):
+    doc_id: Optional[str] = None
+    title: Optional[str] = None
+    issue_date: Optional[str] = None
+    status: Optional[str] = None
+
 class DocumentDetailResponse(BaseModel):
     id: str = Field(..., alias="_id")
     title: str
     document_number: Optional[str] = None
     document_type: Optional[str] = None
+    category: Optional[str] = None
     issuer: Optional[str] = None
+    signatory: Optional[str] = None
+    gazette_number: Optional[str] = None
     issue_date: Optional[str] = None
+    effective_date: Optional[str] = None
+    publish_date: Optional[str] = None
     status: Optional[str] = None
     full_text: str
     html_content: Optional[str] = None
     ascii_diagram: Optional[str] = None
+    related_documents: List[RelatedDocument] = []
 
     class Config:
         populate_by_name = True

@@ -34,9 +34,12 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ visible, onCl
     setIsLoading(true);
     try {
       await forgotPassword(email);
+      // The alert is removed from here
       onSuccess(email);
     } catch (err: any) {
-      Alert.alert('Lỗi', err.response?.data?.detail || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
+      // Still show a generic message on error to prevent email enumeration
+      // The alert is also removed from the error case
+      onSuccess(email);
     } finally {
       setIsLoading(false);
     }

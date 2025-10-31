@@ -22,14 +22,15 @@ RUN apt-get update \
     && chmod +x /usr/local/bin/gosu \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first to leverage Docker cache
-COPY requirements.txt .
-
-# Install Python dependencies
+# Install Python dependencies in separate layers for better caching
+# First, upgrade pip and install large, foundational libraries that change rarely.
 RUN pip install --no-cache-dir --upgrade pip \
-    # && pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 \
-    && pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu \
-    && pip install --no-cache-dir -r requirements.txt
+    && pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+# Now, copy the requirements file and install the application-specific dependencies.
+# This layer will only be re-run if the requirements.txt file changes.
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .

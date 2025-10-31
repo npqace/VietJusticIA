@@ -10,10 +10,7 @@ import shutil
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 AI_ENGINE_ROOT = os.path.join(PROJECT_ROOT)
 
-# Original locations of the scripts to be moved
-BACKEND_SCRIPTS_DIR = os.path.join(PROJECT_ROOT, '..', 'backend', 'scripts')
-
-# New location for the scripts
+# Scripts location
 AI_SCRIPTS_DIR = os.path.join(AI_ENGINE_ROOT, 'scripts')
 
 # Paths to the scripts in the pipeline
@@ -37,27 +34,27 @@ def run_command(command, description):
         print(f"--> STDERR: {e.stderr}")
         sys.exit(1) # Exit the pipeline if a step fails
 
-def organize_scripts():
-    """Moves scripts to their correct locations if they are not already there."""
-    print(f"\n{'='*20}\n[PIPELINE] Organizing script locations...\n{'='*20}")
-    os.makedirs(AI_SCRIPTS_DIR, exist_ok=True)
+# def organize_scripts():
+#     """Moves scripts to their correct locations if they are not already there."""
+#     print(f"\n{'='*20}\n[PIPELINE] Organizing script locations...\n{'='*20}")
+#     os.makedirs(AI_SCRIPTS_DIR, exist_ok=True)
 
-    scripts_to_move = {
-        'migrate_to_mongo.py': MIGRATOR_SCRIPT,
-        'build_vector_store.py': VECTOR_STORE_BUILDER_SCRIPT
-    }
+#     scripts_to_move = {
+#         'migrate_to_mongo.py': MIGRATOR_SCRIPT,
+#         'build_vector_store.py': VECTOR_STORE_BUILDER_SCRIPT
+#     }
 
-    for script_name, dest_path in scripts_to_move.items():
-        src_path = os.path.join(BACKEND_SCRIPTS_DIR, script_name)
-        if os.path.exists(src_path):
-            print(f"--> Moving {script_name} from {src_path} to {dest_path}")
-            shutil.move(src_path, dest_path)
-            print(f"--> Move successful.")
-        elif os.path.exists(dest_path):
-            print(f"--> {script_name} is already in the correct location.")
-        else:
-            print(f"--> WARNING: {script_name} not found at source or destination. Skipping.")
-    print("[PIPELINE] Script organization complete.")
+#     for script_name, dest_path in scripts_to_move.items():
+#         src_path = os.path.join(BACKEND_SCRIPTS_DIR, script_name)
+#         if os.path.exists(src_path):
+#             print(f"--> Moving {script_name} from {src_path} to {dest_path}")
+#             shutil.move(src_path, dest_path)
+#             print(f"--> Move successful.")
+#         elif os.path.exists(dest_path):
+#             print(f"--> {script_name} is already in the correct location.")
+#         else:
+#             print(f"--> WARNING: {script_name} not found at source or destination. Skipping.")
+#     print("[PIPELINE] Script organization complete.")
 
 def main():
     """Parses arguments and runs the full data pipeline."""
@@ -77,7 +74,7 @@ def main():
     args = parser.parse_args()
 
     # 1. Organize scripts first
-    organize_scripts()
+    # organize_scripts()
 
     # 2. Run Crawler
     # The crawler always fetches new data, so it doesn't have a --force flag.

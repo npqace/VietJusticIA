@@ -1,10 +1,16 @@
 import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, LogBox } from 'react-native';
 import useFontsLoader from './src/hooks/useFontsLoader';
 import * as SplashScreen from 'expo-splash-screen';
 import AppNavigator from './src/navigation/AppNavigator';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+
+// Ignore specific log messages from appearing on the screen
+LogBox.ignoreLogs([
+  'Failed to fetch document details:',
+  '[AxiosError: Request failed with status code 500]',
+]);
 
 // Keep the splash screen visible while the app loads
 SplashScreen.preventAutoHideAsync();

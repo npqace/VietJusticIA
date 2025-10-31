@@ -69,7 +69,10 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
       
       const { documents: newDocs, total_pages } = response.data as { documents: Document[], total_pages: number };
 
-      setDocuments(prevDocs => isNewSearch ? newDocs : [...prevDocs, ...newDocs]);
+      // Sort the new documents by title alphabetically (handles Vietnamese characters)
+      const sortedDocs = newDocs.sort((a, b) => a.title.localeCompare(b.title, 'vi'));
+
+      setDocuments(prevDocs => isNewSearch ? sortedDocs : [...prevDocs, ...sortedDocs]);
       setTotalPages(total_pages);
       setPage(pageNum);
 

@@ -40,6 +40,7 @@ def get_user_by_email(db: Session, email: str):
 def get_user_by_phone(db: Session, phone: str):
     return db.query(models.User).filter(models.User.phone == phone).first()
 
+
 def authenticate_user(db: Session, identifier: str, password: str):
     # Check if user exists with email or phone
     user = db.query(models.User).filter(models.User.email == identifier).first()

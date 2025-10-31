@@ -74,7 +74,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(null);
       await authService.logout();
     } finally {
-      setIsLoading(false);
+      // A small delay to allow the navigator to mount before hiding the splash screen
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 100);
     }
   };
 

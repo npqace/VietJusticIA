@@ -1,6 +1,13 @@
 """
 Core web-scraping logic for aitracuuluat.vn.
 This version uses the API to get document metadata and Playwright to scrape content.
+
+NOTE ON COMPLIANCE: This scraper is designed to be respectful of the target website
+by adhering to its robots.txt file and implementing rate limiting. However, developers
+must ensure that the use of this scraper and the data it collects complies with all
+applicable laws, including Vietnam's Personal Data Protection Law (PDPL). This may
+involve handling data responsibly, not collecting personal information, and ensuring
+the purpose of data collection is legitimate.
 """
 import json
 import re
@@ -66,12 +73,19 @@ class Crawler:
 
         # Robots.txt parser
         self.robot_parser = RobotFileParser()
-        self.robot_parser.set_url(f"{SITE_BASE_URL}/robots.txt")
+        robots_url = f"{SITE_BASE_URL}/robots.txt"
+        self.robot_parser.set_url(robots_url)
         try:
-            self.robot_parser.read()
-            self.logger.info("Successfully read and parsed robots.txt")
-        except Exception as e:
-            self.logger.error(f"Could not read robots.txt: {e}")
+            # Fetch robots.txt using requests to ensure our User-Agent is used.
+            response = requests.get(robots_url, headers={'User-Agent': self.api_headers['User-Agent']}, timeout=15)
+            if response.status_code == 200:
+                self.robot_parser.parse(response.text.splitlines())
+                self.logger.info("Successfully read and parsed robots.txt")
+            else:
+                self.logger.warning(f"Failed to fetch robots.txt, received status {response.status_code}. Crawler will proceed assuming no restrictions.")
+
+        except requests.exceptions.RequestException as e:
+            self.logger.error(f"Could not read robots.txt: {e}. Crawler will proceed assuming no restrictions.")
 
     def _setup_logger(self):
         """Sets up a logger that outputs formatted messages to both console and a file."""
@@ -234,9 +248,28 @@ class Crawler:
         except Exception as e:
             self.logger.error(f"[FAILURE] Failed to save data for {content_data.get('title', 'Unknown')}: {e}")
 
+    def _get_crawl_delay(self) -> int:
+        """Gets the crawl delay from robots.txt, defaulting to our setting."""
+        user_agent = self.api_headers['User-Agent']
+        crawl_delay = self.robot_parser.crawl_delay(user_agent)
+        
+        # Check if crawl_delay is None or not a number, which can happen.
+        if crawl_delay and isinstance(crawl_delay, (int, float)):
+            self.logger.info(f"robots.txt specifies Crawl-Delay of {crawl_delay} seconds.")
+            # Ensure our base delay is at least as long as the specified one
+            return max(crawl_delay, CRAWLER_SETTINGS['delay_between_requests'])
+        
+        return CRAWLER_SETTINGS['delay_between_requests']
+
     def _scrape_and_save_worker(self, api_data: dict, doc_number: int, max_docs: int | None):
         """Worker function for a thread to scrape and save a single document."""
         if self.shutdown_event.is_set(): return
+
+        # --- Politeness: Apply delay before starting ---
+        delay = self._get_crawl_delay()
+        if delay > 0:
+            self.logger.info(f"Waiting for {delay}s as per crawl delay policy.")
+            time.sleep(delay)
 
         doc_id = api_data.get('id')
         if not doc_id:
@@ -291,8 +324,6 @@ class Crawler:
             # Release the slot on any exception
             if max_docs:
                 with self.scraped_lock: self.scraped_count -= 1
-        finally:
-            time.sleep(CRAWLER_SETTINGS['delay_between_requests'])
 
     def run(self, max_pages: int | None, max_docs: int | None):
         """Fetches document metadata from the API and scrapes content concurrently."""

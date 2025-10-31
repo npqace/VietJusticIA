@@ -2,63 +2,108 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
-from dotenv import load_dotenv
-import os
 import logging
-
-# Get a logger instance
-logger = logging.getLogger(__name__)
-
+import pytz
 from sqlalchemy.orm import Session
 
-# --- App-specific imports ---
+from .otp_service import send_password_reset_otp
+from app.core.security import (
+    get_password_hash, 
+    create_access_token, 
+    verify_token,
+    SECRET_KEY,
+    ALGORITHM
+)
 from app.repository import user_repository
 from app.database.models import User
 from app.database.database import get_db
 
-# --- Security Configuration ---
-SECRET_KEY = os.getenv("SECRET_KEY")
-if not SECRET_KEY:
-    raise RuntimeError("SECRET_KEY not set in environment or .env file")
-
-REFRESH_SECRET_KEY = os.getenv("REFRESH_SECRET_KEY", SECRET_KEY)
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-REFRESH_TOKEN_EXPIRE_MINUTES = int(os.getenv("REFRESH_TOKEN_EXPIRE_MINUTES", "10080"))
+# Get a logger instance
+logger = logging.getLogger(__name__)
 
 # OAuth2 scheme to get the token from the Authorization header
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
-# --- Token Functions ---
-def create_access_token(data: dict):
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+class AuthService:
+    def __init__(self, db: Session):
+        self.db = db
 
-def create_refresh_token(data: dict):
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=REFRESH_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire, "type": "refresh"})
-    encoded_jwt = jwt.encode(to_encode, REFRESH_SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+    def forgot_password(self, email: str) -> bool:
+        user = user_repository.get_user_by_email(self.db, email)
+        if not user:
+            logger.warning(f"Password reset requested for non-existent email: {email}")
+            return True
 
-def verify_token(token: str):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload
-    except JWTError:
-        return None
+        try:
+            # Send the password reset OTP
+            send_password_reset_otp(self.db, user)
+            logger.info(f"Password reset OTP sent to {email}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send password reset OTP to {email}: {e}")
+            return True
 
-def verify_refresh_token(token: str):
-    try:
-        payload = jwt.decode(token, REFRESH_SECRET_KEY, algorithms=[ALGORITHM])
-        if payload.get("type") != "refresh":
+    def verify_reset_otp(self, email: str, otp: str) -> str | None:
+        user = user_repository.get_user_by_email(self.db, email)
+        
+        if not user:
+            logger.warning(f"Reset OTP verification for non-existent email: {email}")
             return None
-        return payload
-    except JWTError:
-        return None
+
+        # Basic validation
+        if not user.reset_password_otp or not user.reset_password_otp_expires_at:
+            return None
+            
+        # Verify OTP (plain text comparison, consider hashing in production)
+        if user.reset_password_otp != otp:
+            return None
+            
+        # Verify expiration
+        if user.reset_password_otp_expires_at < datetime.now(pytz.utc):
+            # Clear the expired OTP
+            user.reset_password_otp = None
+            user.reset_password_otp_expires_at = None
+            self.db.commit()
+            return None
+
+        # OTP is valid, clear it to prevent reuse
+        user.reset_password_otp = None
+        user.reset_password_otp_expires_at = None
+        self.db.commit()
+
+        # Generate a short-lived, single-use token for the reset action
+        reset_token = create_access_token(
+            data={"sub": user.email, "scope": "reset_password"},
+            expires_delta=timedelta(minutes=10) # Allow 10 minutes to complete the reset
+        )
+        return reset_token
+
+    def reset_password(self, token: str, new_password: str) -> bool:
+        try:
+            payload = verify_token(token) # Use the standard token verification
+            if not payload or payload.get("scope") != "reset_password":
+                logger.warning("Invalid or missing scope in password reset token.")
+                return False
+            
+            email = payload.get("sub")
+            user = user_repository.get_user_by_email(self.db, email)
+            
+            if not user:
+                logger.error(f"User not found for email '{email}' during password reset.")
+                return False
+
+        except JWTError:
+            logger.warning(f"Invalid JWT token received for password reset.")
+            return False
+
+        # Hash the new password and update the user
+        hashed_password = get_password_hash(new_password)
+        user.hashed_password = hashed_password
+        self.db.commit()
+        
+        logger.info(f"Password for user {user.email} has been reset successfully.")
+        return True
+
 
 # --- Core User Dependency ---
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:

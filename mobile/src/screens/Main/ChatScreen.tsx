@@ -140,7 +140,7 @@ const ChatScreen = ({ navigation }: { navigation: any }) => {
     setMessage('');
     setIsTyping(true);
     try {
-      const response = await api.post('/chat/query', { message: userMessage });
+      const response = await api.post('/api/v1/chat/query', { message: userMessage });
       const botResponseData = response.data;
       console.log("Bot Response:", JSON.stringify(botResponseData, null, 2));
       
@@ -164,7 +164,9 @@ const ChatScreen = ({ navigation }: { navigation: any }) => {
       locations={[0, 0.44, 0.67, 1]}
       style={styles.container}
     >
-      <View style={[styles.header, { paddingTop: insets.top }]}>
+      <View 
+        style={[styles.header, { paddingTop: insets.top }]}
+      >
         <Image
           source={LOGO_PATH}
           style={styles.logo}
@@ -179,10 +181,7 @@ const ChatScreen = ({ navigation }: { navigation: any }) => {
           </TouchableOpacity>
         </View>
       </View>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.keyboardAvoidView}
-      >
+      <View style={styles.flexGrowContainer}>
         <ScrollView
           ref={scrollViewRef}
           contentContainerStyle={styles.scrollContent}
@@ -249,7 +248,12 @@ const ChatScreen = ({ navigation }: { navigation: any }) => {
             </View>
           )}
         </ScrollView>
-        <View style={[styles.inputWrapper, { paddingBottom: isKeyboardVisible ? 10 : (insets.bottom > 0 ? insets.bottom : 20) }]}>
+      </View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? -25 : 0}
+      >
+        <View style={[styles.inputWrapper, { paddingBottom: insets.bottom > 0 ? insets.bottom : 20 }]}>
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
@@ -306,6 +310,9 @@ const styles = StyleSheet.create({
   },
   keyboardAvoidView: {
       flex: 1,
+  },
+  flexGrowContainer: {
+    flex: 1,
   },
   scrollContent: {
     flexGrow: 1,

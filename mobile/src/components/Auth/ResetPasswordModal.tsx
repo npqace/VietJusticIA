@@ -19,22 +19,21 @@ interface ResetPasswordModalProps {
   visible: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  email: string | null;
+  token: string | null;
 }
 
-const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ visible, onClose, onSuccess, email }) => {
-  const [otp, setOtp] = useState('');
+const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ visible, onClose, onSuccess, token }) => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleResetPassword = async () => {
     Keyboard.dismiss();
-    if (!email) {
-      Alert.alert('Lỗi', 'Không tìm thấy địa chỉ email.');
+    if (!token) {
+      Alert.alert('Lỗi', 'Không tìm thấy mã thông báo đặt lại mật khẩu.');
       return;
     }
-    if (!otp || !newPassword || !confirmPassword) {
+    if (!newPassword || !confirmPassword) {
       Alert.alert('Lỗi', 'Vui lòng điền đầy đủ tất cả các trường.');
       return;
     }
@@ -44,7 +43,7 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ visible, onClos
     }
     setIsLoading(true);
     try {
-      await resetPassword({ email, otp, new_password: newPassword });
+      await resetPassword({ token, new_password: newPassword });
       onSuccess();
     } catch (err: any) {
       Alert.alert('Lỗi', err.response?.data?.detail || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
@@ -69,21 +68,9 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ visible, onClos
               </TouchableOpacity>
               <Text style={styles.title}>Đặt lại mật khẩu</Text>
               <Text style={styles.subtitle}>
-                Nhập mã OTP đã được gửi đến email của bạn và mật khẩu mới.
+                Nhập mật khẩu mới của bạn.
               </Text>
               
-              <View style={styles.inputOuterContainer}>
-                <Ionicons name="keypad-outline" size={22} color={COLORS.gray} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Mã OTP"
-                  placeholderTextColor={COLORS.gray}
-                  value={otp}
-                  onChangeText={setOtp}
-                  keyboardType="number-pad"
-                />
-              </View>
-
               <View style={styles.inputOuterContainer}>
                 <Ionicons name="lock-closed-outline" size={22} color={COLORS.gray} style={styles.inputIcon} />
                 <TextInput
