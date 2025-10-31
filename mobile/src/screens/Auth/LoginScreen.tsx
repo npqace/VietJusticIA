@@ -20,7 +20,9 @@ import { COLORS, SIZES, FONTS, LOGO_PATH, GOOGLE_LOGO_PATH } from '../../constan
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import ForgotPasswordModal from '../../components/Auth/ForgotPasswordModal';
+import OtpVerificationModal from '../../components/Auth/OtpVerificationModal';
 import ResetPasswordModal from '../../components/Auth/ResetPasswordModal';
+import { verifyResetOTP, resendOTP } from '../../services/authService';
 
 const { width } = Dimensions.get('window');
 
@@ -32,8 +34,10 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isForgotPasswordVisible, setForgotPasswordVisible] = useState(false);
+  const [isOtpModalVisible, setOtpModalVisible] = useState(false);
   const [isResetPasswordVisible, setResetPasswordVisible] = useState(false);
-  const [resetEmail, setResetEmail] = useState<string | null>(null);
+  const [emailForReset, setEmailForReset] = useState('');
+  const [resetToken, setResetToken] = useState<string | null>(null);
 
   const handleLogin = async () => {
     setIsLoading(true);
@@ -58,8 +62,18 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
 
   const handleForgotPasswordSuccess = (email: string) => {
     setForgotPasswordVisible(false);
-    setResetEmail(email);
-    setResetPasswordVisible(true);
+    setEmailForReset(email);
+    setOtpModalVisible(true);
+  };
+
+  const handleOtpSuccess = (data: any) => {
+    if (data?.reset_token) {
+      setOtpModalVisible(false);
+      setResetToken(data.reset_token);
+      setResetPasswordVisible(true);
+    } else {
+      Alert.alert("Lỗi", "Không nhận được mã thông báo đặt lại. Vui lòng thử lại.");
+    }
   };
 
   const handleResetPasswordSuccess = () => {
@@ -168,11 +182,21 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
         onClose={() => setForgotPasswordVisible(false)}
         onSuccess={handleForgotPasswordSuccess}
       />
+      <OtpVerificationModal
+        visible={isOtpModalVisible}
+        email={emailForReset}
+        onClose={() => setOtpModalVisible(false)}
+        onVerify={(otp) => verifyResetOTP(emailForReset, otp)}
+        onResend={() => resendOTP(emailForReset)} // Assuming resendOTP for password reset is the same
+        onSuccess={handleOtpSuccess}
+        title="Đặt lại mật khẩu"
+        subtitle="Một mã OTP đã được gửi đến email của bạn để đặt lại mật khẩu."
+      />
       <ResetPasswordModal
         visible={isResetPasswordVisible}
         onClose={() => setResetPasswordVisible(false)}
         onSuccess={handleResetPasswordSuccess}
-        email={resetEmail}
+        token={resetToken}
       />
     </SafeAreaView>
   );

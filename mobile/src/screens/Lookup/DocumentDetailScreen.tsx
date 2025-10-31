@@ -4,6 +4,7 @@ import RenderHTML from 'react-native-render-html';
 import { COLORS, FONTS, SIZES } from '../../constants/styles';
 import Header from '../../components/Header';
 import api from '../../api';
+import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
 
@@ -31,8 +32,13 @@ const classesStyles = {
 const metadataFields = [
   { key: 'document_number', label: 'Số hiệu' },
   { key: 'document_type', label: 'Loại văn bản' },
+  { key: 'category', label: 'Lĩnh vực/ngành' },
   { key: 'issuer', label: 'Nơi ban hành' },
+  { key: 'signatory', label: 'Người ký' },
+  { key: 'gazette_number', label: 'Số công báo' },
   { key: 'issue_date', label: 'Ngày ban hành' },
+  { key: 'effective_date', label: 'Ngày hiệu lực' },
+  { key: 'publish_date', label: 'Ngày đăng' },
   { key: 'status', label: 'Tình trạng' },
 ];
 
@@ -73,7 +79,11 @@ const DocumentDetailScreen = ({ route, navigation }: { route: any, navigation: a
         const response = await api.get(`/api/v1/documents/${documentId}`);
         setDocument(response.data);
       } catch (err: any) {
-        setError(err.response?.data?.detail || "Failed to load document.");
+        if (err.response && (err.response.status === 404 || err.response.status === 500)) {
+          setError('Tài liệu bạn tìm kiếm hiện không có sẵn hoặc đang được cập nhật. Vui lòng quay lại sau.');
+        } else {
+          setError('Không thể tải tài liệu. Vui lòng kiểm tra kết nối mạng và thử lại.');
+        }
         console.error("Failed to fetch document details:", err);
       }
       setLoading(false);
@@ -144,6 +154,33 @@ const DocumentDetailScreen = ({ route, navigation }: { route: any, navigation: a
               </ScrollView>
             </View>
           )}
+
+          {/* Related Documents Section */}
+          {document.related_documents && document.related_documents.length > 0 && (
+            <View style={styles.relatedDocsContainer}>
+              <Text style={styles.diagramTitle}>Văn bản liên quan</Text>
+              {document.related_documents.map((doc: any, index: number) => (
+                <TouchableOpacity 
+                  key={doc.doc_id || index} 
+                  style={styles.relatedDocItem}
+                  onPress={() => navigation.push('DocumentDetail', { documentId: doc.doc_id })}
+                >
+                  <Ionicons name="document-text-outline" size={16} color={COLORS.primary} style={styles.relatedDocIcon} />
+                  <View style={{ flex: 1, justifyContent: 'center' }}>
+                    {doc.document_number && (
+                      <Text style={styles.relatedDocNumber} numberOfLines={1}>
+                        {doc.document_number}
+                      </Text>
+                    )}
+                    <Text style={styles.relatedDocTitle} numberOfLines={2} ellipsizeMode="tail">
+                      {doc.title}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={COLORS.gray} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
       );
     }
@@ -154,7 +191,17 @@ const DocumentDetailScreen = ({ route, navigation }: { route: any, navigation: a
   }
 
   if (error || !document) {
-    return <View style={styles.center}><Text style={styles.errorText}>{error || 'Document not found.'}</Text></View>;
+    return (
+      <View style={{ flex: 1, backgroundColor: COLORS.white }}>
+        <Header title="Thông báo" />
+        <View style={styles.center}>
+          <Ionicons name="information-circle-outline" size={60} color={COLORS.gray} />
+          <Text style={[styles.errorText, { marginTop: 20 }]}>
+            {error || 'Đã có lỗi xảy ra. Vui lòng thử lại sau.'}
+          </Text>
+        </View>
+      </View>
+    );
   }
 
   return (
@@ -205,6 +252,36 @@ const styles = StyleSheet.create({
   diagramContainer: { backgroundColor: '#F5F5F5', borderRadius: 8, padding: 15, marginBottom: 20 },
   diagramTitle: { fontFamily: FONTS.bold, fontSize: SIZES.heading4, color: COLORS.primary, marginBottom: 15 },
   diagramText: { fontFamily: FONTS.mono, fontSize: SIZES.small, color: COLORS.text, lineHeight: SIZES.small * 1.4 },
+  relatedDocsContainer: { marginTop: 10 },
+  relatedDocItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 15,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  relatedDocIcon: {
+    marginRight: 10,
+  },
+  relatedDocNumber: {
+    fontFamily: FONTS.semiBold,
+    fontSize: SIZES.small,
+    color: COLORS.gray,
+  },
+  relatedDocTitle: {
+    fontFamily: FONTS.regular,
+    fontSize: SIZES.body,
+    color: COLORS.black,
+  },
 });
 
 export default DocumentDetailScreen;

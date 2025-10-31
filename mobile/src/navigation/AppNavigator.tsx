@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useAuth } from '../context/AuthContext';
 import OtpVerificationModal from '../components/Auth/OtpVerificationModal';
@@ -18,11 +17,19 @@ import LawyerScreen from '../screens/Support/LawyerScreen';
 import DocumentLookupScreen from '../screens/Lookup/DocumentLookupScreen';
 import ProcedureLookupScreen from '../screens/Lookup/ProcedureLookupScreen';
 import DocumentDetailScreen from '../screens/Lookup/DocumentDetailScreen';
-import ForgotPasswordScreen from '../screens/Auth/ForgotPasswordScreen';
 import ResetPasswordScreen from '../screens/Auth/ResetPasswordScreen';
 import { COLORS } from '../constants/styles';
 
 const Stack = createStackNavigator();
+
+const linking = {
+  prefixes: ['vietjusticia://'],
+  config: {
+    screens: {
+      ResetPassword: 'reset-password',
+    },
+  },
+};
 
 const LoadingScreen = () => (
   <View style={styles.splashContainer}>
@@ -35,6 +42,7 @@ const AuthStack = () => (
     <Stack.Screen name="Welcome" component={WelcomeScreen} />
     <Stack.Screen name="Signup" component={SignupScreen} />
     <Stack.Screen name="Login" component={LoginScreen} />
+    <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
   </Stack.Navigator>
 );
 
@@ -68,7 +76,7 @@ const AppNavigator = () => {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking} fallback={<LoadingScreen />}>
       {isAuthenticated ? <MainStack /> : <AuthStack />}
       {isOtpModalVisible && otpEmail && onVerify && onResend && onSuccess && (
         <OtpVerificationModal

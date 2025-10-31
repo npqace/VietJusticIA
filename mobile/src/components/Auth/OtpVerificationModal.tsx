@@ -17,9 +17,11 @@ interface OtpVerificationModalProps {
   visible: boolean;
   email: string;
   onClose: () => void;
-  onVerify: (otp: string) => Promise<any>;
+  onVerify: (otp: string) => Promise<any>; // Should return the response from the service
   onResend: () => Promise<any>;
-  onSuccess: () => void;
+  onSuccess: (data?: any) => void; // Can pass data back on success, like a reset token
+  title?: string;
+  subtitle?: string;
 }
 
 const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
@@ -29,6 +31,8 @@ const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
   onVerify,
   onResend,
   onSuccess,
+  title = "Xác nhận mã OTP",
+  subtitle = "Mã xác nhận OTP đã được gửi về email của bạn:",
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [otp, setOtp] = useState(new Array(6).fill(''));
@@ -72,8 +76,8 @@ const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
     }
     setIsLoading(true);
     try {
-      await onVerify(otpCode);
-      onSuccess(); // Call the generic success handler
+      const response = await onVerify(otpCode);
+      onSuccess(response); // Pass the whole response back
     } catch (error: any) {
       Alert.alert('Xác thực thất bại', error.response?.data?.detail || 'Đã có lỗi xảy ra.');
     } finally {

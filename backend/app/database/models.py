@@ -20,6 +20,8 @@ class User(Base):
     new_email = Column(String(100), nullable=True)
     new_phone = Column(String(20), nullable=True)
     avatar_url = Column(String(255), nullable=True)
+    reset_password_otp = Column(String(255), nullable=True)  # Can store a hash of the OTP
+    reset_password_otp_expires_at = Column(DateTime(timezone=True), nullable=True)
 
     # New role column with default value "user"
     class Role(enum.Enum):

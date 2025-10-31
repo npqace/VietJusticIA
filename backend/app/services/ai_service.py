@@ -4,7 +4,8 @@ import sys
 import asyncio
 import re
 import json
-from typing import List
+import logging
+from typing import List, Dict, Any, Optional
 
 from langchain_community.vectorstores import Qdrant
 from qdrant_client import QdrantClient
@@ -23,9 +24,14 @@ from pyvi import ViTokenizer
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 
 from .document_processor import document_processor
+from ..utils.rate_limiter import gemini_rate_limiter
+from ..utils.response_cache import rag_response_cache
 
 # Add the parent directory to the path to allow imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# Initialize logger
+logger = logging.getLogger(__name__)
 
 # --- Helper function from notebook ---
 def format_docs(docs: List[Document]) -> str:
@@ -89,34 +95,34 @@ class RAGService:
     def initialize_service(self):
         """Schedules the RAG service components to be initialized in the background."""
         if self.initialization_task is None:
-            print("Scheduling RAG service initialization.")
+            logger.info("[INIT] Scheduling RAG service initialization")
             self.initialization_task = asyncio.create_task(self._initialize_background())
 
     async def _initialize_background(self):
         """Initializes all components of the RAG service in a background task."""
-        print("Initializing RAG Service in background...")
+        logger.info("[INIT] Initializing RAG Service in background")
         try:
             self._initialize_models()
             await asyncio.to_thread(self._initialize_retriever)
             self._build_rag_chain()
             self.is_initialized = True
-            print("RAG Service Initialized Successfully.")
+            logger.info("[INIT] RAG Service initialized successfully")
         except Exception as e:
-            print(f"[ERROR] RAG Service initialization failed: {e}")
+            logger.error(f"[INIT] RAG Service initialization failed: {e}")
 
     def _initialize_models(self):
         """Initializes the language model and the embedding model."""
-        print("-> Initializing AI models...")
+        logger.info("[INIT] Initializing AI models")
         self.llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
         self.embeddings = SentenceTransformerEmbeddings(
             model_name='sentence-transformers/paraphrase-multilingual-mpnet-base-v2'
         )
-        print("-> AI models initialized.")
+        logger.info("[INIT] AI models initialized")
 
     def _initialize_retriever(self):
         """Initializes the retriever by loading cached artifacts and setting up the parent-retriever chain."""
-        print("-> Initializing Retriever...")
-        
+        logger.info("[INIT] Initializing retriever")
+
         # 1. Load cached artifacts (docstore and bm25_retriever)
         self.docstore, bm25_retriever = document_processor.get_retrieval_artifacts()
 
@@ -130,14 +136,14 @@ class RAGService:
             embeddings=self.embeddings,
         )
         qdrant_retriever = vector_store.as_retriever(search_kwargs={'k': 15})
-        print("-> Connected to Qdrant collection.")
+        logger.info("[INIT] Connected to Qdrant collection")
 
         # 3. Create Ensemble Retriever
         ensemble_retriever = EnsembleRetriever(
             retrievers=[bm25_retriever, qdrant_retriever],
             weights=[0.6, 0.4]
         )
-        print("-> Ensemble Retriever created.")
+        logger.info("[INIT] Ensemble retriever created")
 
         # 4. Setup Parent Document Retrieval Chain
         def _get_parent_docs(input_dict: dict) -> list[Document]:
@@ -153,11 +159,11 @@ class RAGService:
             {"child_docs": ensemble_retriever}
             | RunnableLambda(_get_parent_docs)
         )
-        print("-> Parent document retrieval chain created successfully.")
+        logger.info("[INIT] Parent document retrieval chain created successfully")
 
     def _build_rag_chain(self):
         """Builds the final RAG chain to return a structured output."""
-        print("-> Building RAG chain...")
+        logger.info("[INIT] Building RAG chain")
 
         rag_chain_from_docs = (
             RunnablePassthrough.assign(
@@ -176,60 +182,131 @@ class RAGService:
                 answer=rag_chain_from_docs
             )
         )
-        print("-> RAG chain built.")
+        logger.info("[INIT] RAG chain built")
 
-    def invoke_chain(self, query: str):
-        """Runs the query through the RAG chain and formats the output."""
+    async def invoke_chain(self, query: str) -> Dict[str, Any]:
+        """
+        Runs the query through the RAG chain with caching, rate limiting, and retry logic.
+
+        Args:
+            query: User's query string
+
+        Returns:
+            Dict containing 'response' and 'sources' keys
+        """
         if not self.is_initialized:
             return {"response": "RAG service is still initializing. Please try again in a few moments.", "sources": []}
-        
+
         if not self.rag_chain:
             return {"response": "RAG chain is not available. Initialization may have failed.", "sources": []}
-        
-        try:
-            tokenized_query = ViTokenizer.tokenize(query)
-            result = self.rag_chain.invoke(tokenized_query)
-            
-            raw_answer = result.get("answer", "")
-            all_docs = result.get("documents", [])
-            
-            response_text = raw_answer
-            final_sources = []
 
-            # More robustly parse the raw answer to separate the response and the sources_used list
-            sources_used_match = re.search(r"SOURCES_USED:\s*(\[.*\])", raw_answer, re.DOTALL)
-            
-            if sources_used_match:
-                response_text = raw_answer[:sources_used_match.start()].strip()
-                try:
-                    used_titles_str = sources_used_match.group(1)
-                    used_titles = json.loads(used_titles_str)
-                    
-                    # Filter the original documents to only include the ones used by the LLM
-                    if used_titles:
-                        doc_map = {doc.metadata.get("title"): doc for doc in all_docs}
-                        for title in used_titles:
-                            if title in doc_map:
-                                doc = doc_map[title]
-                                metadata = doc.metadata or {}
-                                final_sources.append({
-                                    "title": metadata.get("title", "N/A"),
-                                    "document_number": metadata.get("document_number", "N/A"),
-                                    "source_url": metadata.get("source_url", "#"),
-                                    "page_content_preview": doc.page_content[:200] + "..."
-                                })
-                except json.JSONDecodeError:
-                    print(f"[WARNING] Could not parse SOURCES_USED JSON: {sources_used_match.group(1)}")
-                    # Fallback to the raw answer if JSON is malformed
-                    response_text = raw_answer
+        # Check cache first
+        cached_response = await rag_response_cache.get(query)
+        if cached_response:
+            logger.info("[CACHE] Cache hit - returning cached response")
+            cache_stats = rag_response_cache.get_stats()
+            logger.info(f"[CACHE] Stats: {cache_stats}")
+            return cached_response
 
-            return {
-                "response": response_text,
-                "sources": final_sources
-            }
-        except Exception as e:
-            print(f"[ERROR] An unexpected error occurred in invoke_chain: {e}")
-            return {"response": f"An error occurred: {str(e)}", "sources": []}
+        logger.info("[CACHE] Cache miss - processing new query")
+
+        # Retry logic with exponential backoff
+        max_retries = 3
+        base_delay = 1.0  # seconds
+
+        for attempt in range(max_retries):
+            try:
+                # Check rate limiter
+                rate_limit_acquired = await gemini_rate_limiter.wait_if_needed(max_wait_seconds=5.0)
+
+                if not rate_limit_acquired:
+                    rate_stats = gemini_rate_limiter.get_stats()
+                    logger.warning(f"[RATE_LIMIT] Request blocked - Stats: {rate_stats}")
+                    return {
+                        "response": "Service is experiencing high demand. Please try again in a moment. Our system has usage limits to ensure fair access for all users.",
+                        "sources": []
+                    }
+
+                # Log rate limiter stats
+                rate_stats = gemini_rate_limiter.get_stats()
+                if gemini_rate_limiter.is_near_limit(threshold=0.8):
+                    logger.warning(f"[RATE_LIMIT] Approaching limits: {rate_stats}")
+
+                # Tokenize query and invoke RAG chain
+                tokenized_query = ViTokenizer.tokenize(query)
+                result = self.rag_chain.invoke(tokenized_query)
+
+                raw_answer = result.get("answer", "")
+                all_docs = result.get("documents", [])
+
+                response_text = raw_answer
+                final_sources = []
+
+                # Parse the raw answer to separate response and sources
+                sources_used_match = re.search(r"SOURCES_USED:\s*(\[.*\])", raw_answer, re.DOTALL)
+
+                if sources_used_match:
+                    response_text = raw_answer[:sources_used_match.start()].strip()
+                    try:
+                        used_titles_str = sources_used_match.group(1)
+                        used_titles = json.loads(used_titles_str)
+
+                        # Filter documents to only include those used by LLM
+                        if used_titles:
+                            doc_map = {doc.metadata.get("title"): doc for doc in all_docs}
+                            for title in used_titles:
+                                if title in doc_map:
+                                    doc = doc_map[title]
+                                    metadata = doc.metadata or {}
+                                    final_sources.append({
+                                        "title": metadata.get("title", "N/A"),
+                                        "document_number": metadata.get("document_number", "N/A"),
+                                        "source_url": metadata.get("source_url", "#"),
+                                        "page_content_preview": doc.page_content[:200] + "..."
+                                    })
+                    except json.JSONDecodeError:
+                        logger.warning(f"[PARSE] Could not parse SOURCES_USED JSON: {sources_used_match.group(1)}")
+                        response_text = raw_answer
+
+                result_dict = {
+                    "response": response_text,
+                    "sources": final_sources
+                }
+
+                # Cache the successful response
+                await rag_response_cache.set(query, result_dict)
+                logger.info("[CACHE] Stored response for query")
+
+                return result_dict
+
+            except Exception as e:
+                error_msg = str(e)
+
+                # Check if it's a rate limit error from Google
+                if "429" in error_msg or "quota" in error_msg.lower() or "rate limit" in error_msg.lower():
+                    logger.error(f"[RATE_LIMIT] Attempt {attempt + 1}/{max_retries}: {error_msg}")
+
+                    if attempt < max_retries - 1:
+                        # Exponential backoff: 1s, 2s, 4s
+                        delay = base_delay * (2 ** attempt)
+                        logger.info(f"[RETRY] Waiting {delay}s before retry")
+                        await asyncio.sleep(delay)
+                        continue
+                    else:
+                        return {
+                            "response": "The service is temporarily unavailable due to high demand. Please try again in a few minutes.",
+                            "sources": []
+                        }
+                else:
+                    # Other errors - don't retry
+                    logger.error(f"[ERROR] Unexpected error in invoke_chain: {e}")
+                    return {"response": f"An error occurred: {str(e)}", "sources": []}
+
+        # Should not reach here, but just in case
+        return {
+            "response": "Failed to process your request after multiple attempts. Please try again later.",
+            "sources": []
+        }
 
 # --- Create and initialize the service instance ---
 rag_service = RAGService()

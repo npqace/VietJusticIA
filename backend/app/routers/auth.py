@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 from app.database import models
 from app.model.userModel import SignUpModel, LoginModel
-from app.services.auth import create_access_token, create_refresh_token, verify_refresh_token
+from app.core.security import create_access_token, create_refresh_token, verify_refresh_token
 from app.core.security import get_password_hash
 from app.database.database import get_db
 from app.repository import user_repository

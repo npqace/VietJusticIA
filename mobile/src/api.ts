@@ -25,6 +25,18 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    // --- Network Error Handling ---
+    // If error.response is undefined, it's a network error (server unreachable)
+    if (!error.response) {
+      console.error(
+        '[API] Network Error: Could not connect to the server. ' +
+        'Please check your network connection and ensure the server is running. ' +
+        'If using a physical device, ensure it is on the same Wi-Fi network as the server and check for firewalls.'
+      );
+      // Reject with a custom error to prevent further processing
+      return Promise.reject(new Error('Network error: Server is unreachable.'));
+    }
+
     const originalRequest = error.config;
     
     // Prevent token refresh for auth endpoints (login, signup, etc.)

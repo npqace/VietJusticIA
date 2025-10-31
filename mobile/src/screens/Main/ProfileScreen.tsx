@@ -284,6 +284,9 @@ const styles = StyleSheet.create({
     fontSize: SIZES.small,
     color: COLORS.gray,
   },
+  infoSection: {
+    marginVertical: SIZES.padding * 1.5,
+  },
   infoRow: {
     marginBottom: SIZES.padding,
   },

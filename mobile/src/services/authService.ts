@@ -1,24 +1,35 @@
 import api from '../api';
 import * as SecureStore from 'expo-secure-store';
+import axios from 'axios';
 
-// Interface for the expected authentication response from the API
+// --- Reusable Interfaces for API Responses ---
+
 interface AuthResponse {
   access_token: string;
   refresh_token: string;
 }
 
-// Interface for the expected response from contact update verification
-interface ContactUpdateResponse {
-  access_token?: string;
+interface MessageResponse {
+  message: string;
 }
 
-// Interface for login credentials
+interface ResetTokenResponse {
+  reset_token: string;
+  message: string;
+}
+
+interface ContactUpdateResponse {
+  access_token?: string;
+  message: string;
+}
+
+// --- Interfaces for Function Arguments ---
+
 interface LoginCredentials {
   identifier: string;
   pwd: string;
 }
 
-// Interface for signup data
 interface SignupData {
   full_name: string;
   email: string;
@@ -27,101 +38,78 @@ interface SignupData {
   confirm_pwd: string;
 }
 
-/**
- * Handles new user registration.
- * The backend will send an OTP and return a message, not tokens.
- * @param signupData - The data for the new user.
- * @returns The response data from the server.
- */
+// --- Helper for Error Handling ---
+
+const handleError = (err: unknown): never => {
+  if (axios.isAxiosError(err) && err.response) {
+    // Use the detailed error message from the backend if available
+    throw new Error(err.response.data.detail || 'Đã có lỗi xảy ra.');
+  }
+  // Fallback for non-API errors
+  throw err;
+};
+
+
+// --- Service Functions ---
+
 export const signup = async (signupData: SignupData) => {
   try {
-    const response = await api.post('/api/v1/auth/signup', signupData);
-    return response.data; // e.g., { message: "Signup successful..." }
-  } catch (err: any) {
-    throw err;
+    const response = await api.post<MessageResponse>('/api/v1/auth/signup', signupData);
+    return response.data;
+  } catch (err) {
+    handleError(err);
   }
 };
 
-/**
- * Handles user login.
- * @param credentials - The user's login credentials.
- * @returns The response data from the server, including tokens.
- */
 export const login = async (credentials: LoginCredentials) => {
   try {
-    const response = await api.post('/api/v1/auth/login', credentials);
-    const { access_token, refresh_token } = response.data as AuthResponse;
+    const response = await api.post<AuthResponse>('/api/v1/auth/login', credentials);
+    const { access_token, refresh_token } = response.data;
 
-    if (access_token) {
-      await SecureStore.setItemAsync('access_token', access_token);
-      if (refresh_token) {
-        await SecureStore.setItemAsync('refresh_token', refresh_token);
-      }
-      return response.data;
-    } else {
-      throw new Error('Tài khoản hoặc mật khẩu không chính xác');
+    await SecureStore.setItemAsync('access_token', access_token);
+    if (refresh_token) {
+      await SecureStore.setItemAsync('refresh_token', refresh_token);
     }
-  } catch (err: any) {
-    throw err;
+    return response.data;
+  } catch (err) {
+    handleError(err);
   }
 };
 
-/**
- * Verifies the OTP and logs the user in by storing tokens.
- * @param email - The user's email.
- * @param otp - The 6-digit code.
- * @returns The response data from the server, including tokens.
- */
 export const verifyOTP = async (email: string, otp: string) => {
     try {
-        const response = await api.post('/api/v1/auth/verify-otp', { email, otp });
-        const { access_token, refresh_token } = response.data as AuthResponse;
+        const response = await api.post<AuthResponse>('/api/v1/auth/verify-otp', { email, otp });
+        const { access_token, refresh_token } = response.data;
 
-        if (access_token) {
-            await SecureStore.setItemAsync('access_token', access_token);
-            if (refresh_token) {
-                await SecureStore.setItemAsync('refresh_token', refresh_token);
-            }
-            return response.data;
-        } else {
-            throw new Error('OTP verification failed.');
+        await SecureStore.setItemAsync('access_token', access_token);
+        if (refresh_token) {
+            await SecureStore.setItemAsync('refresh_token', refresh_token);
         }
-    } catch (err: any) {
-        throw err;
+        return response.data;
+    } catch (err) {
+        handleError(err);
     }
 };
 
-/**
- * Requests a new OTP for a given email.
- * @param email - The user's email.
- * @returns The response data from the server.
- */
 export const resendOTP = async (email: string) => {
     try {
-        const response = await api.post('/api/v1/auth/resend-otp', { email });
+        const response = await api.post<MessageResponse>('/api/v1/auth/resend-otp', { email });
         return response.data;
-    } catch (err: any) {
-        throw err;
+    } catch (err) {
+        handleError(err);
     }
 };
 
-/**
- * Handles user logout by clearing stored tokens.
- */
 export const logout = async () => {
   try {
     await SecureStore.deleteItemAsync('access_token');
     await SecureStore.deleteItemAsync('refresh_token');
-  } catch (err: any) {
+  } catch (err) {
     console.error("Could not clear auth tokens", err);
     throw err;
   }
 };
 
-/**
- * Retrieves the access token from secure storage.
- * @returns The access token, or null if not found.
- */
 export const getAccessToken = async () => {
   try {
     return await SecureStore.getItemAsync('access_token');
@@ -131,101 +119,77 @@ export const getAccessToken = async () => {
   }
 };
 
-/**
- * Requests an update for the user's contact information.
- * @param data - The new contact information (email or phone).
- * @returns The response data from the server.
- */
 export const requestContactUpdate = async (data: { email?: string; phone?: string }) => {
   try {
-    const response = await api.post('/api/v1/users/me/update-contact', data);
+    const response = await api.post<MessageResponse>('/api/v1/users/me/update-contact', data);
     return response.data;
-  } catch (err: any) {
-    throw err;
+  } catch (err) {
+    handleError(err);
   }
 };
 
-/**
- * Verifies the OTP for a contact information update.
- * @param data - The OTP and the new contact information.
- * @returns The response data from the server.
- */
 export const verifyContactUpdate = async (data: { otp: string; email?: string; phone?: string }) => {
   try {
-    const response = await api.post('/api/v1/users/me/verify-contact-update', data);
+    const response = await api.post<ContactUpdateResponse>('/api/v1/users/me/verify-contact-update', data);
     if (response.data.access_token) {
       await SecureStore.setItemAsync('access_token', response.data.access_token);
     }
     return response.data;
-  } catch (err: any) {
-    throw err;
+  } catch (err) {
+    handleError(err);
   }
 };
 
-/**
- * Sends a password reset request for the given email.
- * @param email - The user's email address.
- * @returns The response data from the server.
- */
 export const forgotPassword = async (email: string) => {
   try {
-    const response = await api.post('/api/v1/auth/forgot-password', { email });
+    const response = await api.post<MessageResponse>('/api/v1/password/forgot-password', { email });
     return response.data;
-  } catch (err: any) {
-    throw err;
+  } catch (err) {
+    handleError(err);
   }
 };
 
-/**
- * Resets the user's password using the provided OTP.
- * @param data - The email, OTP, and new password.
- * @returns The response data from the server.
- */
-export const resetPassword = async (data: { email: string; otp: string; new_password: string }) => {
+export const verifyResetOTP = async (email: string, otp: string) => {
   try {
-    const response = await api.post('/api/v1/auth/reset-password', data);
+    const response = await api.post<ResetTokenResponse>('/api/v1/password/verify-reset-otp', { email, otp });
     return response.data;
-  } catch (err: any) {
-    throw err;
+  } catch (err) {
+    handleError(err);
   }
 };
 
-/**
- * Changes the user's password.
- * @param data - The current and new password.
- * @returns The response data from the server.
- */
+export const resetPassword = async (data: { token: string; new_password: string }) => {
+  try {
+    const response = await api.post<MessageResponse>('/api/v1/password/reset-password', data);
+    return response.data;
+  } catch (err) {
+    handleError(err);
+  }
+};
+
 export const changePassword = async (data: { current_password: string; new_password: string; confirm_new_password: string }) => {
   try {
-    const response = await api.post('/api/v1/users/me/change-password', data);
+    const response = await api.post<MessageResponse>('/api/v1/users/me/change-password', data);
     return response.data;
-  } catch (err: any) {
-    throw err;
+  } catch (err) {
+    handleError(err);
   }
 };
 
-/**
- * Deactivates the current user's account.
- * @returns The response data from the server.
- */
 export const deactivateAccount = async () => {
   try {
-    const response = await api.delete('/api/v1/users/me');
+    const response = await api.delete<MessageResponse>('/api/v1/users/me');
     return response.data;
-  } catch (err: any) {
-    throw err;
+  } catch (err) {
+    handleError(err);
   }
 };
 
-/**
- * Permanently deletes the current user's account.
- * @returns The response data from the server.
- */
 export const deleteAccount = async () => {
   try {
-    const response = await api.delete('/api/v1/users/me/permanent');
+    const response = await api.delete<MessageResponse>('/api/v1/users/me/permanent');
     return response.data;
-  } catch (err: any) {
-    throw err;
+  } catch (err) {
+    handleError(err);
   }
 };
