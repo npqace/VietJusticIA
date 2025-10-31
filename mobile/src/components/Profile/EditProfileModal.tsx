@@ -13,11 +13,9 @@ interface EditProfileModalProps {
   fullName: string;
   email: string;
   phoneNumber: string;
-  address: string;
   setFullName: (text: string) => void;
   setEmail: (text: string) => void;
   setPhoneNumber: (text: string) => void;
-  setAddress: (text: string) => void;
 }
 
 const EditProfileModal: React.FC<EditProfileModalProps> = ({
@@ -26,11 +24,9 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
   fullName,
   email,
   phoneNumber,
-  address,
   setFullName,
   setEmail,
   setPhoneNumber,
-  setAddress,
 }) => {
   const { user, updateUser, showOtpModal, refreshUserData, hideOtpModal } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
@@ -63,13 +59,19 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
         );
 
       } else {
-        const payload = {
-          full_name: fullName,
-        };
-        const response = await api.patch('/api/v1/users/me', payload);
-        updateUser(response.data);
-        onClose();
-        Alert.alert('Thành công', 'Thông tin của bạn đã được cập nhật.');
+        // Update full name if changed
+        if (fullName !== user.full_name) {
+          const payload = {
+            full_name: fullName,
+          };
+          const response = await api.patch('/api/v1/users/me', payload);
+          updateUser(response.data);
+          onClose();
+          Alert.alert('Thành công', 'Thông tin của bạn đã được cập nhật.');
+        } else {
+          onClose();
+          Alert.alert('Thông báo', 'Không có thay đổi nào để lưu.');
+        }
       }
     } catch (error: any) {
       Alert.alert('Lỗi', error.response?.data?.detail || 'Không thể cập nhật thông tin.');
@@ -130,19 +132,6 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     onChangeText={setPhoneNumber}
                     keyboardType="phone-pad"
                     placeholder="Số điện thoại"
-                    placeholderTextColor={COLORS.gray}
-                  />
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Địa chỉ</Text>
-                <View style={styles.inputOuterContainer}>
-                  <TextInput
-                    style={styles.input}
-                    value={address}
-                    onChangeText={setAddress}
-                    placeholder="Địa chỉ"
                     placeholderTextColor={COLORS.gray}
                   />
                 </View>

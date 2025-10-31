@@ -91,7 +91,7 @@ async def update_contact(
     # If either email or phone is being updated, send the OTP
     if request.email or request.phone:
         print(f"Sending OTP to: {target_email}") # Logging the target email
-        await send_verification_otp(db, current_user, email=target_email)
+        send_verification_otp(db, current_user, email=target_email)
         otp_sent = True
 
     # Save the changes to new_email or new_phone

@@ -54,6 +54,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from .database.models import User
+from .services.auth import get_current_user
+
 # Lightweight health check endpoint
 @app.get("/health")
 async def health():

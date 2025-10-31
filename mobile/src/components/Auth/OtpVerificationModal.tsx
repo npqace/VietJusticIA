@@ -79,7 +79,7 @@ const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
       const response = await onVerify(otpCode);
       onSuccess(response); // Pass the whole response back
     } catch (error: any) {
-      Alert.alert('Xác thực thất bại', error.response?.data?.detail || 'Đã có lỗi xảy ra.');
+      Alert.alert('Xác thực thất bại', error.message || 'Đã có lỗi xảy ra.');
     } finally {
       setIsLoading(false);
     }
