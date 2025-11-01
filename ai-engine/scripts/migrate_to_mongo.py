@@ -171,6 +171,37 @@ class APIKeyPool:
 # Global key pool (will be initialized in main block)
 key_pool: 'APIKeyPool | None' = None
 
+# --- Date Conversion Utility ---
+def convert_date_to_iso(date_str: str) -> str:
+    """
+    Converts date from dd/mm/yyyy format to yyyy-mm-dd ISO format.
+    Returns empty string if conversion fails or input is empty.
+
+    Args:
+        date_str: Date string in dd/mm/yyyy format
+
+    Returns:
+        Date string in yyyy-mm-dd format, or empty string if invalid
+    """
+    if not date_str or not isinstance(date_str, str):
+        return ''
+
+    try:
+        parts = date_str.strip().split('/')
+        if len(parts) != 3:
+            return ''
+
+        day, month, year = parts
+        # Validate basic ranges
+        if len(year) != 4 or len(month) > 2 or len(day) > 2:
+            return ''
+
+        # Return ISO format: yyyy-mm-dd
+        return f"{year}-{month.zfill(2)}-{day.zfill(2)}"
+    except:
+        logger.warning(f"Failed to convert date: {date_str}")
+        return ''
+
 # --- AI Diagram Generation with Rate Limit Handling ---
 @backoff.on_exception(backoff.expo, ResourceExhausted, max_tries=5, factor=2)
 def generate_ascii_diagram(text: str, llm, worker_key: str = None) -> str:
@@ -275,12 +306,19 @@ def process_single_document(dir_entry, llm, worker_key: str = None):
                 for doc in doc_list:
                     # CRITICAL: Check if the doc is a valid dictionary and not None
                     if isinstance(doc, dict):
+                        # Convert related document dates to ISO format as well
+                        related_issue_date = convert_date_to_iso(doc.get("ngay_ban_hanh", ''))
                         related_documents.append({
                             "doc_id": doc.get("_id"),
                             "title": doc.get("ten"),
-                            "issue_date": doc.get("ngay_ban_hanh"),
+                            "issue_date": related_issue_date,
                             "status": doc.get("tinh_trang")
                         })
+
+        # Convert dates to ISO format (yyyy-mm-dd) for better querying
+        issue_date_raw = diagram_metadata.get('ngay_ban_hanh', '')
+        effective_date_raw = diagram_metadata.get('ngay_hieu_luc', '')
+        publish_date_raw = diagram_metadata.get('ngay_dang', '')
 
         return {
             "_id": doc_id,
@@ -291,9 +329,9 @@ def process_single_document(dir_entry, llm, worker_key: str = None):
             "issuer": diagram_metadata.get('noi_ban_hanh', ''),
             "signatory": diagram_metadata.get('nguoi_ky', ''),
             "gazette_number": diagram_metadata.get('so_cong_bao', ''),
-            "issue_date": diagram_metadata.get('ngay_ban_hanh', ''),
-            "effective_date": diagram_metadata.get('ngay_hieu_luc', ''),
-            "publish_date": diagram_metadata.get('ngay_dang', ''),
+            "issue_date": convert_date_to_iso(issue_date_raw),
+            "effective_date": convert_date_to_iso(effective_date_raw),
+            "publish_date": convert_date_to_iso(publish_date_raw),
             "status": diagram_metadata.get('tinh_trang', ''),
             "full_text": full_text,
             "html_content": html_content,

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Animated,
   Dimensions,
@@ -8,15 +8,18 @@ import {
   StyleProp,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
   ViewStyle,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { COLORS, FONTS } from '../../constants/styles';
 import CustomButton from '../CustomButton';
+import api from '../../api';
 
 const { height: screenHeight } = Dimensions.get('window');
 
@@ -55,31 +58,54 @@ const DocumentsFilterModal = ({ onApplyFilter, containerStyle, isVisible, onClos
   const [currentFilterType, setCurrentFilterType] = useState<keyof Omit<FilterState, 'startDate' | 'endDate'> | null>(null);
   const translateY = new Animated.Value(0);
 
-  const statusOptions: FilterOption[] = [
-    { id: 'all', label: 'Tất cả' },
-    { id: 'active', label: 'Còn hiệu lực' },
-    { id: 'inactive', label: 'Hết hiệu lực' },
-  ];
+  // Date picker states
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  const [startDateObj, setStartDateObj] = useState<Date | undefined>(undefined);
+  const [endDateObj, setEndDateObj] = useState<Date | undefined>(undefined);
 
-  const documentTypeOptions: FilterOption[] = [
-    { id: 'all', label: 'Tất cả' },
-    { id: 'law', label: 'Luật' },
-    { id: 'decree', label: 'Nghị định' },
-    { id: 'circular', label: 'Thông tư' },
-  ];
+  // Dynamic filter options loaded from backend
+  const [statusOptions, setStatusOptions] = useState<FilterOption[]>([{ id: 'all', label: 'Tất cả' }]);
+  const [documentTypeOptions, setDocumentTypeOptions] = useState<FilterOption[]>([{ id: 'all', label: 'Tất cả' }]);
+  const [fieldOptions, setFieldOptions] = useState<FilterOption[]>([{ id: 'all', label: 'Tất cả' }]);
+  const [locationOptions, setLocationOptions] = useState<FilterOption[]>([{ id: 'all', label: 'Tất cả' }]);
 
-  const fieldOptions: FilterOption[] = [
-    { id: 'all', label: 'Tất cả' },
-    { id: 'civil', label: 'Dân sự' },
-    { id: 'criminal', label: 'Hình sự' },
-    { id: 'administrative', label: 'Hành chính' },
-  ];
+  // Fetch filter options from backend
+  useEffect(() => {
+    if (isVisible) {
+      fetchFilterOptions();
+    }
+  }, [isVisible]);
 
-  const locationOptions: FilterOption[] = [
-    { id: 'all', label: 'Tất cả' },
-    { id: 'central', label: 'Trung ương' },
-    { id: 'local', label: 'Địa phương' },
-  ];
+  const fetchFilterOptions = async () => {
+    try {
+      const response = await api.get('/api/v1/documents/filters/options');
+      const { statuses, document_types, categories, issuers } = response.data;
+
+      // Convert to FilterOption format and add "Tất cả" option
+      setStatusOptions([
+        { id: 'all', label: 'Tất cả' },
+        ...statuses.map((s: string) => ({ id: s, label: s }))
+      ]);
+
+      setDocumentTypeOptions([
+        { id: 'all', label: 'Tất cả' },
+        ...document_types.map((d: string) => ({ id: d, label: d }))
+      ]);
+
+      setFieldOptions([
+        { id: 'all', label: 'Tất cả' },
+        ...categories.map((c: string) => ({ id: c, label: c }))
+      ]);
+
+      setLocationOptions([
+        { id: 'all', label: 'Tất cả' },
+        ...issuers.map((i: string) => ({ id: i, label: i }))
+      ]);
+    } catch (error) {
+      console.error('Failed to fetch filter options:', error);
+    }
+  };
 
   const getOptionsForType = (type: keyof Omit<FilterState, 'startDate' | 'endDate'>) => {
     switch (type) {
@@ -109,6 +135,54 @@ const DocumentsFilterModal = ({ onApplyFilter, containerStyle, isVisible, onClos
   const openDropdown = (type: keyof Omit<FilterState, 'startDate' | 'endDate'>) => {
     setCurrentFilterType(type);
     setModalVisible(true);
+  };
+
+  // Format date to dd/mm/yyyy
+  const formatDate = (date: Date): string => {
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  // Handle start date change
+  const onStartDateChange = (event: any, selectedDate?: Date) => {
+    // On Android, close the picker after selection/dismissal
+    if (Platform.OS === 'android') {
+      setShowStartDatePicker(false);
+    }
+
+    if (selectedDate && event.type !== 'dismissed') {
+      setStartDateObj(selectedDate);
+      setFilters({ ...filters, startDate: formatDate(selectedDate) });
+    }
+  };
+
+  // Handle end date change
+  const onEndDateChange = (event: any, selectedDate?: Date) => {
+    // On Android, close the picker after selection/dismissal
+    if (Platform.OS === 'android') {
+      setShowEndDatePicker(false);
+    }
+
+    if (selectedDate && event.type !== 'dismissed') {
+      setEndDateObj(selectedDate);
+      setFilters({ ...filters, endDate: formatDate(selectedDate) });
+    }
+  };
+
+  // Clear start date
+  const clearStartDate = () => {
+    setShowStartDatePicker(false);
+    setStartDateObj(undefined);
+    setFilters({ ...filters, startDate: '' });
+  };
+
+  // Clear end date
+  const clearEndDate = () => {
+    setShowEndDatePicker(false);
+    setEndDateObj(undefined);
+    setFilters({ ...filters, endDate: '' });
   };
 
   const handleApplyFilter = () => {
@@ -162,33 +236,76 @@ const DocumentsFilterModal = ({ onApplyFilter, containerStyle, isVisible, onClos
               >
                 {/* Drag indicator */}
                 <View style={styles.dragIndicator} />
-                
-                <View style={[styles.container, containerStyle]}>
-                  <Text style={styles.title}>Lọc văn bản theo:</Text>
-                  
+
+                <Text style={styles.title}>Lọc văn bản theo:</Text>
+
+                <ScrollView
+                  style={styles.scrollView}
+                  contentContainerStyle={styles.scrollContent}
+                  showsVerticalScrollIndicator={false}
+                >
                   <View style={styles.filterSection}>
                     <Text style={styles.sectionTitle}>Thời gian ban hành</Text>
                     <View style={styles.dateContainer}>
-                      <View style={styles.dateInputContainer}>
-                        <TextInput
-                          style={styles.dateInput}
-                          placeholder="dd/mm/yyyy"
-                          value={filters.startDate}
-                          onChangeText={(text) => setFilters({ ...filters, startDate: text })}
-                          keyboardType="numeric"
-                        />
-                      </View>
+                      <TouchableOpacity
+                        style={styles.dateInputContainer}
+                        onPress={() => {
+                          setShowEndDatePicker(false);
+                          setShowStartDatePicker(true);
+                        }}
+                      >
+                        <Text style={[styles.dateInput, !filters.startDate && styles.placeholderText]}>
+                          {filters.startDate || 'dd/mm/yyyy'}
+                        </Text>
+                        <Ionicons name="calendar-outline" size={18} color={COLORS.gray} />
+                        {filters.startDate && (
+                          <TouchableOpacity onPress={clearStartDate} style={styles.clearButton}>
+                            <Ionicons name="close-circle" size={18} color={COLORS.gray} />
+                          </TouchableOpacity>
+                        )}
+                      </TouchableOpacity>
+
                       <Text style={styles.dateToText}>đến</Text>
-                      <View style={styles.dateInputContainer}>
-                        <TextInput
-                          style={styles.dateInput}
-                          placeholder="dd/mm/yyyy"
-                          value={filters.endDate}
-                          onChangeText={(text) => setFilters({ ...filters, endDate: text })}
-                          keyboardType="numeric"
-                        />
-                      </View>
+
+                      <TouchableOpacity
+                        style={styles.dateInputContainer}
+                        onPress={() => {
+                          setShowStartDatePicker(false);
+                          setShowEndDatePicker(true);
+                        }}
+                      >
+                        <Text style={[styles.dateInput, !filters.endDate && styles.placeholderText]}>
+                          {filters.endDate || 'dd/mm/yyyy'}
+                        </Text>
+                        <Ionicons name="calendar-outline" size={18} color={COLORS.gray} />
+                        {filters.endDate && (
+                          <TouchableOpacity onPress={clearEndDate} style={styles.clearButton}>
+                            <Ionicons name="close-circle" size={18} color={COLORS.gray} />
+                          </TouchableOpacity>
+                        )}
+                      </TouchableOpacity>
                     </View>
+
+                    {/* Date Pickers */}
+                    {showStartDatePicker && (
+                      <DateTimePicker
+                        value={startDateObj || new Date()}
+                        mode="date"
+                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                        onChange={onStartDateChange}
+                        maximumDate={endDateObj || new Date()}
+                      />
+                    )}
+                    {showEndDatePicker && (
+                      <DateTimePicker
+                        value={endDateObj || new Date()}
+                        mode="date"
+                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                        onChange={onEndDateChange}
+                        minimumDate={startDateObj}
+                        maximumDate={new Date()}
+                      />
+                    )}
                   </View>
 
                   <View style={styles.filterSection}>
@@ -226,23 +343,23 @@ const DocumentsFilterModal = ({ onApplyFilter, containerStyle, isVisible, onClos
 
                   <View style={styles.filterSection}>
                     <Text style={styles.sectionTitle}>Nơi ban hành</Text>
-                    <TouchableOpacity 
-                      style={styles.dropdown} 
+                    <TouchableOpacity
+                      style={styles.dropdown}
                       onPress={() => openDropdown('location')}
                     >
                       <Text style={styles.dropdownText}>{filters.location}</Text>
                       <Ionicons name="chevron-down" size={16} color={COLORS.gray} />
                     </TouchableOpacity>
                   </View>
+                </ScrollView>
 
-                  <View style={styles.buttonContainer}>
-                    <CustomButton
-                      title="Áp dụng bộ lọc"
-                      onPress={handleApplyFilter}
-                      buttonStyle={styles.applyButton}
-                      textStyle={styles.applyButtonText}
-                    />
-                  </View>
+                <View style={styles.buttonContainer}>
+                  <CustomButton
+                    title="Áp dụng bộ lọc"
+                    onPress={handleApplyFilter}
+                    buttonStyle={styles.applyButton}
+                    textStyle={styles.applyButtonText}
+                  />
                 </View>
               </Animated.View>
             </PanGestureHandler>
@@ -290,42 +407,48 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     backgroundColor: COLORS.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    height: screenHeight * 0.7,
-    paddingBottom: 10,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    height: screenHeight * 0.85,
+    paddingBottom: 0,
   },
   dragIndicator: {
-    width: 100,
+    width: 40,
     height: 4,
     backgroundColor: '#D1D5DB',
     borderRadius: 2,
     alignSelf: 'center',
     marginTop: 12,
-    marginBottom: 8,
+    marginBottom: 16,
   },
   title: {
     fontFamily: FONTS.semiBold,
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
     color: COLORS.black,
-    marginBottom: 20,
+    marginBottom: 16,
+    marginTop: 8,
     textAlign: 'center',
-  },
-  container: {
     paddingHorizontal: 20,
-    paddingTop: 8,
+  },
+  scrollView: {
     flex: 1,
+    backgroundColor: '#FAFAFA',
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 4,
+    paddingBottom: 16,
   },
   filterSection: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   sectionTitle: {
     fontFamily: FONTS.semiBold,
-    fontSize: 14,
-    marginBottom: 8,
+    fontSize: 15,
+    marginBottom: 10,
     color: COLORS.black,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   dateContainer: {
     flexDirection: 'row',
@@ -333,29 +456,54 @@ const styles = StyleSheet.create({
   },
   dateInputContainer: {
     flex: 1,
-    height: 45,
-    borderRadius: 8,
-    backgroundColor: '#F0F0F0',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
+    height: 50,
+    borderRadius: 12,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   dateInput: {
+    flex: 1,
     fontFamily: FONTS.regular,
     fontSize: 14,
+    color: COLORS.black,
+  },
+  placeholderText: {
+    color: COLORS.gray,
+  },
+  clearButton: {
+    marginLeft: 8,
+    padding: 4,
   },
   dateToText: {
-    marginHorizontal: 12,
+    marginHorizontal: 10,
     fontFamily: FONTS.regular,
     fontSize: 14,
+    color: COLORS.gray,
   },
   dropdown: {
-    height: 45,
-    borderRadius: 8,
-    backgroundColor: '#F0F0F0',
+    height: 50,
+    borderRadius: 12,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   dropdownText: {
     fontFamily: FONTS.regular,
@@ -363,14 +511,17 @@ const styles = StyleSheet.create({
     color: COLORS.black,
   },
   buttonContainer: {
-    marginTop: 'auto',
     paddingHorizontal: 20,
-    paddingBottom: 20,
-    paddingTop: 20,
+    paddingBottom: Platform.OS === 'ios' ? 32 : 20,
+    paddingTop: 16,
+    backgroundColor: COLORS.white,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
   },
   applyButton: {
     backgroundColor: COLORS.primary,
-    height: 50,
+    height: 52,
+    borderRadius: 12,
   },
   applyButtonText: {
     fontFamily: FONTS.semiBold,
@@ -382,22 +533,30 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   modalContent: {
-    width: '80%',
-    maxHeight: '60%',
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '70%',
     backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    paddingVertical: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
   },
   optionItem: {
-    paddingVertical: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: '#F3F4F6',
   },
   optionText: {
     fontFamily: FONTS.regular,
-    fontSize: 14,
+    fontSize: 15,
     color: COLORS.black,
   },
 });

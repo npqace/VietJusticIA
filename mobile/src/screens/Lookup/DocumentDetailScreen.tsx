@@ -8,6 +8,17 @@ import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
 
+// Utility function to convert ISO date (yyyy-mm-dd) to display format (dd/mm/yyyy)
+const formatDateForDisplay = (isoDate: string): string => {
+  if (!isoDate) return '';
+  try {
+    const [year, month, day] = isoDate.split('-');
+    return `${day}/${month}/${year}`;
+  } catch {
+    return isoDate; // Return as-is if conversion fails
+  }
+};
+
 // --- Reusable styles and configs ---
 const tagsStyles = {
   p: { marginBottom: 10, lineHeight: 24, fontSize: SIZES.body, fontFamily: FONTS.regular, color: COLORS.black },
@@ -131,11 +142,17 @@ const DocumentDetailScreen = ({ route, navigation }: { route: any, navigation: a
           {metadataFields.map(({ key, label }) => {
             const value = document[key];
             if (!value) return null;
+
+            // Format dates to dd/mm/yyyy for display
+            const displayValue = (key === 'issue_date' || key === 'effective_date' || key === 'publish_date')
+              ? formatDateForDisplay(String(value))
+              : String(value);
+
             return (
               <View key={key} style={styles.metadataRow}>
                 <Text style={styles.metadataLabel}>{label}:</Text>
                 <Text style={[styles.metadataValue, key === 'status' && { color: getStatusColor(String(value)) }]}>
-                  {String(value)}
+                  {displayValue}
                 </Text>
               </View>
             );

@@ -23,6 +23,17 @@ import { debounce } from 'lodash';
 
 const { width } = Dimensions.get('window');
 
+// Utility function to convert ISO date (yyyy-mm-dd) to display format (dd/mm/yyyy)
+const formatDateForDisplay = (isoDate: string): string => {
+  if (!isoDate) return '';
+  try {
+    const [year, month, day] = isoDate.split('-');
+    return `${day}/${month}/${year}`;
+  } catch {
+    return isoDate; // Return as-is if conversion fails
+  }
+};
+
 export interface FilterState {
   startDate: string;
   endDate: string;
@@ -49,8 +60,16 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [filterVisible, setFilterVisible] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<FilterState>({
+    startDate: '',
+    endDate: '',
+    status: 'Tất cả',
+    documentType: 'Tất cả',
+    field: 'Tất cả',
+    location: 'Tất cả',
+  });
 
-  const fetchDocuments = async (searchText = '', pageNum = 1, isNewSearch = false) => {
+  const fetchDocuments = async (searchText = '', pageNum = 1, isNewSearch = false, filters?: FilterState) => {
     if (isNewSearch) {
       setLoading(true);
       setDocuments([]); // Clear documents for a new search
@@ -58,12 +77,20 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
       setLoadingMore(true);
     }
 
+    const filtersToUse = filters || activeFilters;
+
     try {
       const response = await api.get('/api/v1/documents', {
         params: {
           search: searchText,
           page: pageNum,
-          page_size: 20
+          page_size: 20,
+          status: filtersToUse.status !== 'Tất cả' ? filtersToUse.status : undefined,
+          document_type: filtersToUse.documentType !== 'Tất cả' ? filtersToUse.documentType : undefined,
+          category: filtersToUse.field !== 'Tất cả' ? filtersToUse.field : undefined,
+          issuer: filtersToUse.location !== 'Tất cả' ? filtersToUse.location : undefined,
+          start_date: filtersToUse.startDate || undefined,
+          end_date: filtersToUse.endDate || undefined,
         }
       });
       
@@ -85,24 +112,28 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
   };
 
   // Debounce the search handler to avoid excessive API calls
-  const debouncedSearch = useCallback(debounce(fetchDocuments, 500), []);
+  const debouncedSearch = useCallback(
+    debounce((searchText: string, filters: FilterState) => {
+      fetchDocuments(searchText, 1, true, filters);
+    }, 500),
+    []
+  );
 
   useEffect(() => {
     // Initial fetch or when search query changes
-    debouncedSearch(searchQuery, 1, true);
-  }, [searchQuery]);
+    debouncedSearch(searchQuery, activeFilters);
+  }, [searchQuery, activeFilters]);
 
 
   const handleLoadMore = () => {
     if (!loadingMore && page < totalPages) {
-      fetchDocuments(searchQuery, page + 1);
+      fetchDocuments(searchQuery, page + 1, false, activeFilters);
     }
   };
 
   const handleApplyFilter = (filters: FilterState) => {
-    console.log('Applied filters:', filters);
-    // Here you would refetch documents with filter parameters
-    // e.g., fetchDocuments(searchQuery, 1, true, filters);
+    setActiveFilters(filters);
+    fetchDocuments(searchQuery, 1, true, filters);
     setFilterVisible(false);
   };
 
@@ -120,14 +151,14 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
   };
 
   const renderItem = ({ item }: { item: Document }) => (
-    <TouchableOpacity 
-      key={item._id} 
+    <TouchableOpacity
+      key={item._id}
       style={styles.documentItem}
       onPress={() => navigation.navigate('DocumentDetail', { documentId: item._id })}
     >
       <View style={styles.documentContent}>
         <Text style={styles.documentTitle}>{item.title}</Text>
-        <Text style={styles.documentDate}>Ban hành: {item.issue_date}</Text>
+        <Text style={styles.documentDate}>Ban hành: {formatDateForDisplay(item.issue_date)}</Text>
         <Text style={[styles.documentStatus, { color: getStatusColor(item.status) }]}>
           Tình trạng: {item.status}
         </Text>

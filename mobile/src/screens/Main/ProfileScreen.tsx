@@ -33,14 +33,12 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [address, setAddress] = useState('');
 
   useEffect(() => {
     if (user) {
       setFullName(user.full_name || '');
       setEmail(user.email || '');
       setPhoneNumber(user.phone || '');
-      setAddress('');
     }
   }, [user]);
 
@@ -186,7 +184,6 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
             <InfoRow label="Họ và Tên" value={user.full_name} />
             <InfoRow label="Email" value={user.email} />
             <InfoRow label="Số điện thoại" value={user.phone} />
-            <InfoRow label="Địa chỉ" value={null} />
           </View>
 
           <TouchableOpacity style={styles.mainButton} onPress={openModal}>
@@ -210,11 +207,9 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
         fullName={fullName}
         email={email}
         phoneNumber={phoneNumber}
-        address={address}
         setFullName={setFullName}
         setEmail={setEmail}
         setPhoneNumber={setPhoneNumber}
-        setAddress={setAddress}
       />
       <ChangePasswordModal
         visible={isChangePasswordModalVisible}
