@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 
 from .database.database import init_db
 from .services.ai_service import rag_service
-from .routers import documents, auth, users, password
+from .routers import documents, auth, users, password, chat
 from .utils.response_cache import cleanup_expired_cache_entries
 import asyncio
 
@@ -39,6 +39,7 @@ app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(users.router, prefix="/api/v1", tags=["Users"])
 app.include_router(documents.router, prefix="/api/v1", tags=["Documents"])
 app.include_router(password.router, prefix="/api/v1/password", tags=["Password"])
+app.include_router(chat.router)  # Chat router already has prefix="/api/v1/chat" in its definition
 
 # Configure basic logging
 logger = logging.getLogger("vietjusticia.api")
@@ -85,14 +86,10 @@ from pydantic import BaseModel
 from .database.models import User
 from .services.auth import get_current_user
 
-class ChatQuery(BaseModel):
-    message: str
-
-@app.post("/api/v1/chat/query", tags=["Chat"])
-async def chat_query(query: ChatQuery, current_user: User = Depends(get_current_user)):
-    logger.info(f'Received chat query from {current_user.email}: "{query.message}"')
-    result = await rag_service.invoke_chain(query.message)
-    return result
+# Old /chat/query endpoint has been removed and replaced with session-based chat endpoints
+# See app/routers/chat.py for the new implementation:
+# - POST /api/v1/chat/sessions (create new chat with first message)
+# - POST /api/v1/chat/sessions/{session_id}/messages (add message to existing chat)
 
 if __name__ == "__main__":
     import uvicorn
