@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,19 +7,32 @@ import {
   Image,
   ScrollView,
   Dimensions,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SIZES, FONTS, LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
-// import UserProfile from '../Main/ProfileScreen';
+import { useFocusEffect } from '@react-navigation/native';
+import api from '../../api';
 
 const { width } = Dimensions.get('window');
+
+interface ChatSession {
+  session_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+}
 
 const MenuScreen = ({ navigation }: { navigation: any }) => {
   const { user, logout } = useAuth();
   const insets = useSafeAreaInsets();
+  const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(true);
 
   const menuOptions = [
     // { id: 'chat', title: 'Chat', icon: 'chatbox-ellipses-outline' },
@@ -29,10 +42,79 @@ const MenuScreen = ({ navigation }: { navigation: any }) => {
     { id: 'help', title: 'Hỗ trợ', icon: 'help-circle-outline' }
   ];
 
+  // Fetch chat sessions when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchChatSessions();
+    }, [])
+  );
+
+  const fetchChatSessions = async () => {
+    try {
+      console.log('Fetching chat sessions');
+      const response = await api.get('/api/v1/chat/sessions?limit=10');
+      setChatSessions(response.data);
+      console.log(`Fetched ${response.data.length} sessions`);
+    } catch (error) {
+      console.error('Failed to fetch chat sessions:', error);
+    } finally {
+      setLoadingSessions(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) {
+      return 'Hôm nay';
+    } else if (diffDays === 1) {
+      return 'Hôm qua';
+    } else if (diffDays < 7) {
+      return `${diffDays} ngày trước`;
+    } else {
+      return date.toLocaleDateString('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    }
+  };
+
+  const handleLoadSession = (sessionId: string) => {
+    console.log('Loading session:', sessionId);
+    navigation.navigate('Chat', { sessionId });
+  };
+
+  const handleDeleteSession = (sessionId: string, title: string) => {
+    Alert.alert(
+      'Xóa cuộc trò chuyện',
+      `Bạn có chắc chắn muốn xóa "${title}"?`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.delete(`/api/v1/chat/sessions/${sessionId}`);
+              setChatSessions(chatSessions.filter(s => s.session_id !== sessionId));
+              console.log(`Deleted session ${sessionId}`);
+            } catch (error) {
+              console.error('Failed to delete session:', error);
+              Alert.alert('Lỗi', 'Không thể xóa cuộc trò chuyện. Vui lòng thử lại.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const handleProfile = () => {
     navigation.navigate('UserProfile');
   };
-
 
   const handleMenuOption = (optionId: string) => {
     if (optionId === 'chat') navigation.navigate('Chat');
@@ -112,7 +194,44 @@ const MenuScreen = ({ navigation }: { navigation: any }) => {
           <Text style={styles.chatHistoryTitle}>Lịch sử trò chuyện</Text>
           <View style={styles.separator} />
           <ScrollView style={styles.chatHistory}>
-            {/* Chat history items will go here */}
+            {loadingSessions ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={COLORS.primary} />
+              </View>
+            ) : chatSessions.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>Chưa có cuộc trò chuyện nào</Text>
+              </View>
+            ) : (
+              chatSessions.map((session, index) => (
+                <TouchableOpacity
+                  key={session.session_id || `session-${index}`}
+                  style={styles.chatItem}
+                  onPress={() => handleLoadSession(session.session_id)}
+                  onLongPress={() => handleDeleteSession(session.session_id, session.title)}
+                >
+                  <View style={styles.chatItemContent}>
+                    <Ionicons name="chatbubbles-outline" size={20} color={COLORS.primary} />
+                    <View style={styles.chatItemTextContainer}>
+                      <Text style={styles.chatItemTitle} numberOfLines={1} ellipsizeMode="tail">
+                        {session.title}
+                      </Text>
+                      <View style={styles.chatItemMetadata}>
+                        <Text style={styles.chatItemDate}>{formatDate(session.updated_at)}</Text>
+                        <Text style={styles.chatItemDivider}>•</Text>
+                        <Text style={styles.chatItemCount}>{session.message_count} tin nhắn</Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.chatItemDeleteButton}
+                      onPress={() => handleDeleteSession(session.session_id, session.title)}
+                    >
+                      <Ionicons name="trash-outline" size={18} color={COLORS.error} />
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
           </ScrollView>
         </View>
       </ScrollView>
@@ -244,6 +363,67 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#E0E0E0',
     marginBottom: 10,
+  },
+  loadingContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  emptyContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontFamily: FONTS.regular,
+    fontSize: SIZES.small,
+    color: COLORS.gray,
+    textAlign: 'center',
+  },
+  chatItem: {
+    marginBottom: 12,
+  },
+  chatItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  chatItemTextContainer: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  chatItemTitle: {
+    fontFamily: FONTS.semiBold,
+    fontSize: SIZES.small,
+    color: COLORS.black,
+    marginBottom: 4,
+  },
+  chatItemMetadata: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  chatItemDate: {
+    fontFamily: FONTS.regular,
+    fontSize: 11,
+    color: COLORS.gray,
+  },
+  chatItemDivider: {
+    marginHorizontal: 4,
+    color: COLORS.lightGray,
+    fontSize: 11,
+  },
+  chatItemCount: {
+    fontFamily: FONTS.regular,
+    fontSize: 11,
+    color: COLORS.gray,
+  },
+  chatItemDeleteButton: {
+    padding: 6,
   },
 });
 

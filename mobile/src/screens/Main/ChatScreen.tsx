@@ -24,6 +24,7 @@ import Markdown from 'react-native-markdown-display';
 
 // --- Type Definitions ---
 interface Source {
+  document_id?: string;  // Optional for backward compatibility
   title: string;
   document_number: string;
   source_url: string;
@@ -95,7 +96,7 @@ const typingIndicatorStyles = StyleSheet.create({
   },
 });
 
-const ChatScreen = ({ navigation }: { navigation: any }) => {
+const ChatScreen = ({ navigation, route }: { navigation: any; route: any }) => {
   const insets = useSafeAreaInsets();
   const [message, setMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
@@ -103,7 +104,15 @@ const ChatScreen = ({ navigation }: { navigation: any }) => {
   ]);
   const [isTyping, setIsTyping] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
+
+  // Load existing session if navigated from history
+  useEffect(() => {
+    if (route.params?.sessionId) {
+      loadSession(route.params.sessionId);
+    }
+  }, [route.params?.sessionId]);
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -131,28 +140,96 @@ const ChatScreen = ({ navigation }: { navigation: any }) => {
     }, 100);
   }, [chatHistory, isTyping, isKeyboardVisible]);
 
+  const loadSession = async (sessionId: string) => {
+    try {
+      console.log("Loading session:", sessionId);
+      const response = await api.get(`/api/v1/chat/sessions/${sessionId}`);
+      const sessionData = response.data;
+
+      // Convert messages to ChatMessage format
+      const messages: ChatMessage[] = sessionData.messages.map((msg: any, index: number) => ({
+        id: index + 1,
+        text: msg.text,
+        sender: msg.sender,
+        sources: msg.sources || undefined,
+      }));
+
+      setChatHistory(messages);
+      setCurrentSessionId(sessionId);
+      console.log("Session loaded successfully");
+    } catch (error) {
+      console.error("Failed to load session:", error);
+    }
+  };
+
+  const startNewChat = () => {
+    setChatHistory([{ id: 1, text: 'LawSphere có thể giúp gì cho bạn?', sender: 'bot' }]);
+    setCurrentSessionId(null);
+    setMessage('');
+  };
+
+  const handleSourcePress = (source: Source) => {
+    if (!source.document_id) {
+      console.log("Source has no document_id (legacy source):", source.title);
+      return;
+    }
+    console.log("Navigating to document:", source.document_id, source.title);
+    navigation.navigate('DocumentDetail', { documentId: source.document_id });
+  };
+
   const sendMessage = async () => {
     if (message.trim() === '') return;
     const userMessage = message;
     console.log("User Query:", userMessage);
 
+    // Add user message to UI immediately
     setChatHistory(prev => [...prev, { id: prev.length + 1, text: userMessage, sender: 'user' as const }]);
     setMessage('');
     setIsTyping(true);
+
     try {
-      const response = await api.post('/api/v1/chat/query', { message: userMessage });
-      const botResponseData = response.data;
-      console.log("Bot Response:", JSON.stringify(botResponseData, null, 2));
-      
-      setChatHistory(prev => [...prev, {
-        id: prev.length + 1,
-        text: botResponseData.response,
-        sender: 'bot' as const,
-        sources: botResponseData.sources,
-      }]);
+      if (!currentSessionId) {
+        // First message - create new session
+        console.log("Creating new chat session");
+        const response = await api.post('/api/v1/chat/sessions', {
+          first_message: userMessage
+        });
+        const sessionData = response.data;
+
+        // Convert messages to ChatMessage format
+        const messages: ChatMessage[] = sessionData.messages.map((msg: any, index: number) => ({
+          id: index + 1,
+          text: msg.text,
+          sender: msg.sender,
+          sources: msg.sources || undefined,
+        }));
+
+        setChatHistory(messages);
+        setCurrentSessionId(sessionData.session_id);
+        console.log("New session created:", sessionData.session_id);
+      } else {
+        // Subsequent messages - add to existing session
+        console.log("Adding message to session:", currentSessionId);
+        const response = await api.post(`/api/v1/chat/sessions/${currentSessionId}/messages`, {
+          message: userMessage
+        });
+        const botResponseData = response.data;
+        console.log("Bot Response:", JSON.stringify(botResponseData, null, 2));
+
+        setChatHistory(prev => [...prev, {
+          id: prev.length + 1,
+          text: botResponseData.response,
+          sender: 'bot' as const,
+          sources: botResponseData.sources,
+        }]);
+      }
     } catch (error) {
       console.error("Failed to send message:", error);
-      setChatHistory(prev => [...prev, { id: prev.length + 1, text: 'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại.', sender: 'bot' as const }]);
+      setChatHistory(prev => [...prev, {
+        id: prev.length + 1,
+        text: 'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại.',
+        sender: 'bot' as const
+      }]);
     } finally {
       setIsTyping(false);
     }
@@ -173,7 +250,7 @@ const ChatScreen = ({ navigation }: { navigation: any }) => {
           resizeMode="contain"
         />
         <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.iconButton}>
+          <TouchableOpacity style={styles.iconButton} onPress={startNewChat}>
             <Ionicons name="add-circle-outline" size={30} color={COLORS.gray} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Menu')}>
@@ -230,9 +307,18 @@ const ChatScreen = ({ navigation }: { navigation: any }) => {
                   <View style={styles.sourcesContainer}>
                     <Text style={styles.sourcesTitle}>Nguồn tham khảo:</Text>
                     {chat.sources.map((source, index) => (
-                      <TouchableOpacity key={index} style={styles.sourceItem}>
-                        <Ionicons name="document-text-outline" size={16} color={COLORS.primary} />
-                        <Text style={styles.sourceText} numberOfLines={1} ellipsizeMode="tail">
+                      <TouchableOpacity
+                        key={index}
+                        style={[styles.sourceItem, !source.document_id && styles.sourceItemDisabled]}
+                        onPress={() => handleSourcePress(source)}
+                        disabled={!source.document_id}
+                      >
+                        <Ionicons
+                          name="document-text-outline"
+                          size={16}
+                          color={source.document_id ? COLORS.primary : COLORS.gray}
+                        />
+                        <Text style={[styles.sourceText, !source.document_id && styles.sourceTextDisabled]} numberOfLines={1} ellipsizeMode="tail">
                           {source.title}
                         </Text>
                       </TouchableOpacity>
@@ -360,6 +446,13 @@ const styles = StyleSheet.create({
     color: COLORS.black,
     marginLeft: 8,
     flexShrink: 1,
+  },
+  sourceItemDisabled: {
+    opacity: 0.5,
+    backgroundColor: COLORS.lightGray,
+  },
+  sourceTextDisabled: {
+    color: COLORS.gray,
   },
   inputWrapper: {
     paddingHorizontal: 8,

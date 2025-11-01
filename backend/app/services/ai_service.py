@@ -259,6 +259,7 @@ class RAGService:
                                     doc = doc_map[title]
                                     metadata = doc.metadata or {}
                                     final_sources.append({
+                                        "document_id": metadata.get("_id", ""),
                                         "title": metadata.get("title", "N/A"),
                                         "document_number": metadata.get("document_number", "N/A"),
                                         "source_url": metadata.get("source_url", "#"),
