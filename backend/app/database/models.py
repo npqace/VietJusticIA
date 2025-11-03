@@ -116,3 +116,53 @@ class ServiceRequest(Base):
     # Relationships
     user = relationship("User", foreign_keys=[user_id], back_populates="service_requests_made")
     lawyer = relationship("Lawyer", foreign_keys=[lawyer_id], back_populates="service_requests_received")
+
+
+class ConsultationRequest(Base):
+    __tablename__ = "consultation_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # User Information (nullable for guest submissions)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    full_name = Column(String(100), nullable=False)
+    email = Column(String(100), nullable=False, index=True)
+    phone = Column(String(20), nullable=False)
+
+    # Location
+    province = Column(String(100), nullable=False)
+    district = Column(String(100), nullable=False)
+
+    # Request Details
+    content = Column(Text, nullable=False)
+
+    # Status Management
+    class ConsultationStatus(enum.Enum):
+        PENDING = "pending"
+        IN_PROGRESS = "in_progress"
+        COMPLETED = "completed"
+        CANCELLED = "cancelled"
+
+    status = Column(SqlEnum(ConsultationStatus, native_enum=False),
+                    nullable=False, default=ConsultationStatus.PENDING, index=True)
+
+    # Priority for Admin
+    class Priority(enum.Enum):
+        LOW = "low"
+        MEDIUM = "medium"
+        HIGH = "high"
+
+    priority = Column(SqlEnum(Priority, native_enum=False),
+                     nullable=False, default=Priority.MEDIUM)
+
+    # Admin Management
+    admin_notes = Column(Text, nullable=True)
+    assigned_lawyer_id = Column(Integer, ForeignKey("lawyers.id"), nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    user = relationship("User", foreign_keys=[user_id])
+    assigned_lawyer = relationship("Lawyer", foreign_keys=[assigned_lawyer_id])

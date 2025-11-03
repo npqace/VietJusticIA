@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 
 from .database.database import init_db
 from .services.ai_service import rag_service
-from .routers import documents, auth, users, password, chat, lawyers
+from .routers import documents, auth, users, password, chat, lawyers, consultations
 from .utils.response_cache import cleanup_expired_cache_entries
 import asyncio
 
@@ -41,6 +41,7 @@ app.include_router(documents.router, prefix="/api/v1", tags=["Documents"])
 app.include_router(password.router, prefix="/api/v1/password", tags=["Password"])
 app.include_router(chat.router)  # Chat router already has prefix="/api/v1/chat" in its definition
 app.include_router(lawyers.router)  # Lawyers router already has prefix="/api/v1/lawyers" in its definition
+app.include_router(consultations.router)  # Consultations router already has prefix="/api/v1/consultations" in its definition
 
 # Configure basic logging
 logger = logging.getLogger("vietjusticia.api")
