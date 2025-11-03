@@ -1,5 +1,6 @@
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
+from typing import Optional
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
 import logging
@@ -148,3 +149,43 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An internal error occurred during authentication."
         )
+
+
+# HTTP Bearer for optional authentication
+http_bearer = HTTPBearer(auto_error=False)
+
+
+def get_current_user_optional(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(http_bearer),
+    db: Session = Depends(get_db)
+) -> Optional[User]:
+    """
+    Dependency to get the current user from a JWT token, but returns None if no token is provided.
+    This allows endpoints to work for both authenticated and guest users.
+    """
+    if not credentials:
+        logger.info("No credentials provided, returning None (guest user)")
+        return None
+
+    token = credentials.credentials
+
+    try:
+        logger.info("Decoding JWT token for optional authentication...")
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+
+        if email is None:
+            logger.warning("Email not found in token payload for optional auth")
+            return None
+
+        user = user_repository.get_user_by_email(db=db, email=email)
+        if user:
+            logger.info(f"Optional auth successful for user {user.email}")
+        return user
+
+    except JWTError as e:
+        logger.warning(f"JWT Error in optional auth: {e}")
+        return None
+    except Exception as e:
+        logger.warning(f"Error in optional auth: {e}")
+        return None

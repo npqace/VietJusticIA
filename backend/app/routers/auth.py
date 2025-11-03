@@ -31,7 +31,7 @@ async def signup(signup_request: SignUpModel, db: Session = Depends(get_db)):
     db.commit()
 
     await otp_service.send_otp_email(email=user.email, otp=otp)
-    
+
     return {"message": "Signup successful. Please check your email for the verification OTP."}
 
 @router.post("/login", response_model=dict)
@@ -104,14 +104,14 @@ async def resend_otp(request: ResendOTPRequest, db: Session = Depends(get_db)):
     db.commit()
 
     await otp_service.send_otp_email(email=user.email, otp=otp)
-    
+
     return {"message": "A new OTP has been sent to your email address."}
 
 @router.post("/forgot-password", response_model=dict)
 async def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db)):
     user = user_repository.get_user_by_email(db, request.email)
     if user:
-        await otp_service.send_verification_otp(db, user)
+        await otp_service.send_password_reset_otp(db, user)
     # Always return a generic message to prevent user enumeration
     return {"message": "If an account with that email exists, a password reset OTP has been sent."}
 
