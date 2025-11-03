@@ -14,6 +14,7 @@ import MenuScreen from '../screens/Main/MenuScreen';
 import UserProfile from '../screens/Main/ProfileScreen';
 import HelpScreen from '../screens/Support/HelpScreen';
 import LawyerScreen from '../screens/Support/LawyerScreen';
+import LawyerDetailScreen from '../screens/Support/LawyerDetailScreen';
 import DocumentLookupScreen from '../screens/Lookup/DocumentLookupScreen';
 import ProcedureLookupScreen from '../screens/Lookup/ProcedureLookupScreen';
 import DocumentDetailScreen from '../screens/Lookup/DocumentDetailScreen';
@@ -53,6 +54,7 @@ const MainStack = () => (
     <Stack.Screen name='Menu' component={MenuScreen} />
     <Stack.Screen name='FAQs' component={HelpScreen} />
     <Stack.Screen name='Lawyer' component={LawyerScreen} />
+    <Stack.Screen name='LawyerDetail' component={LawyerDetailScreen} />
     <Stack.Screen name="DocumentLookup" component={DocumentLookupScreen} />
     <Stack.Screen name="ProcedureLookup" component={ProcedureLookupScreen} />
     <Stack.Screen name="DocumentDetail" component={DocumentDetailScreen} />

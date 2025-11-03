@@ -13,6 +13,7 @@ import { COLORS, SIZES, FONTS,  LOGO_PATH } from '../../constants/styles';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import LegalConsultantTab from '../../components/Legal/LegalConsultantTab';
+import LawyerListTab from '../../components/Legal/LawyerListTab';
 import Header from '../../components/Header';
 
 const { width } = Dimensions.get('window');
@@ -29,7 +30,7 @@ const LawyerScreen = ({ navigation }: { navigation: any }) => {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'consultant': return <LegalConsultantTab />;
-      case 'find-lawyer': return;
+      case 'find-lawyer': return <LawyerListTab navigation={navigation} />;
       default: return null;
     };
   };
@@ -64,9 +65,16 @@ const LawyerScreen = ({ navigation }: { navigation: any }) => {
         ))}
       </View>
 
-      <ScrollView style={styles.contentScrollView}>
-        {renderTabContent()}
-      </ScrollView>
+      {/* Conditionally wrap in ScrollView - only for consultant tab */}
+      {activeTab === 'consultant' ? (
+        <ScrollView style={styles.contentScrollView}>
+          {renderTabContent()}
+        </ScrollView>
+      ) : (
+        <View style={styles.contentContainer}>
+          {renderTabContent()}
+        </View>
+      )}
     </LinearGradient>
   );
 };
@@ -128,7 +136,10 @@ const styles = StyleSheet.create({
   },
   contentScrollView: {
     flex: 1,
-    // padding: 8,
+    paddingHorizontal: 16,
+  },
+  contentContainer: {
+    flex: 1,
     paddingHorizontal: 16,
   },
 });

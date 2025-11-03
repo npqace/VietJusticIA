@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SIZES, FONTS } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
-import DocumentsFilterModal from '../../components/Filter/DocumentsFilterModal';
+import FilterModal, { FilterField, FilterOption } from '../../components/Filter/FilterModal';
 import LoadingIndicator from '../../components/LoadingIndicator';
 import Header from '../../components/Header';
 import api from '../../api';
@@ -69,6 +69,14 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
     location: 'Tất cả',
   });
 
+  // Filter options from backend
+  const [filterOptions, setFilterOptions] = useState({
+    statuses: [{ id: 'all', label: 'Tất cả' }] as FilterOption[],
+    documentTypes: [{ id: 'all', label: 'Tất cả' }] as FilterOption[],
+    categories: [{ id: 'all', label: 'Tất cả' }] as FilterOption[],
+    issuers: [{ id: 'all', label: 'Tất cả' }] as FilterOption[],
+  });
+
   const fetchDocuments = async (searchText = '', pageNum = 1, isNewSearch = false, filters?: FilterState) => {
     if (isNewSearch) {
       setLoading(true);
@@ -111,6 +119,35 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
     }
   };
 
+  // Fetch filter options from backend
+  const fetchFilterOptions = async () => {
+    try {
+      const response = await api.get('/api/v1/documents/filters/options');
+      const { statuses, document_types, categories, issuers } = response.data;
+
+      setFilterOptions({
+        statuses: [
+          { id: 'all', label: 'Tất cả' },
+          ...statuses.map((s: string) => ({ id: s, label: s }))
+        ],
+        documentTypes: [
+          { id: 'all', label: 'Tất cả' },
+          ...document_types.map((d: string) => ({ id: d, label: d }))
+        ],
+        categories: [
+          { id: 'all', label: 'Tất cả' },
+          ...categories.map((c: string) => ({ id: c, label: c }))
+        ],
+        issuers: [
+          { id: 'all', label: 'Tất cả' },
+          ...issuers.map((i: string) => ({ id: i, label: i }))
+        ],
+      });
+    } catch (error) {
+      console.error('Failed to fetch filter options:', error);
+    }
+  };
+
   // Debounce the search handler to avoid excessive API calls
   const debouncedSearch = useCallback(
     debounce((searchText: string, filters: FilterState) => {
@@ -124,6 +161,13 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
     debouncedSearch(searchQuery, activeFilters);
   }, [searchQuery, activeFilters]);
 
+  // Fetch filter options when modal opens
+  useEffect(() => {
+    if (filterVisible) {
+      fetchFilterOptions();
+    }
+  }, [filterVisible]);
+
 
   const handleLoadMore = () => {
     if (!loadingMore && page < totalPages) {
@@ -131,11 +175,65 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
     }
   };
 
-  const handleApplyFilter = (filters: FilterState) => {
+  const handleApplyFilter = (newFilters: Record<string, any>) => {
+    const filters: FilterState = {
+      startDate: newFilters.dateStart || '',
+      endDate: newFilters.dateEnd || '',
+      status: newFilters.status || 'Tất cả',
+      documentType: newFilters.documentType || 'Tất cả',
+      field: newFilters.field || 'Tất cả',
+      location: newFilters.location || 'Tất cả',
+    };
+
     setActiveFilters(filters);
     fetchDocuments(searchQuery, 1, true, filters);
-    setFilterVisible(false);
   };
+
+  const handleResetFilter = () => {
+    const resetFilters: FilterState = {
+      startDate: '',
+      endDate: '',
+      status: 'Tất cả',
+      documentType: 'Tất cả',
+      field: 'Tất cả',
+      location: 'Tất cả',
+    };
+    setActiveFilters(resetFilters);
+    fetchDocuments(searchQuery, 1, true, resetFilters);
+  };
+
+  // Define filter fields configuration
+  const filterFields: FilterField[] = [
+    {
+      key: 'date',
+      label: 'Thời gian ban hành',
+      type: 'dateRange',
+    },
+    {
+      key: 'status',
+      label: 'Tình trạng',
+      type: 'dropdown',
+      options: filterOptions.statuses,
+    },
+    {
+      key: 'documentType',
+      label: 'Loại văn bản',
+      type: 'dropdown',
+      options: filterOptions.documentTypes,
+    },
+    {
+      key: 'field',
+      label: 'Lĩnh vực, ngành',
+      type: 'dropdown',
+      options: filterOptions.categories,
+    },
+    {
+      key: 'location',
+      label: 'Nơi ban hành',
+      type: 'dropdown',
+      options: filterOptions.issuers,
+    },
+  ];
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -211,10 +309,21 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
           />
         )}
 
-        <DocumentsFilterModal
-          isVisible={filterVisible}
-          onApplyFilter={handleApplyFilter}
+        <FilterModal
+          visible={filterVisible}
           onClose={() => setFilterVisible(false)}
+          onApply={handleApplyFilter}
+          onReset={handleResetFilter}
+          title="Lọc văn bản theo:"
+          fields={filterFields}
+          initialValues={{
+            dateStart: activeFilters.startDate,
+            dateEnd: activeFilters.endDate,
+            status: activeFilters.status,
+            documentType: activeFilters.documentType,
+            field: activeFilters.field,
+            location: activeFilters.location,
+          }}
         />
       </View>
       </TouchableWithoutFeedback>
