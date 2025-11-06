@@ -192,6 +192,9 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
           <TouchableOpacity style={[styles.mainButton, styles.secondaryButton]} onPress={openChangePasswordModal}>
             <Text style={[styles.mainButtonText, styles.secondaryButtonText]}>Đổi mật khẩu</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={[styles.mainButton, styles.secondaryButton]} onPress={() => navigation.navigate('MyRequests')}>
+            <Text style={[styles.mainButtonText, styles.secondaryButtonText]}>My Requests</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={[styles.mainButton, styles.destructiveButton]} onPress={handleDeactivate}>
             <Text style={[styles.mainButtonText, styles.destructiveButtonText]}>Vô hiệu hóa tài khoản</Text>
           </TouchableOpacity>

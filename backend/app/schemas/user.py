@@ -1,7 +1,8 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional
+from datetime import datetime
 
-class UserRead(BaseModel):
+class UserProfile(BaseModel):
     """Schema for returning user profile data."""
     id: int
     full_name: str
@@ -11,11 +12,21 @@ class UserRead(BaseModel):
     is_verified: bool
     role: str
     avatar_url: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    @field_validator('role', mode='before')
+    @classmethod
+    def convert_role_enum(cls, v):
+        """Convert Role enum to string."""
+        if hasattr(v, 'value'):
+            return v.value
+        return v
 
     class Config:
         from_attributes = True # Used to be orm_mode
 
-class UserUpdate(BaseModel):
+class UserUpdateProfile(BaseModel):
     """Schema for updating user profile data."""
     full_name: Optional[str] = None
     phone: Optional[str] = None

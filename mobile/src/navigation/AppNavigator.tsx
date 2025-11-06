@@ -20,6 +20,7 @@ import ProcedureLookupScreen from '../screens/Lookup/ProcedureLookupScreen';
 import DocumentDetailScreen from '../screens/Lookup/DocumentDetailScreen';
 import ResetPasswordScreen from '../screens/Auth/ResetPasswordScreen';
 import { COLORS } from '../constants/styles';
+import MyRequestsScreen from '../screens/Main/MyRequestsScreen';
 
 const Stack = createStackNavigator();
 
@@ -58,6 +59,7 @@ const MainStack = () => (
     <Stack.Screen name="DocumentLookup" component={DocumentLookupScreen} />
     <Stack.Screen name="ProcedureLookup" component={ProcedureLookupScreen} />
     <Stack.Screen name="DocumentDetail" component={DocumentDetailScreen} />
+    <Stack.Screen name="MyRequests" component={MyRequestsScreen} />
   </Stack.Navigator>
 );
 

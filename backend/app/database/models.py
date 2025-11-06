@@ -61,9 +61,9 @@ class Lawyer(Base):
 
     # Verification and Availability
     class VerificationStatus(enum.Enum):
-        PENDING = "pending"
-        APPROVED = "approved"
-        REJECTED = "rejected"
+        PENDING = "PENDING"
+        APPROVED = "APPROVED"
+        REJECTED = "REJECTED"
 
     verification_status = Column(SqlEnum(VerificationStatus, native_enum=False),
                                   nullable=False, default=VerificationStatus.PENDING)
@@ -95,12 +95,12 @@ class ServiceRequest(Base):
 
     # Status Management
     class RequestStatus(enum.Enum):
-        PENDING = "pending"
-        ACCEPTED = "accepted"
-        REJECTED = "rejected"
-        IN_PROGRESS = "in_progress"
-        COMPLETED = "completed"
-        CANCELLED = "cancelled"
+        PENDING = "PENDING"
+        ACCEPTED = "ACCEPTED"
+        REJECTED = "REJECTED"
+        IN_PROGRESS = "IN_PROGRESS"
+        COMPLETED = "COMPLETED"
+        CANCELLED = "CANCELLED"
 
     status = Column(SqlEnum(RequestStatus, native_enum=False),
                     nullable=False, default=RequestStatus.PENDING)
@@ -166,3 +166,40 @@ class ConsultationRequest(Base):
     # Relationships
     user = relationship("User", foreign_keys=[user_id])
     assigned_lawyer = relationship("Lawyer", foreign_keys=[assigned_lawyer_id])
+
+
+class HelpRequest(Base):
+    __tablename__ = "help_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # User Information (nullable for guest submissions)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    full_name = Column(String(100), nullable=False)
+    email = Column(String(100), nullable=False, index=True)
+
+    # Request Details
+    subject = Column(String(255), nullable=False)
+    content = Column(Text, nullable=False)
+
+    # Status Management
+    class HelpStatus(enum.Enum):
+        PENDING = "pending"
+        IN_PROGRESS = "in_progress"
+        RESOLVED = "resolved"
+        CLOSED = "closed"
+
+    status = Column(SqlEnum(HelpStatus, native_enum=False),
+                    nullable=False, default=HelpStatus.PENDING, index=True)
+
+    # Admin Management
+    admin_notes = Column(Text, nullable=True)
+    admin_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Admin who handled it
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    user = relationship("User", foreign_keys=[user_id])
+    admin = relationship("User", foreign_keys=[admin_id])
