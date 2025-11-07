@@ -124,7 +124,14 @@ const MyRequestsScreen = ({ navigation }: { navigation: any }) => {
             {...props}
             indicatorStyle={{ backgroundColor: COLORS.primary }}
             style={{ backgroundColor: COLORS.white }}
-            labelStyle={{ color: COLORS.black, fontFamily: FONTS.semiBold }}
+            labelStyle={{
+              color: COLORS.black,
+              fontFamily: FONTS.semiBold,
+              fontSize: SIZES.body3,
+              textTransform: 'none'
+            }}
+            activeColor={COLORS.primary}
+            inactiveColor={COLORS.gray}
           />
         )}
       />

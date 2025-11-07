@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from ..database.database import get_db
 from ..database.models import User, Lawyer
-from ..schemas.service_request import ServiceRequestUpdate, ServiceRequestOut
+from ..schemas.service_request import ServiceRequestUpdate, ServiceRequestOut, ServiceRequestDetail
 from ..repository import service_request_repository
 from ..services.auth import get_current_active_user
 import logging
@@ -14,6 +14,76 @@ router = APIRouter(
     tags=["Service Requests"],
     responses={404: {"description": "Not found"}},
 )
+
+
+@router.get("/{request_id}", response_model=ServiceRequestDetail)
+def get_service_request_detail(
+    request_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Get detailed information about a service request.
+    
+    - Users can only view their own requests
+    - Lawyers can only view requests assigned to them
+    - Admins can view all requests
+    """
+    # Get the service request
+    request = service_request_repository.get_service_request_by_id(db, request_id)
+    if not request:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Service request not found"
+        )
+    
+    # Authorization check
+    if current_user.role == User.Role.USER:
+        # Users can only view their own requests
+        if request.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only view your own service requests"
+            )
+    elif current_user.role == User.Role.LAWYER:
+        # Lawyers can only view requests assigned to them
+        lawyer = db.query(Lawyer).filter(Lawyer.user_id == current_user.id).first()
+        if not lawyer or lawyer.id != request.lawyer_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only view requests assigned to you"
+            )
+    # Admins can view all - no additional check needed
+    
+    # Build detailed response with user and lawyer info
+    request_dict = {
+        "id": request.id,
+        "user_id": request.user_id,
+        "lawyer_id": request.lawyer_id,
+        "title": request.title,
+        "description": request.description,
+        "status": request.status,
+        "lawyer_response": request.lawyer_response,
+        "rejected_reason": request.rejected_reason,
+        "created_at": request.created_at,
+        "updated_at": request.updated_at,
+        # User info
+        "user_full_name": request.user.full_name if request.user else None,
+        "user_email": request.user.email if request.user else None,
+        "user_phone": request.user.phone if request.user else None,
+        # Lawyer info
+        "lawyer_full_name": request.lawyer.full_name if request.lawyer else None,
+        "lawyer_email": request.lawyer.email if request.lawyer else None,
+        "lawyer_phone": request.lawyer.phone if request.lawyer else None,
+        "lawyer_specialties": request.lawyer.specialties if request.lawyer else None,
+    }
+    
+    logger.info(
+        f"Service request {request_id} details retrieved by user {current_user.email}"
+    )
+    
+    return request_dict
+
 
 @router.patch("/{request_id}", response_model=ServiceRequestOut)
 def update_service_request_status(

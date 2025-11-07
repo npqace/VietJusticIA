@@ -39,7 +39,8 @@ const MenuScreen = ({ navigation }: { navigation: any }) => {
     { id: 'documents', title: 'Tra cứu văn bản', icon: 'document-text-outline' },
     { id: 'procedures', title: 'Tra cứu thủ tục hành chính', icon: 'list-outline' },
     { id: 'lawyer', title: 'Liên hệ luật sư', icon: 'person-outline' },
-    { id: 'help', title: 'Hỗ trợ', icon: 'help-circle-outline' }
+    { id: 'help', title: 'Hỗ trợ', icon: 'help-circle-outline' },
+    { id: 'myRequests', title: 'Yêu cầu của tôi', icon: 'file-tray-full-outline' }
   ];
 
   // Fetch chat sessions when screen comes into focus
@@ -122,6 +123,7 @@ const MenuScreen = ({ navigation }: { navigation: any }) => {
     if (optionId === 'documents') navigation.navigate('DocumentLookup');
     if (optionId === 'procedures') navigation.navigate('ProcedureLookup');
     if (optionId === 'lawyer') navigation.navigate('Lawyer');
+    if (optionId === 'myRequests') navigation.navigate('MyRequests');
   };
 
   const handleLogout = async () => {

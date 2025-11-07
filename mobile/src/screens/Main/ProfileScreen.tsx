@@ -192,9 +192,6 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
           <TouchableOpacity style={[styles.mainButton, styles.secondaryButton]} onPress={openChangePasswordModal}>
             <Text style={[styles.mainButtonText, styles.secondaryButtonText]}>Đổi mật khẩu</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.mainButton, styles.secondaryButton]} onPress={() => navigation.navigate('MyRequests')}>
-            <Text style={[styles.mainButtonText, styles.secondaryButtonText]}>My Requests</Text>
-          </TouchableOpacity>
           <TouchableOpacity style={[styles.mainButton, styles.destructiveButton]} onPress={handleDeactivate}>
             <Text style={[styles.mainButtonText, styles.destructiveButtonText]}>Vô hiệu hóa tài khoản</Text>
           </TouchableOpacity>
@@ -250,8 +247,8 @@ const styles = StyleSheet.create({
   avatarSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: SIZES.padding * 1.5,
-    paddingBottom: SIZES.padding * 1.5,
+    marginBottom: SIZES.padding,
+    paddingBottom: SIZES.padding,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.lightGray,
   },
@@ -282,9 +279,9 @@ const styles = StyleSheet.create({
     fontSize: SIZES.small,
     color: COLORS.gray,
   },
-  infoSection: {
-    marginVertical: SIZES.padding * 1.5,
-  },
+  // infoSection: {
+  //   marginBottom: SIZES.padding,
+  // },
   infoRow: {
     marginBottom: SIZES.padding,
   },

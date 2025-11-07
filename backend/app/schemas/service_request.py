@@ -135,3 +135,34 @@ class ServiceRequestOut(BaseModel):
 
         orm_mode = True
 
+
+class ServiceRequestDetail(BaseModel):
+    """
+    Detailed service request schema with related user and lawyer information.
+    Used for viewing full request details in mobile/web apps.
+    """
+    id: int
+    user_id: int
+    lawyer_id: int
+    title: str
+    description: str
+    status: RequestStatus
+    lawyer_response: Optional[str] = None
+    rejected_reason: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    
+    # User information
+    user_full_name: Optional[str] = None
+    user_email: Optional[str] = None
+    user_phone: Optional[str] = None
+    
+    # Lawyer information
+    lawyer_full_name: Optional[str] = None
+    lawyer_email: Optional[str] = None
+    lawyer_phone: Optional[str] = None
+    lawyer_specialties: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+

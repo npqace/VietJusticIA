@@ -1,7 +1,8 @@
 # Core Application Dependencies (Pinned for Stability)
 fastapi==0.120.0
-uvicorn==0.38.0
+uvicorn[standard]==0.38.0
 gunicorn==23.0.0
+websockets==14.0
 fastapi-cors==0.0.6
 passlib==1.7.4
 psycopg2-binary==2.9.9

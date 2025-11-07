@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 
 from .database.database import init_db
 from .services.ai_service import rag_service
-from .routers import documents, auth, password, users, chat, lawyers, consultations, admin, help_requests, service_requests
+from .routers import documents, auth, password, users, chat, lawyers, consultations, admin, help_requests, service_requests, conversations, websocket
 from .utils.response_cache import cleanup_expired_cache_entries
 import asyncio
 
@@ -48,6 +48,8 @@ app.include_router(consultations.router)  # Consultations router already has pre
 app.include_router(admin.router)  # Admin router already has prefix="/api/v1/admin" in its definition
 app.include_router(help_requests.router)  # Help requests router already has prefix="/api/v1/help-requests" in its definition
 app.include_router(service_requests.router) # Service requests router already has prefix="/api/v1/service-requests" in its definition
+app.include_router(conversations.router)  # Conversations router already has prefix="/api/v1/conversations" in its definition
+app.include_router(websocket.router)  # WebSocket router for real-time conversations with prefix="/api/v1/ws" in its definition
 
 # Configure basic logging
 logger = logging.getLogger("vietjusticia.api")
