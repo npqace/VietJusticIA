@@ -77,3 +77,52 @@ def update_service_request_status(
     )
 
     return updated_request
+
+
+@router.delete("/{request_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_service_request(
+    request_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Delete a service request.
+    Admin only.
+    Can only delete requests with status 'PENDING' or 'REJECTED'.
+    """
+    # Check if user is admin
+    if current_user.role != User.Role.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can delete service requests"
+        )
+
+    logger.info(f"Admin {current_user.email} attempting to delete service request {request_id}")
+
+    # Get the request first to check status
+    request = service_request_repository.get_service_request_by_id(db, request_id)
+    if not request:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Service request not found"
+        )
+
+    # Only allow deletion of PENDING or REJECTED requests
+    from ..database.models import ServiceRequest as ServiceRequestModel
+    allowed_statuses = [ServiceRequestModel.RequestStatus.PENDING, ServiceRequestModel.RequestStatus.REJECTED]
+    if request.status not in allowed_statuses:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot delete request with status '{request.status.value}'. Only 'PENDING' or 'REJECTED' requests can be deleted."
+        )
+
+    # Delete the request
+    deleted = service_request_repository.delete_service_request(db, request_id)
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Service request not found"
+        )
+
+    logger.info(f"Service request {request_id} deleted successfully by admin {current_user.email}")
+    return None

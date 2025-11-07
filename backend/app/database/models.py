@@ -141,7 +141,7 @@ class ConsultationRequest(Base):
         PENDING = "pending"
         IN_PROGRESS = "in_progress"
         COMPLETED = "completed"
-        CANCELLED = "cancelled"
+        REJECTED = "rejected"
 
     status = Column(SqlEnum(ConsultationStatus, native_enum=False),
                     nullable=False, default=ConsultationStatus.PENDING, index=True)

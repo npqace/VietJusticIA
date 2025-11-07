@@ -93,3 +93,18 @@ def get_consultation_requests_count(
         query = query.filter(ConsultationRequest.status == status)
 
     return query.count()
+
+
+def delete_consultation_request(db: Session, request_id: int) -> bool:
+    """
+    Delete a consultation request.
+    Admin only.
+    Returns True if deleted, False if not found.
+    """
+    db_request = db.query(ConsultationRequest).filter(ConsultationRequest.id == request_id).first()
+    if not db_request:
+        return False
+
+    db.delete(db_request)
+    db.commit()
+    return True

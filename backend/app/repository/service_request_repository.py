@@ -25,3 +25,18 @@ def update_service_request(db: Session, request_id: int, update_data: Dict[str, 
         db.commit()
         db.refresh(db_request)
     return db_request
+
+
+def delete_service_request(db: Session, request_id: int) -> bool:
+    """
+    Delete a service request.
+    Admin only.
+    Returns True if deleted, False if not found.
+    """
+    db_request = db.query(ServiceRequest).filter(ServiceRequest.id == request_id).first()
+    if not db_request:
+        return False
+
+    db.delete(db_request)
+    db.commit()
+    return True

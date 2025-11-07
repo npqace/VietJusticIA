@@ -10,7 +10,6 @@ import {
   AppBar,
   Toolbar,
   IconButton,
-  Button,
 } from '@mui/material';
 import {
   LogoutOutlined,
@@ -47,8 +46,6 @@ const AdminDashboard: React.FC = () => {
 
   const fetchDashboardStats = async () => {
     try {
-      // TODO: Create backend endpoint for admin stats
-      // For now, this is a placeholder
       const response = await api.get<DashboardStats>('/api/v1/admin/stats');
       setStats(response.data);
     } catch (error) {
@@ -84,9 +81,19 @@ const AdminDashboard: React.FC = () => {
 
       <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
         <Grid container spacing={3}>
-          {/* Statistics Cards */}
+          {/* Statistics Cards - All Clickable */}
           <Grid item xs={12} md={3}>
-            <Card>
+            <Card
+              sx={{
+                cursor: 'pointer',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: 4,
+                },
+              }}
+              onClick={() => navigate('/admin/users?role=user')}
+            >
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <PeopleOutlined color="primary" />
@@ -100,7 +107,17 @@ const AdminDashboard: React.FC = () => {
           </Grid>
 
           <Grid item xs={12} md={3}>
-            <Card>
+            <Card
+              sx={{
+                cursor: 'pointer',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: 4,
+                },
+              }}
+              onClick={() => navigate('/admin/lawyers')}
+            >
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <GavelOutlined color="success" />
@@ -114,7 +131,17 @@ const AdminDashboard: React.FC = () => {
           </Grid>
 
           <Grid item xs={12} md={3}>
-            <Card>
+            <Card
+              sx={{
+                cursor: 'pointer',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: 4,
+                },
+              }}
+              onClick={() => navigate('/admin/lawyers?status=pending')}
+            >
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <GavelOutlined color="warning" />
@@ -128,7 +155,17 @@ const AdminDashboard: React.FC = () => {
           </Grid>
 
           <Grid item xs={12} md={3}>
-            <Card>
+            <Card
+              sx={{
+                cursor: 'pointer',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: 4,
+                },
+              }}
+              onClick={() => navigate('/admin/requests')}
+            >
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <AssignmentOutlined color="info" />
@@ -139,50 +176,6 @@ const AdminDashboard: React.FC = () => {
                 </Typography>
               </CardContent>
             </Card>
-          </Grid>
-
-          {/* Quick Actions */}
-          <Grid item xs={12}>
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h5" gutterBottom>
-                Quick Actions
-              </Typography>
-              <Grid container spacing={2} sx={{ mt: 2 }}>
-                <Grid item xs={12} md={4}>
-                  <Button
-                    variant="contained"
-                    fullWidth
-                    size="large"
-                    startIcon={<GavelOutlined />}
-                    onClick={() => navigate('/admin/lawyers')}
-                  >
-                    Manage Lawyers
-                  </Button>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Button
-                    variant="contained"
-                    fullWidth
-                    size="large"
-                    startIcon={<PeopleOutlined />}
-                    onClick={() => navigate('/admin/users')}
-                  >
-                    Manage Users
-                  </Button>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Button
-                    variant="contained"
-                    fullWidth
-                    size="large"
-                    startIcon={<AssignmentOutlined />}
-                    onClick={() => navigate('/admin/requests')}
-                  >
-                    View All Requests
-                  </Button>
-                </Grid>
-              </Grid>
-            </Paper>
           </Grid>
 
           {/* Recent Activity */}

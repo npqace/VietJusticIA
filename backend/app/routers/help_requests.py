@@ -182,3 +182,61 @@ async def update_help_request(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update help request"
         )
+
+
+@router.delete("/{request_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_help_request(
+    request_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Delete a help request.
+    Admin only.
+    Can only delete requests with status 'pending' or 'closed'.
+    """
+    try:
+        # Check if user is admin
+        if current_user.role != User.Role.ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only admins can delete help requests"
+            )
+
+        logger.info(f"Admin {current_user.email} attempting to delete help request {request_id}")
+
+        # Get the request first to check status
+        request = help_request_repository.get_help_request_by_id(db, request_id)
+        if not request:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Help request not found"
+            )
+
+        # Only allow deletion of pending or closed requests
+        allowed_statuses = ["pending", "closed"]
+        if request.status.value not in allowed_statuses:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot delete request with status '{request.status.value}'. Only 'pending' or 'closed' requests can be deleted."
+            )
+
+        # Delete the request
+        deleted = help_request_repository.delete_help_request(db, request_id)
+        if not deleted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Help request not found"
+            )
+
+        logger.info(f"Help request {request_id} deleted successfully by admin {current_user.email}")
+        return None
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete help request: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete help request"
+        )

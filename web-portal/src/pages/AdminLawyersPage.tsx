@@ -20,6 +20,8 @@ import {
   DialogContent,
   DialogActions,
   Grid,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import {
   LogoutOutlined,
@@ -29,21 +31,27 @@ import {
   ArrowBackOutlined,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import type { Lawyer } from '../types';
 
 const AdminLawyersPage: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [lawyers, setLawyers] = useState<Lawyer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedLawyer, setSelectedLawyer] = useState<Lawyer | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   useEffect(() => {
     fetchLawyers();
-  }, []);
+    const statusParam = searchParams.get('status');
+    if (statusParam) {
+      setStatusFilter(statusParam);
+    }
+  }, [searchParams]);
 
   const fetchLawyers = async () => {
     try {
@@ -101,6 +109,20 @@ const AdminLawyersPage: React.FC = () => {
     }
   };
 
+  const handleStatusFilterChange = (_event: React.SyntheticEvent, newValue: string) => {
+    setStatusFilter(newValue);
+    if (newValue === 'all') {
+      setSearchParams({});
+    } else {
+      setSearchParams({ status: newValue });
+    }
+  };
+
+  const filteredLawyers = lawyers.filter((lawyer) => {
+    if (statusFilter === 'all') return true;
+    return lawyer.verification_status.toLowerCase() === statusFilter.toLowerCase();
+  });
+
   return (
     <Box sx={{ flexGrow: 1 }}>
       <AppBar position="static">
@@ -129,10 +151,21 @@ const AdminLawyersPage: React.FC = () => {
             Lawyer Applications
           </Typography>
 
+          <Box sx={{ borderBottom: 1, borderColor: 'divider', mt: 2 }}>
+            <Tabs value={statusFilter} onChange={handleStatusFilterChange}>
+              <Tab label="All" value="all" />
+              <Tab label="Pending" value="pending" />
+              <Tab label="Approved" value="approved" />
+              <Tab label="Rejected" value="rejected" />
+            </Tabs>
+          </Box>
+
           {isLoading ? (
-            <Typography>Loading...</Typography>
-          ) : lawyers.length === 0 ? (
-            <Typography color="text.secondary">No lawyers found.</Typography>
+            <Typography sx={{ mt: 3 }}>Loading...</Typography>
+          ) : filteredLawyers.length === 0 ? (
+            <Typography color="text.secondary" sx={{ mt: 3 }}>
+              No lawyers found for this filter.
+            </Typography>
           ) : (
             <TableContainer sx={{ mt: 3 }}>
               <Table>
@@ -148,7 +181,7 @@ const AdminLawyersPage: React.FC = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {lawyers.map((lawyer) => (
+                  {filteredLawyers.map((lawyer) => (
                     <TableRow key={lawyer.id}>
                       <TableCell>{lawyer.id}</TableCell>
                       <TableCell>{lawyer.full_name}</TableCell>

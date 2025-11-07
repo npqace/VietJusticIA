@@ -22,6 +22,8 @@ import {
   Grid,
   TextField,
   InputAdornment,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import {
   LogoutOutlined,
@@ -32,7 +34,7 @@ import {
   CheckCircleOutline,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import type { User } from '../types';
 import { formatDate } from '../utils/dateFormatter';
@@ -40,24 +42,29 @@ import { formatDate } from '../utils/dateFormatter';
 const AdminUsersPage: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+    const roleParam = searchParams.get('role');
+    if (roleParam) {
+      setRoleFilter(roleParam);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     filterUsers();
-  }, [searchQuery, users]);
+  }, [searchQuery, users, roleFilter]);
 
   const fetchUsers = async () => {
     try {
-      // TODO: Create backend endpoint for admin to fetch all users
       const response = await api.get<User[]>('/api/v1/admin/users');
       setUsers(response.data);
     } catch (error) {
@@ -68,18 +75,24 @@ const AdminUsersPage: React.FC = () => {
   };
 
   const filterUsers = () => {
-    if (!searchQuery) {
-      setFilteredUsers(users);
-      return;
+    let filtered = users;
+
+    // Apply role filter
+    if (roleFilter !== 'all') {
+      filtered = filtered.filter((u) => u.role.toLowerCase() === roleFilter.toLowerCase());
     }
 
-    const query = searchQuery.toLowerCase();
-    const filtered = users.filter(
-      (u) =>
-        u.full_name.toLowerCase().includes(query) ||
-        u.email.toLowerCase().includes(query) ||
-        u.phone.toLowerCase().includes(query)
-    );
+    // Apply search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (u) =>
+          u.full_name.toLowerCase().includes(query) ||
+          u.email.toLowerCase().includes(query) ||
+          u.phone.toLowerCase().includes(query)
+      );
+    }
+
     setFilteredUsers(filtered);
   };
 
@@ -115,6 +128,15 @@ const AdminUsersPage: React.FC = () => {
         return 'default';
       default:
         return 'default';
+    }
+  };
+
+  const handleRoleFilterChange = (_event: React.SyntheticEvent, newValue: string) => {
+    setRoleFilter(newValue);
+    if (newValue === 'all') {
+      setSearchParams({});
+    } else {
+      setSearchParams({ role: newValue });
     }
   };
 
@@ -158,6 +180,15 @@ const AdminUsersPage: React.FC = () => {
                 ),
               }}
             />
+          </Box>
+
+          <Box sx={{ borderBottom: 1, borderColor: 'divider', mt: 2 }}>
+            <Tabs value={roleFilter} onChange={handleRoleFilterChange}>
+              <Tab label="All" value="all" />
+              <Tab label="Users" value="user" />
+              <Tab label="Lawyers" value="lawyer" />
+              <Tab label="Admins" value="admin" />
+            </Tabs>
           </Box>
 
           {isLoading ? (

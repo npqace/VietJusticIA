@@ -64,7 +64,7 @@ interface ConsultationRequest {
   province: string;
   district: string;
   content: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  status: 'pending' | 'in_progress' | 'completed' | 'rejected';
   priority: 'low' | 'medium' | 'high';
   admin_notes?: string;
   assigned_lawyer_id?: number;
@@ -225,6 +225,60 @@ const AdminRequestsPage: React.FC = () => {
       setHelpDialogOpen(false);
     } catch (error) {
       console.error('Failed to update help request:', error);
+    }
+  };
+
+  const handleDeleteConsultation = async () => {
+    if (!selectedConsultation) return;
+
+    // Check if allowed to delete
+    const allowedStatuses = ['pending', 'rejected'];
+    if (!allowedStatuses.includes(selectedConsultation.status)) {
+      alert(`Cannot delete request with status '${selectedConsultation.status}'. Only 'pending' or 'rejected' requests can be deleted.`);
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to permanently delete this consultation request? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await api.delete(`/api/v1/consultations/${selectedConsultation.id}`);
+
+      // Refresh data
+      await fetchConsultationRequests();
+      setConsultationDialogOpen(false);
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail || 'Failed to delete consultation request';
+      alert(errorMessage);
+      console.error('Failed to delete consultation request:', error);
+    }
+  };
+
+  const handleDeleteHelpRequest = async () => {
+    if (!selectedHelpRequest) return;
+
+    // Check if allowed to delete
+    const allowedStatuses = ['pending', 'closed'];
+    if (!allowedStatuses.includes(selectedHelpRequest.status)) {
+      alert(`Cannot delete request with status '${selectedHelpRequest.status}'. Only 'pending' or 'closed' requests can be deleted.`);
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to permanently delete this help request? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await api.delete(`/api/v1/help-requests/${selectedHelpRequest.id}`);
+
+      // Refresh data
+      await fetchHelpRequests();
+      setHelpDialogOpen(false);
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail || 'Failed to delete help request';
+      alert(errorMessage);
+      console.error('Failed to delete help request:', error);
     }
   };
 
@@ -642,7 +696,7 @@ const AdminRequestsPage: React.FC = () => {
                     <MenuItem value="pending">Pending</MenuItem>
                     <MenuItem value="in_progress">In Progress</MenuItem>
                     <MenuItem value="completed">Completed</MenuItem>
-                    <MenuItem value="cancelled">Cancelled</MenuItem>
+                    <MenuItem value="rejected">Rejected</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
@@ -687,6 +741,16 @@ const AdminRequestsPage: React.FC = () => {
           )}
         </DialogContent>
         <DialogActions>
+          <Box sx={{ flexGrow: 1 }}>
+            {selectedConsultation && (selectedConsultation.status === 'pending' || selectedConsultation.status === 'rejected') && (
+              <Button
+                color="error"
+                onClick={handleDeleteConsultation}
+              >
+                Delete
+              </Button>
+            )}
+          </Box>
           <Button onClick={() => setConsultationDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleUpdateConsultation}>
             Save Changes
@@ -789,6 +853,16 @@ const AdminRequestsPage: React.FC = () => {
           )}
         </DialogContent>
         <DialogActions>
+          <Box sx={{ flexGrow: 1 }}>
+            {selectedHelpRequest && (selectedHelpRequest.status === 'pending' || selectedHelpRequest.status === 'closed') && (
+              <Button
+                color="error"
+                onClick={handleDeleteHelpRequest}
+              >
+                Delete
+              </Button>
+            )}
+          </Box>
           <Button onClick={() => setHelpDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleUpdateHelpRequest}>
             Save Changes

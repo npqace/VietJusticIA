@@ -83,3 +83,18 @@ def update_help_request(
     db.refresh(help_request)
 
     return help_request
+
+
+def delete_help_request(db: Session, request_id: int) -> bool:
+    """
+    Delete a help request.
+    Admin only.
+    Returns True if deleted, False if not found.
+    """
+    help_request = db.query(HelpRequest).filter(HelpRequest.id == request_id).first()
+    if not help_request:
+        return False
+
+    db.delete(help_request)
+    db.commit()
+    return True

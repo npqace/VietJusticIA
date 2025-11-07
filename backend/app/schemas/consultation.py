@@ -15,7 +15,7 @@ class ConsultationRequestCreate(BaseModel):
 
 class ConsultationRequestUpdate(BaseModel):
     """Schema for updating consultation request (admin only)"""
-    status: Optional[str] = Field(None, description="Status: pending, in_progress, completed, cancelled")
+    status: Optional[str] = Field(None, description="Status: pending, in_progress, completed, rejected")
     priority: Optional[str] = Field(None, description="Priority: low, medium, high")
     admin_notes: Optional[str] = Field(None, description="Admin notes")
     assigned_lawyer_id: Optional[int] = Field(None, description="Assigned lawyer ID")
