@@ -45,3 +45,27 @@ class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
     confirm_new_password: str
+
+class LawyerProfileData(BaseModel):
+    """Schema for lawyer profile data when creating lawyer account."""
+    specialization: str
+    bar_license_number: str
+    years_of_experience: int = 0
+    city: Optional[str] = None
+    province: Optional[str] = None
+    bio: Optional[str] = None
+    consultation_fee: Optional[float] = None
+    languages: str = "Vietnamese"
+
+class AdminCreateUser(BaseModel):
+    """Schema for admin creating a new user account."""
+    full_name: str
+    email: EmailStr
+    phone: str
+    role: str  # 'lawyer' or 'admin' only
+    lawyer_profile: Optional[LawyerProfileData] = None  # Required if role is 'lawyer'
+
+class AdminCreateUserResponse(BaseModel):
+    """Response schema after creating user - includes generated password."""
+    user: UserProfile
+    generated_password: str  # Return password only once for admin to give to user

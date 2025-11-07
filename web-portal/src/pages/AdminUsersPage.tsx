@@ -24,6 +24,11 @@ import {
   InputAdornment,
   Tabs,
   Tab,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
+  FormHelperText,
 } from '@mui/material';
 import {
   LogoutOutlined,
@@ -32,6 +37,7 @@ import {
   SearchOutlined,
   BlockOutlined,
   CheckCircleOutline,
+  AddOutlined,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -50,6 +56,30 @@ const AdminUsersPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [credentialsDialogOpen, setCredentialsDialogOpen] = useState(false);
+  const [createdCredentials, setCreatedCredentials] = useState<{
+    email: string;
+    password: string;
+    role: string;
+  } | null>(null);
+  const [newUser, setNewUser] = useState({
+    full_name: '',
+    email: '',
+    phone: '',
+    role: 'lawyer',
+    lawyer_profile: {
+      specialization: '',
+      bar_license_number: '',
+      years_of_experience: 0,
+      city: '',
+      province: '',
+      bio: '',
+      consultation_fee: '',
+      languages: 'Vietnamese',
+    },
+  });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchUsers();
@@ -140,6 +170,99 @@ const AdminUsersPage: React.FC = () => {
     }
   };
 
+  const handleOpenCreateDialog = () => {
+    setNewUser({
+      full_name: '',
+      email: '',
+      phone: '',
+      role: 'lawyer',
+      lawyer_profile: {
+        specialization: '',
+        bar_license_number: '',
+        years_of_experience: 0,
+        city: '',
+        province: '',
+        bio: '',
+        consultation_fee: '',
+        languages: 'Vietnamese',
+      },
+    });
+    setFormErrors({});
+    setCreateDialogOpen(true);
+  };
+
+  const handleCloseCreateDialog = () => {
+    setCreateDialogOpen(false);
+    setFormErrors({});
+  };
+
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+
+    if (!newUser.full_name.trim()) errors.full_name = 'Full name is required';
+    if (!newUser.email.trim()) errors.email = 'Email is required';
+    if (!newUser.phone.trim()) errors.phone = 'Phone is required';
+
+    if (newUser.role === 'lawyer') {
+      if (!newUser.lawyer_profile.specialization.trim())
+        errors.specialization = 'Specialization is required';
+      if (!newUser.lawyer_profile.bar_license_number.trim())
+        errors.bar_license_number = 'Bar license number is required';
+      if (newUser.lawyer_profile.years_of_experience < 0)
+        errors.years_of_experience = 'Years of experience cannot be negative';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleCreateUser = async () => {
+    if (!validateForm()) return;
+
+    try {
+      const payload: any = {
+        full_name: newUser.full_name,
+        email: newUser.email,
+        phone: newUser.phone,
+        role: newUser.role,
+      };
+
+      if (newUser.role === 'lawyer') {
+        payload.lawyer_profile = {
+          ...newUser.lawyer_profile,
+          consultation_fee: newUser.lawyer_profile.consultation_fee
+            ? parseFloat(newUser.lawyer_profile.consultation_fee)
+            : null,
+        };
+      }
+
+      const response = await api.post('/api/v1/admin/users/create', payload);
+
+      // Store credentials to show in dialog
+      setCreatedCredentials({
+        email: response.data.user.email,
+        password: response.data.generated_password,
+        role: response.data.user.role,
+      });
+
+      fetchUsers();
+      handleCloseCreateDialog();
+      setCredentialsDialogOpen(true);
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail || 'Failed to create user';
+      alert(errorMessage);
+      console.error('Failed to create user:', error);
+    }
+  };
+
+  const handleCopyCredentials = () => {
+    if (createdCredentials) {
+      const text = `Email: ${createdCredentials.email}\nPassword: ${createdCredentials.password}`;
+      navigator.clipboard.writeText(text);
+      alert('Credentials copied to clipboard!');
+    }
+  };
+
   return (
     <Box sx={{ flexGrow: 1 }}>
       <AppBar position="static">
@@ -166,20 +289,29 @@ const AdminUsersPage: React.FC = () => {
         <Paper sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h5">User Management</Typography>
-            <TextField
-              size="small"
-              placeholder="Search by name, email, or phone"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              sx={{ width: 300 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchOutlined />
-                  </InputAdornment>
-                ),
-              }}
-            />
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                size="small"
+                placeholder="Search by name, email, or phone"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                sx={{ width: 300 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchOutlined />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              <Button
+                variant="contained"
+                startIcon={<AddOutlined />}
+                onClick={handleOpenCreateDialog}
+              >
+                Create User
+              </Button>
+            </Box>
           </Box>
 
           <Box sx={{ borderBottom: 1, borderColor: 'divider', mt: 2 }}>
@@ -320,6 +452,250 @@ const AdminUsersPage: React.FC = () => {
             </Button>
           )}
           <Button onClick={() => setDialogOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Create User Dialog */}
+      <Dialog open={createDialogOpen} onClose={handleCloseCreateDialog} maxWidth="md" fullWidth>
+        <DialogTitle>Create New User Account</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            {/* Basic Info */}
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Full Name"
+                value={newUser.full_name}
+                onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
+                error={!!formErrors.full_name}
+                helperText={formErrors.full_name}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Email"
+                type="email"
+                value={newUser.email}
+                onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                error={!!formErrors.email}
+                helperText={formErrors.email}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Phone"
+                value={newUser.phone}
+                onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
+                error={!!formErrors.phone}
+                helperText={formErrors.phone}
+                required
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControl fullWidth required>
+                <InputLabel>Role</InputLabel>
+                <Select
+                  value={newUser.role}
+                  label="Role"
+                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                >
+                  <MenuItem value="lawyer">Lawyer</MenuItem>
+                  <MenuItem value="admin">Admin</MenuItem>
+                </Select>
+                <FormHelperText>Password will be auto-generated and displayed after creation</FormHelperText>
+              </FormControl>
+            </Grid>
+
+            {/* Lawyer Profile Fields - Only shown if role is lawyer */}
+            {newUser.role === 'lawyer' && (
+              <>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }}>
+                    Lawyer Profile
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Specialization"
+                    value={newUser.lawyer_profile.specialization}
+                    onChange={(e) =>
+                      setNewUser({
+                        ...newUser,
+                        lawyer_profile: { ...newUser.lawyer_profile, specialization: e.target.value },
+                      })
+                    }
+                    error={!!formErrors.specialization}
+                    helperText={formErrors.specialization}
+                    required
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Bar License Number"
+                    value={newUser.lawyer_profile.bar_license_number}
+                    onChange={(e) =>
+                      setNewUser({
+                        ...newUser,
+                        lawyer_profile: { ...newUser.lawyer_profile, bar_license_number: e.target.value },
+                      })
+                    }
+                    error={!!formErrors.bar_license_number}
+                    helperText={formErrors.bar_license_number}
+                    required
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="Years of Experience"
+                    type="number"
+                    value={newUser.lawyer_profile.years_of_experience}
+                    onChange={(e) =>
+                      setNewUser({
+                        ...newUser,
+                        lawyer_profile: {
+                          ...newUser.lawyer_profile,
+                          years_of_experience: parseInt(e.target.value) || 0,
+                        },
+                      })
+                    }
+                    error={!!formErrors.years_of_experience}
+                    helperText={formErrors.years_of_experience}
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="City"
+                    value={newUser.lawyer_profile.city}
+                    onChange={(e) =>
+                      setNewUser({
+                        ...newUser,
+                        lawyer_profile: { ...newUser.lawyer_profile, city: e.target.value },
+                      })
+                    }
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="Province"
+                    value={newUser.lawyer_profile.province}
+                    onChange={(e) =>
+                      setNewUser({
+                        ...newUser,
+                        lawyer_profile: { ...newUser.lawyer_profile, province: e.target.value },
+                      })
+                    }
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Consultation Fee (VND)"
+                    type="number"
+                    value={newUser.lawyer_profile.consultation_fee}
+                    onChange={(e) =>
+                      setNewUser({
+                        ...newUser,
+                        lawyer_profile: { ...newUser.lawyer_profile, consultation_fee: e.target.value },
+                      })
+                    }
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Languages"
+                    value={newUser.lawyer_profile.languages}
+                    onChange={(e) =>
+                      setNewUser({
+                        ...newUser,
+                        lawyer_profile: { ...newUser.lawyer_profile, languages: e.target.value },
+                      })
+                    }
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Bio"
+                    multiline
+                    rows={3}
+                    value={newUser.lawyer_profile.bio}
+                    onChange={(e) =>
+                      setNewUser({
+                        ...newUser,
+                        lawyer_profile: { ...newUser.lawyer_profile, bio: e.target.value },
+                      })
+                    }
+                  />
+                </Grid>
+              </>
+            )}
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseCreateDialog}>Cancel</Button>
+          <Button variant="contained" onClick={handleCreateUser}>
+            Create User
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Credentials Display Dialog */}
+      <Dialog
+        open={credentialsDialogOpen}
+        onClose={() => setCredentialsDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Account Created Successfully</DialogTitle>
+        <DialogContent>
+          {createdCredentials && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="body1" gutterBottom>
+                The {createdCredentials.role} account has been created. Please share these credentials with the user:
+              </Typography>
+              <Paper sx={{ p: 2, mt: 2, bgcolor: 'grey.100' }}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Email
+                    </Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                      {createdCredentials.email}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Password
+                    </Typography>
+                    <Typography variant="body1" sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
+                      {createdCredentials.password}
+                    </Typography>
+                  </Grid>
+                </Grid>
+              </Paper>
+              <Typography variant="caption" color="error" sx={{ mt: 2, display: 'block' }}>
+                Important: Save these credentials now. The password cannot be retrieved later.
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCopyCredentials} variant="outlined">
+            Copy to Clipboard
+          </Button>
+          <Button onClick={() => setCredentialsDialogOpen(false)} variant="contained">
+            Done
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>
