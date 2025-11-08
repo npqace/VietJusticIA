@@ -43,7 +43,8 @@ RUN chmod +x /app/entrypoint.sh
 # Create logs and artifacts directories
 RUN mkdir -p logs /tmp/artifacts
 
-# Expose port
+# Expose port (7860 for HuggingFace Spaces, 8000 for local)
+EXPOSE 7860
 EXPOSE 8000
 
 # Create a non-root user
@@ -61,5 +62,5 @@ RUN mkdir -p /home/appuser/.cache/huggingface && \
 
 # Run the application via entrypoint
 ENTRYPOINT ["sh", "/app/entrypoint.sh"]
-# Railway sets PORT env var, fallback to 8000 for local
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# HuggingFace Spaces uses port 7860, Railway/local uses PORT env var or 8000
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-7860}"]

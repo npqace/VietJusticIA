@@ -48,7 +48,7 @@ logs/
 *.sqlite3
 
 # Documentation
-README.md
+# README.md is needed for HuggingFace Spaces
 docs/
 
 # Alembic
