@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from ..database.database import get_db
-from ..database.models import User, Lawyer
+from ..database.models import User, Lawyer, ServiceRequest
 from ..schemas.service_request import ServiceRequestUpdate, ServiceRequestOut, ServiceRequestDetail
-from ..repository import service_request_repository
+from ..repository import service_request_repository, conversation_repository
 from ..services.auth import get_current_active_user
 import logging
 
@@ -72,10 +72,10 @@ def get_service_request_detail(
         "user_email": request.user.email if request.user else None,
         "user_phone": request.user.phone if request.user else None,
         # Lawyer info
-        "lawyer_full_name": request.lawyer.full_name if request.lawyer else None,
-        "lawyer_email": request.lawyer.email if request.lawyer else None,
-        "lawyer_phone": request.lawyer.phone if request.lawyer else None,
-        "lawyer_specialties": request.lawyer.specialties if request.lawyer else None,
+        "lawyer_full_name": request.lawyer.user.full_name if request.lawyer and request.lawyer.user else None,
+        "lawyer_email": request.lawyer.user.email if request.lawyer and request.lawyer.user else None,
+        "lawyer_phone": request.lawyer.user.phone if request.lawyer and request.lawyer.user else None,
+        "lawyer_specialization": request.lawyer.specialization if request.lawyer else None,
     }
     
     logger.info(
@@ -130,6 +130,9 @@ def update_service_request_status(
             detail="You can only update requests assigned to you"
         )
 
+    # Check if status is being changed to ACCEPTED
+    is_accepting = update_data.status and update_data.status == ServiceRequest.RequestStatus.ACCEPTED and request.status != ServiceRequest.RequestStatus.ACCEPTED
+
     # Update the request
     updated_request = service_request_repository.update_service_request(
         db, request_id, update_data.dict(exclude_unset=True)
@@ -140,6 +143,28 @@ def update_service_request_status(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Service request could not be updated"
         )
+
+    # Auto-create conversation if request is being accepted
+    if is_accepting:
+        try:
+            # Check if conversation already exists
+            existing_conversation = conversation_repository.get_conversation_by_service_request_id(
+                service_request_id=request_id,
+                user_id=request.user_id,
+                lawyer_id=lawyer.id
+            )
+
+            if not existing_conversation:
+                # Create new conversation
+                conversation_repository.create_conversation(
+                    service_request_id=request_id,
+                    user_id=request.user_id,
+                    lawyer_id=lawyer.id
+                )
+                logger.info(f"Auto-created conversation for accepted service request {request_id}")
+        except Exception as e:
+            logger.error(f"Failed to auto-create conversation for service request {request_id}: {e}")
+            # Don't fail the request update if conversation creation fails
 
     logger.info(
         f"Service request {request_id} updated by Lawyer {lawyer.id}: "

@@ -63,7 +63,10 @@ const MyRequestsScreen = ({ navigation }: { navigation: any }) => {
       <Text style={styles.itemDate}>{new Date(item.created_at).toLocaleDateString()}</Text>
       <Text style={styles.itemStatus}>{item.status}</Text>
       {'title' in item && (
-        <TouchableOpacity style={styles.detailsButton} onPress={() => { /* TODO: Navigate to chat */ }}>
+        <TouchableOpacity
+          style={styles.detailsButton}
+          onPress={() => navigation.navigate('ServiceRequestDetail', { requestId: item.id })}
+        >
           <Text style={styles.detailsButtonText}>View Details</Text>
         </TouchableOpacity>
       )}

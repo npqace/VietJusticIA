@@ -128,8 +128,16 @@ class RAGService:
 
         # 2. Initialize Qdrant client and retriever
         QDRANT_URL = os.getenv("QDRANT_URL", "http://qdrant:6333")
+        QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
         COLLECTION_NAME = "vietjusticia_legal_docs"
-        qdrant_client = QdrantClient(url=QDRANT_URL)
+
+        # Connect to Qdrant (with API key for cloud, without for local)
+        if QDRANT_API_KEY:
+            qdrant_client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+            logger.info("[INIT] Connecting to Qdrant Cloud with API key")
+        else:
+            qdrant_client = QdrantClient(url=QDRANT_URL)
+            logger.info("[INIT] Connecting to local Qdrant instance")
         vector_store = Qdrant(
             client=qdrant_client,
             collection_name=COLLECTION_NAME,

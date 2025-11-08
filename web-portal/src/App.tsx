@@ -8,6 +8,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminLawyersPage from './pages/AdminLawyersPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import AdminRequestsPage from './pages/AdminRequestsPage';
+import LawyerConversationsPage from './pages/LawyerConversationsPage';
 
 // Create MUI theme
 const theme = createTheme({
@@ -74,6 +75,14 @@ const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute allowedRoles={['lawyer']}>
             <LawyerDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/lawyer/conversations"
+        element={
+          <ProtectedRoute allowedRoles={['lawyer']}>
+            <LawyerConversationsPage />
           </ProtectedRoute>
         }
       />

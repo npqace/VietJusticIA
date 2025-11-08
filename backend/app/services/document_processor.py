@@ -112,9 +112,11 @@ class DocumentProcessor:
         self.mongo_client = MongoClient(os.getenv("MONGO_URL", "mongodb://mongodb:27017/"))
         self.db = self.mongo_client[os.getenv("MONGO_DB_NAME", "vietjusticia")]
         self.collection = self.db["legal_documents"]
-        
+
         # Define cache path for multiple artifacts
-        self.artifacts_path = "/app/ai-engine/data/artifacts"
+        # Use /app/artifacts for Railway, fallback to local path for development
+        artifacts_base = os.getenv("ARTIFACTS_PATH", "/app/ai-engine/data/artifacts")
+        self.artifacts_path = artifacts_base if os.path.exists(os.path.dirname(artifacts_base)) else "/tmp/artifacts"
         self.retriever_cache_path = os.path.join(self.artifacts_path, "retriever_artifacts.pkl")
         os.makedirs(self.artifacts_path, exist_ok=True)
 

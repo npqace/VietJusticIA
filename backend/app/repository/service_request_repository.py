@@ -1,6 +1,6 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional, Dict, Any
-from ..database.models import ServiceRequest
+from ..database.models import ServiceRequest, Lawyer
 
 def get_service_requests_by_user_id(db: Session, user_id: int) -> List[ServiceRequest]:
     """
@@ -10,9 +10,12 @@ def get_service_requests_by_user_id(db: Session, user_id: int) -> List[ServiceRe
 
 def get_service_request_by_id(db: Session, request_id: int) -> Optional[ServiceRequest]:
     """
-    Get a single service request by its ID.
+    Get a single service request by its ID with user and lawyer relationships loaded.
     """
-    return db.query(ServiceRequest).filter(ServiceRequest.id == request_id).first()
+    return db.query(ServiceRequest).options(
+        joinedload(ServiceRequest.user),
+        joinedload(ServiceRequest.lawyer).joinedload(Lawyer.user)
+    ).filter(ServiceRequest.id == request_id).first()
 
 def update_service_request(db: Session, request_id: int, update_data: Dict[str, Any]) -> Optional[ServiceRequest]:
     """

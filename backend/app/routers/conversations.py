@@ -158,7 +158,7 @@ def get_conversation_by_service_request(
     conversation["service_request_title"] = service_request.title
     conversation["service_request_status"] = service_request.status.value
     conversation["user_full_name"] = service_request.user.full_name
-    conversation["lawyer_full_name"] = service_request.lawyer.full_name
+    conversation["lawyer_full_name"] = service_request.lawyer.user.full_name if service_request.lawyer and service_request.lawyer.user else None
     
     logger.info(
         f"Conversation retrieved for service request {service_request_id} "
@@ -217,7 +217,7 @@ def get_conversation_by_id(
         conversation["service_request_title"] = service_request.title
         conversation["service_request_status"] = service_request.status.value
         conversation["user_full_name"] = service_request.user.full_name
-        conversation["lawyer_full_name"] = service_request.lawyer.full_name
+        conversation["lawyer_full_name"] = service_request.lawyer.user.full_name if service_request.lawyer and service_request.lawyer.user else None
     
     return conversation
 

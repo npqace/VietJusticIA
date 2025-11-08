@@ -13,7 +13,7 @@ import {
   Toolbar,
   IconButton,
 } from '@mui/material';
-import { LogoutOutlined, PersonOutline, AssignmentOutlined } from '@mui/icons-material';
+import { LogoutOutlined, PersonOutline, AssignmentOutlined, ChatOutlined } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -90,6 +90,13 @@ const LawyerDashboard: React.FC = () => {
             VietJusticIA - Lawyer Dashboard
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Button
+              color="inherit"
+              startIcon={<ChatOutlined />}
+              onClick={() => navigate('/lawyer/conversations')}
+            >
+              Conversations
+            </Button>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <PersonOutline />
               <Typography>{user?.full_name}</Typography>

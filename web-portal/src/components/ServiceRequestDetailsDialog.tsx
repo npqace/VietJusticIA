@@ -16,6 +16,8 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
+import { ChatOutlined } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import type { ServiceRequest } from '../types';
 import api from '../services/api';
 
@@ -29,11 +31,13 @@ interface ServiceRequestDetailsDialogProps {
 const ServiceRequestDetailsDialog: React.FC<
   ServiceRequestDetailsDialogProps
 > = ({ open, onClose, request, onUpdate }) => {
+  const navigate = useNavigate();
   const [updatedStatus, setUpdatedStatus] = useState('');
   const [lawyerResponse, setLawyerResponse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
 
   useEffect(() => {
     if (request) {
@@ -42,8 +46,34 @@ const ServiceRequestDetailsDialog: React.FC<
       setLawyerResponse(request.lawyer_response || '');
       setError(null);
       setSuccess(false);
+
+      // Check if conversation exists for this service request
+      checkConversation();
     }
   }, [request]);
+
+  const checkConversation = async () => {
+    if (!request) return;
+
+    try {
+      const response = await api.get(`/api/v1/conversations/service-request/${request.id}`);
+      if (response.data && response.data.conversation_id) {
+        setConversationId(response.data.conversation_id);
+      } else {
+        setConversationId(null);
+      }
+    } catch (error) {
+      // No conversation exists yet
+      setConversationId(null);
+    }
+  };
+
+  const handleOpenChat = () => {
+    if (conversationId) {
+      navigate('/lawyer/conversations');
+      onClose();
+    }
+  };
 
   if (!request) {
     return null;
@@ -210,17 +240,33 @@ const ServiceRequestDetailsDialog: React.FC<
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={isLoading}>
-          Close
-        </Button>
-        <Button
-          onClick={handleUpdate}
-          variant="contained"
-          disabled={isLoading}
-          startIcon={isLoading ? <CircularProgress size={20} /> : null}
-        >
-          {isLoading ? 'Updating...' : 'Update'}
-        </Button>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+          <Box>
+            {conversationId && (
+              <Button
+                onClick={handleOpenChat}
+                startIcon={<ChatOutlined />}
+                variant="outlined"
+                disabled={isLoading}
+              >
+                Open Chat
+              </Button>
+            )}
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button onClick={onClose} disabled={isLoading}>
+              Close
+            </Button>
+            <Button
+              onClick={handleUpdate}
+              variant="contained"
+              disabled={isLoading}
+              startIcon={isLoading ? <CircularProgress size={20} /> : null}
+            >
+              {isLoading ? 'Updating...' : 'Update'}
+            </Button>
+          </Box>
+        </Box>
       </DialogActions>
     </Dialog>
   );
