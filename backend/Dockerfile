@@ -40,8 +40,8 @@ COPY entrypoint.sh /app/entrypoint.sh
 RUN sed -i 's/\r$//' /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
-# Create logs directory
-RUN mkdir -p logs
+# Create logs and artifacts directories
+RUN mkdir -p logs /tmp/artifacts
 
 # Expose port
 EXPOSE 8000
@@ -50,14 +50,16 @@ EXPOSE 8000
 RUN adduser --disabled-password --gecos '' appuser \
     && chown -R appuser:appuser /app
 
-# Create and set permissions for Hugging Face cache
+# Create and set permissions for Hugging Face cache and artifacts
 RUN mkdir -p /home/appuser/.cache/huggingface && \
-    chown -R appuser:appuser /home/appuser/.cache
+    chown -R appuser:appuser /home/appuser/.cache && \
+    chown -R appuser:appuser /tmp/artifacts
 
-# Health check
-HEALTHCHECK --interval=1m --timeout=30s --start-period=5m --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+# Health check - Railway automatically handles this, so we can remove it or make it flexible
+# HEALTHCHECK --interval=1m --timeout=30s --start-period=5m --retries=3 \
+#     CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
 
 # Run the application via entrypoint
 ENTRYPOINT ["sh", "/app/entrypoint.sh"]
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Railway sets PORT env var, fallback to 8000 for local
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

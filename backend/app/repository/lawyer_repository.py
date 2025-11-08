@@ -1,7 +1,8 @@
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from ..database.models import Lawyer, ServiceRequest, User
-from ..schemas.lawyer import LawyerCreate, LawyerUpdate, ServiceRequestCreate, ServiceRequestUpdate
+from ..schemas.lawyer import LawyerCreate, LawyerUpdate
+from ..schemas.service_request import ServiceRequestCreate, ServiceRequestUpdate
 
 
 def create_lawyer(db: Session, lawyer_data: LawyerCreate) -> Lawyer:
@@ -32,15 +33,20 @@ def get_lawyers(
     city: Optional[str] = None,
     province: Optional[str] = None,
     min_rating: Optional[float] = None,
-    is_available: Optional[bool] = None
+    is_available: Optional[bool] = None,
+    admin_view: bool = False
 ) -> List[Lawyer]:
     """
     Get list of lawyers with filters.
-    Only returns approved lawyers.
+    Returns only approved lawyers unless admin_view=True.
     """
-    query = db.query(Lawyer).options(joinedload(Lawyer.user)).filter(
-        Lawyer.verification_status == Lawyer.VerificationStatus.APPROVED
-    )
+    query = db.query(Lawyer).options(joinedload(Lawyer.user))
+
+    # Filter by verification status only if not admin view
+    if not admin_view:
+        query = query.filter(
+            Lawyer.verification_status == Lawyer.VerificationStatus.APPROVED
+        )
 
     # Search by name (join with User table)
     if search:
@@ -146,7 +152,26 @@ def get_lawyer_service_requests(
     )
 
     if status:
-        query = query.filter(ServiceRequest.status == status)
+        # Allow callers to pass status as string (case-insensitive) or as enum member.
+        # Normalize to the ServiceRequest.RequestStatus enum before filtering so SQLAlchemy
+        # compares enum members (avoids errors when DB enum labels differ in case).
+        enum_member = None
+        if isinstance(status, str):
+            try:
+                # First try matching by value (e.g., 'pending' or 'PENDING' depending on enum)
+                enum_member = ServiceRequest.RequestStatus(status)
+            except Exception:
+                try:
+                    # Next try matching by name (case-insensitive)
+                    enum_member = ServiceRequest.RequestStatus[status.upper()]
+                except Exception:
+                    # If cannot parse, leave enum_member as None (no filter applied)
+                    enum_member = None
+        else:
+            enum_member = status
+
+        if enum_member is not None:
+            query = query.filter(ServiceRequest.status == enum_member)
 
     return query.order_by(ServiceRequest.created_at.desc()).offset(skip).limit(limit).all()
 

@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from ..database import models
 from ..core.security import get_password_hash, verify_password
 from ..model.userModel import SignUpModel
-from ..schemas.user import UserUpdate
+from ..schemas.user import UserUpdateProfile
 from fastapi import HTTPException, status
 from datetime import datetime, timezone
 
@@ -41,6 +41,16 @@ def get_user_by_phone(db: Session, phone: str):
     return db.query(models.User).filter(models.User.phone == phone).first()
 
 
+def get_user_by_id(db: Session, user_id: int):
+    """Get user by ID."""
+    return db.query(models.User).filter(models.User.id == user_id).first()
+
+
+def get_all_users(db: Session):
+    """Get all users."""
+    return db.query(models.User).order_by(models.User.created_at.desc()).all()
+
+
 def authenticate_user(db: Session, identifier: str, password: str):
     # Check if user exists with email or phone
     user = db.query(models.User).filter(models.User.email == identifier).first()
@@ -74,12 +84,12 @@ def verify_otp(db: Session, user: models.User, otp: str) -> bool:
         
     return True
 
-def update_user(db: Session, user: models.User, user_update: dict) -> models.User:
+def update_user(db: Session, user: models.User, user_update: UserUpdateProfile) -> models.User:
     """
     Updates a user's profile.
     Accepts a dictionary of updates to apply to the user model.
     """
-    update_data = user_update.copy()
+    update_data = user_update.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(user, key, value)
     

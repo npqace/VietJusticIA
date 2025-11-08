@@ -1,29 +1,65 @@
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from ..services.auth import get_current_active_user
+from ..schemas.user import (
+    UserProfile, 
+    UserUpdateProfile, 
+    ChangePasswordRequest, 
+    UpdateContactRequest, 
+    VerifyUpdateContactRequest
+)
+from ..repository import user_repository
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
+from ..database.database import get_db
+from ..database.models import User
+# import cloudinary
+# import cloudinary.uploader
+from ..schemas.my_requests import MyRequestsResponse
+from ..repository import service_request_repository, consultation_repository, help_request_repository
+from ..core.security import verify_password, get_password_hash, create_access_token
+from ..services.otp_service import send_verification_otp
 
-from app.database.database import get_db
-from app.schemas.user import UserRead, UserUpdate, UpdateContactRequest, VerifyUpdateContactRequest, ChangePasswordRequest
-from app.services.auth import get_current_user, create_access_token
-from app.core.security import verify_password, get_password_hash
-from app.database.models import User
-from app.repository import user_repository
-from app.services.otp_service import send_verification_otp
 
-router = APIRouter()
 
-@router.get("/users/me", response_model=UserRead)
-async def read_users_me(current_user: User = Depends(get_current_user)):
+router = APIRouter(
+    prefix="/api/v1/users",
+    tags=["Users"],
+    responses={404: {"description": "Not found"}},
+)
+
+
+@router.get("/me", response_model=UserProfile)
+async def read_users_me(current_user: User = Depends(get_current_active_user)):
     """
-    Fetches the profile of the currently authenticated user.
+    Get current user's profile.
     """
     return current_user
 
-@router.patch("/users/me", response_model=UserRead)
-async def update_user_me(
-    user_update: UserUpdate,
-    current_user: User = Depends(get_current_user),
+@router.get("/me/requests", response_model=MyRequestsResponse)
+def get_my_requests(
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Get all requests (service, consultation, help) for the current user.
+    """
+    service_requests = service_request_repository.get_service_requests_by_user_id(db, current_user.id)
+    consultation_requests = consultation_repository.get_consultation_requests(db, user_id=current_user.id)
+    help_requests = help_request_repository.get_help_requests(db, user_id=current_user.id)
+
+    return {
+        "service_requests": service_requests,
+        "consultation_requests": consultation_requests,
+        "help_requests": help_requests,
+    }
+
+
+@router.patch("/me", response_model=UserProfile)
+async def update_user_profile(
+    *,
+    db: Session = Depends(get_db),
+    user_update: UserUpdateProfile,
+    current_user: User = Depends(get_current_active_user)
 ):
     """
     Updates the profile of the currently authenticated user.
@@ -35,7 +71,7 @@ async def update_user_me(
 @router.post("/users/me/change-password", response_model=dict)
 async def change_password(
     request: ChangePasswordRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -61,7 +97,7 @@ async def change_password(
 @router.post("/users/me/update-contact")
 async def update_contact(
     request: UpdateContactRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -106,7 +142,7 @@ async def update_contact(
 @router.post("/users/me/verify-contact-update")
 async def verify_contact_update(
     request: VerifyUpdateContactRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -147,7 +183,7 @@ async def verify_contact_update(
 
 @router.delete("/users/me", status_code=status.HTTP_204_NO_CONTENT)
 async def deactivate_user_me(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -164,7 +200,7 @@ async def deactivate_user_me(
 
 @router.delete("/users/me/permanent", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user_me_permanently(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
     """

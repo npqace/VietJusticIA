@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 
 from .database.database import init_db
 from .services.ai_service import rag_service
-from .routers import documents, auth, users, password, chat, lawyers, consultations
+from .routers import documents, auth, password, users, chat, lawyers, consultations, admin, help_requests, service_requests, conversations, websocket
 from .utils.response_cache import cleanup_expired_cache_entries
 import asyncio
 
@@ -36,12 +36,20 @@ app = FastAPI(title="VietJusticIA API", version="1.0.0", lifespan=lifespan)
 
 # Include all the routers
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
-app.include_router(users.router, prefix="/api/v1", tags=["Users"])
+# Users router already defines its own prefix ("/api/v1/users"),
+# avoid duplicating the "/api/v1" prefix here which would make
+# routes resolve to /api/v1/api/v1/... and cause 404s.
+app.include_router(users.router)
 app.include_router(documents.router, prefix="/api/v1", tags=["Documents"])
 app.include_router(password.router, prefix="/api/v1/password", tags=["Password"])
 app.include_router(chat.router)  # Chat router already has prefix="/api/v1/chat" in its definition
 app.include_router(lawyers.router)  # Lawyers router already has prefix="/api/v1/lawyers" in its definition
 app.include_router(consultations.router)  # Consultations router already has prefix="/api/v1/consultations" in its definition
+app.include_router(admin.router)  # Admin router already has prefix="/api/v1/admin" in its definition
+app.include_router(help_requests.router)  # Help requests router already has prefix="/api/v1/help-requests" in its definition
+app.include_router(service_requests.router) # Service requests router already has prefix="/api/v1/service-requests" in its definition
+app.include_router(conversations.router)  # Conversations router already has prefix="/api/v1/conversations" in its definition
+app.include_router(websocket.router)  # WebSocket router for real-time conversations with prefix="/api/v1/ws" in its definition
 
 # Configure basic logging
 logger = logging.getLogger("vietjusticia.api")
