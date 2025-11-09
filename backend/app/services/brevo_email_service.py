@@ -2,26 +2,18 @@ import os
 import random
 import logging
 from datetime import datetime, timedelta, timezone
-from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from sqlalchemy.orm import Session
 from ..database.models import User
+import sib_api_v3_sdk
+from sib_api_v3_sdk.rest import ApiException
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Gmail SMTP Configuration
-conf = ConnectionConfig(
-    MAIL_USERNAME=os.getenv("MAIL_USERNAME", ""),
-    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD", ""),
-    MAIL_FROM=os.getenv("MAIL_FROM", ""),
-    MAIL_PORT=587,
-    MAIL_SERVER="smtp.gmail.com",
-    MAIL_STARTTLS=True,
-    MAIL_SSL_TLS=False,
-    USE_CREDENTIALS=True,
-    VALIDATE_CERTS=True
-)
+# Brevo Configuration
+configuration = sib_api_v3_sdk.Configuration()
+configuration.api_key['api-key'] = os.getenv("BREVO_API_KEY", "")
 
 def generate_otp(length: int = 6) -> str:
     """
@@ -49,7 +41,7 @@ async def send_verification_otp(db: Session, user: User, email: str = None):
 
 async def send_otp_email(email: str, otp: str) -> bool:
     """
-    Sends the OTP to the user's email address using Gmail SMTP.
+    Sends the OTP to the user's email address using Brevo API.
     Returns True on success, False on failure.
     """
     # Vietnamese HTML content
@@ -97,26 +89,35 @@ async def send_password_reset_otp(db: Session, user: User) -> bool:
 
 async def send_email(subject: str, recipient: str, html_content: str) -> bool:
     """
-    Sends an email with the given subject and HTML content to the recipient using Gmail SMTP.
+    Sends an email using Brevo (Sendinblue) API.
     """
     mail_from = os.getenv("MAIL_FROM")
+    mail_from_name = os.getenv("MAIL_FROM_NAME", "VietJusticIA")
 
     if not mail_from:
         logger.error("MAIL_FROM not configured in environment.")
         return False
 
-    message = MessageSchema(
-        subject=subject,
-        recipients=[recipient],
-        body=html_content,
-        subtype="html"
-    )
+    if not configuration.api_key['api-key']:
+        logger.error("BREVO_API_KEY not configured in environment.")
+        return False
 
     try:
-        fm = FastMail(conf)
-        await fm.send_message(message)
-        logger.info(f"Email '{subject}' successfully sent to {recipient}")
+        api_instance = sib_api_v3_sdk.TransactionalEmailsApi(sib_api_v3_sdk.ApiClient(configuration))
+
+        send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
+            to=[{"email": recipient}],
+            sender={"email": mail_from, "name": mail_from_name},
+            subject=subject,
+            html_content=html_content
+        )
+
+        api_response = api_instance.send_transac_email(send_smtp_email)
+        logger.info(f"Email '{subject}' successfully sent to {recipient}. Message ID: {api_response.message_id}")
         return True
+    except ApiException as e:
+        logger.error(f"Brevo API exception while sending email to {recipient}: {e}")
+        return False
     except Exception as e:
         logger.error(f"An exception occurred while sending email to {recipient}: {e}")
         return False

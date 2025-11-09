@@ -7,7 +7,7 @@ import logging
 import pytz
 from sqlalchemy.orm import Session
 
-from .otp_service import send_password_reset_otp
+from .brevo_email_service import send_password_reset_otp
 from app.core.security import (
     get_password_hash, 
     create_access_token, 

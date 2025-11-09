@@ -1,7 +1,7 @@
 import os
 import logging
 from ..database.models import ConsultationRequest
-from .otp_service import send_email
+from .brevo_email_service import send_email
 
 logger = logging.getLogger(__name__)
 

@@ -5,6 +5,7 @@ import argparse
 import uuid
 from typing import Set, List
 from tqdm import tqdm
+from dotenv import load_dotenv
 
 from langchain_core.documents import Document
 from langchain_community.embeddings import SentenceTransformerEmbeddings
@@ -13,6 +14,9 @@ from qdrant_client import QdrantClient, models
 from qdrant_client.http.models import PointStruct
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+
+# Load environment variables from .env file
+load_dotenv()
 
 def load_legal_docs_from_folders(root_dir: str, existing_ids: Set[str]) -> List[Document]:
     """Loads legal documents from folders that are not already in the vector store based on document ID."""
@@ -100,11 +104,21 @@ if __name__ == "__main__":
     PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..', '..'))
     SOURCE_DOCUMENTS_PATH = os.path.join(PROJECT_ROOT, "ai-engine", "data", "raw_data", "documents")
     QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
+    QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
     COLLECTION_NAME = "vietjusticia_legal_docs"
 
     # --- Client and Model Initialization ---
     print("Initializing Qdrant client...")
-    qdrant_client = QdrantClient(url=QDRANT_URL)
+    if QDRANT_API_KEY:
+        print("-> Connecting to Qdrant Cloud with API key")
+        qdrant_client = QdrantClient(
+            url=QDRANT_URL,
+            api_key=QDRANT_API_KEY,
+            timeout=120  # 2 minutes timeout for cloud uploads
+        )
+    else:
+        print("-> Connecting to local Qdrant instance")
+        qdrant_client = QdrantClient(url=QDRANT_URL)
 
     print(f"\n[PHASE 1/4] Initializing embedding model...")
     embeddings = SentenceTransformerEmbeddings(

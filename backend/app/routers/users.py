@@ -17,7 +17,7 @@ from ..database.models import User
 from ..schemas.my_requests import MyRequestsResponse
 from ..repository import service_request_repository, consultation_repository, help_request_repository
 from ..core.security import verify_password, get_password_hash, create_access_token
-from ..services.otp_service import send_verification_otp
+from ..services.brevo_email_service import send_verification_otp
 
 
 

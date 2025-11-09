@@ -12,8 +12,6 @@ aiohttp==3.13.1
     #   langchain-community
 aiosignal==1.4.0
     # via aiohttp
-aiosmtplib==2.0.2
-    # via fastapi-mail
 alembic==1.13.1
     # via -r backend/requirements.in
 annotated-doc==0.0.3
@@ -30,8 +28,6 @@ bcrypt==3.2.2
     # via -r backend/requirements.in
 beautifulsoup4==4.14.2
     # via -r backend/requirements.in
-blinker==1.9.0
-    # via fastapi-mail
 cachetools==6.2.1
     # via google-auth
 certifi==2025.10.5
@@ -60,7 +56,7 @@ dnspython==2.8.0
 ecdsa==0.19.1
     # via python-jose
 email-validator==2.3.0
-    # via fastapi-mail
+    # via pydantic (required for EmailStr type)
 environs==14.3.0
     # via fastapi-cors
 faiss-cpu==1.12.0
@@ -70,8 +66,6 @@ fastapi==0.120.0
     #   -r backend/requirements.in
     #   fastapi-cors
 fastapi-cors==0.0.6
-    # via -r backend/requirements.in
-fastapi-mail==1.4.1
     # via -r backend/requirements.in
 filelock==3.20.0
     # via
@@ -157,7 +151,6 @@ idna==3.11
 jinja2==3.1.3
     # via
     #   -r backend/requirements.in
-    #   fastapi-mail
     #   torch
 joblib==1.5.2
     # via scikit-learn
@@ -271,7 +264,6 @@ pycparser==2.23
 pydantic==2.12.3
     # via
     #   fastapi
-    #   fastapi-mail
     #   google-generativeai
     #   langchain
     #   langchain-core
@@ -282,9 +274,7 @@ pydantic==2.12.3
 pydantic-core==2.41.4
     # via pydantic
 pydantic-settings==2.1.0
-    # via
-    #   -r backend/requirements.in
-    #   fastapi-mail
+    # via -r backend/requirements.in
 pymongo==4.6.1
     # via
     #   -r backend/requirements.in
@@ -369,9 +359,7 @@ sqlalchemy==2.0.25
 sqlmodel==0.0.14
     # via -r backend/requirements.in
 starlette==0.48.0
-    # via
-    #   fastapi
-    #   fastapi-mail
+    # via fastapi
 sympy==1.14.0
     # via torch
 tabulate==0.9.0
@@ -435,6 +423,8 @@ uvicorn==0.38.0
     # via -r backend/requirements.in
 yarl==1.22.0
     # via aiohttp
+sib-api-v3-sdk==7.6.0
+    # via -r backend/requirements.in (Brevo/Sendinblue email service)
 
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools
