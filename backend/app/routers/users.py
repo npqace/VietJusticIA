@@ -139,7 +139,7 @@ async def update_contact(
         return {"message": "No changes detected."}
 
 
-@router.post("/users/me/verify-contact-update")
+@router.post("/me/verify-contact-update")
 async def verify_contact_update(
     request: VerifyUpdateContactRequest,
     current_user: User = Depends(get_current_active_user),
@@ -181,7 +181,7 @@ async def verify_contact_update(
         "access_token": access_token,
     }
 
-@router.delete("/users/me", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
 async def deactivate_user_me(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
@@ -198,7 +198,7 @@ async def deactivate_user_me(
     user_repository.update_user(db, current_user, {"is_active": False})
     return
 
-@router.delete("/users/me/permanent", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/me/permanent", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user_me_permanently(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
