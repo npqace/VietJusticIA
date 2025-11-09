@@ -84,12 +84,16 @@ def verify_otp(db: Session, user: models.User, otp: str) -> bool:
         
     return True
 
-def update_user(db: Session, user: models.User, user_update: UserUpdateProfile) -> models.User:
+def update_user(db: Session, user: models.User, user_update) -> models.User:
     """
     Updates a user's profile.
-    Accepts a dictionary of updates to apply to the user model.
+    Accepts a dictionary or Pydantic model of updates to apply to the user model.
     """
-    update_data = user_update.model_dump(exclude_unset=True)
+    # Handle both dict and Pydantic model
+    if isinstance(user_update, dict):
+        update_data = user_update
+    else:
+        update_data = user_update.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(user, key, value)
     

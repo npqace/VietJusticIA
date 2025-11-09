@@ -143,8 +143,8 @@ class ConsultationRequest(Base):
         COMPLETED = "completed"
         REJECTED = "rejected"
 
-    status = Column(SqlEnum(ConsultationStatus, native_enum=False),
-                    nullable=False, default=ConsultationStatus.PENDING, index=True)
+    status = Column(SqlEnum(ConsultationStatus, native_enum=False, values_callable=lambda x: [e.value for e in x]),
+                    nullable=False, default=ConsultationStatus.PENDING.value, index=True)
 
     # Priority for Admin
     class Priority(enum.Enum):
@@ -152,8 +152,8 @@ class ConsultationRequest(Base):
         MEDIUM = "medium"
         HIGH = "high"
 
-    priority = Column(SqlEnum(Priority, native_enum=False),
-                     nullable=False, default=Priority.MEDIUM)
+    priority = Column(SqlEnum(Priority, native_enum=False, values_callable=lambda x: [e.value for e in x]),
+                     nullable=False, default=Priority.MEDIUM.value)
 
     # Admin Management
     admin_notes = Column(Text, nullable=True)
@@ -189,8 +189,8 @@ class HelpRequest(Base):
         RESOLVED = "resolved"
         CLOSED = "closed"
 
-    status = Column(SqlEnum(HelpStatus, native_enum=False),
-                    nullable=False, default=HelpStatus.PENDING, index=True)
+    status = Column(SqlEnum(HelpStatus, native_enum=False, values_callable=lambda x: [e.value for e in x]),
+                    nullable=False, default=HelpStatus.PENDING.value, index=True)
 
     # Admin Management
     admin_notes = Column(Text, nullable=True)
