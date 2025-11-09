@@ -68,7 +68,7 @@ async def update_user_profile(
     updated_user = user_repository.update_user(db, current_user, update_data)
     return updated_user
 
-@router.post("/users/me/change-password", response_model=dict)
+@router.post("/me/change-password", response_model=dict)
 async def change_password(
     request: ChangePasswordRequest,
     current_user: User = Depends(get_current_active_user),
@@ -94,7 +94,7 @@ async def change_password(
 
     return {"message": "Password changed successfully."}
 
-@router.post("/users/me/update-contact")
+@router.post("/me/update-contact")
 async def update_contact(
     request: UpdateContactRequest,
     current_user: User = Depends(get_current_active_user),

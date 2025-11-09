@@ -28,6 +28,15 @@ api.interceptors.response.use(
     // --- Network Error Handling ---
     // If error.response is undefined, it's a network error (server unreachable)
     if (!error.response) {
+      console.error('[API] Network Error Details:', {
+        message: error.message,
+        code: error.code,
+        config: {
+          baseURL: error.config?.baseURL,
+          url: error.config?.url,
+          method: error.config?.method
+        }
+      });
       console.error(
         '[API] Network Error: Could not connect to the server. ' +
         'Please check your network connection and ensure the server is running. ' +
