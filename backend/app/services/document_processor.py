@@ -114,9 +114,18 @@ class DocumentProcessor:
         self.collection = self.db["legal_documents"]
 
         # Define cache path for multiple artifacts
-        # Use /app/artifacts for Railway, fallback to local path for development
-        artifacts_base = os.getenv("ARTIFACTS_PATH", "/app/ai-engine/data/artifacts")
-        self.artifacts_path = artifacts_base if os.path.exists(os.path.dirname(artifacts_base)) else "/tmp/artifacts"
+        # For production (HuggingFace Spaces): use /app/artifacts
+        # For development: use backend/artifacts in the project directory
+        artifacts_base = os.getenv("ARTIFACTS_PATH")
+
+        if artifacts_base:
+            # Use environment variable if set (production)
+            self.artifacts_path = artifacts_base
+        else:
+            # Development: use backend/artifacts relative to this file
+            backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+            self.artifacts_path = os.path.join(backend_dir, 'artifacts')
+
         self.retriever_cache_path = os.path.join(self.artifacts_path, "retriever_artifacts.pkl")
         os.makedirs(self.artifacts_path, exist_ok=True)
 
@@ -184,14 +193,20 @@ class DocumentProcessor:
     def get_retrieval_artifacts(self):
         """
         Loads the docstore and BM25 retriever from cache.
-        If the cache doesn't exist, it builds and caches them first.
+        If the cache doesn't exist or is corrupted, it builds and caches them first.
         """
         if os.path.exists(self.retriever_cache_path):
             print("-> Loading retrieval artifacts from cache...")
-            with open(self.retriever_cache_path, "rb") as f:
-                docstore, bm25_retriever = pickle.load(f)
-            print("-> Artifacts loaded successfully.")
-            return docstore, bm25_retriever
+            try:
+                with open(self.retriever_cache_path, "rb") as f:
+                    docstore, bm25_retriever = pickle.load(f)
+                print("-> Artifacts loaded successfully.")
+                return docstore, bm25_retriever
+            except (pickle.UnpicklingError, EOFError, ValueError) as e:
+                print(f"-> Cache file corrupted ({e}). Rebuilding artifacts...")
+                # Delete corrupted file
+                os.remove(self.retriever_cache_path)
+                return self._create_and_cache_artifacts()
         else:
             print("-> No cache found. Building and caching new artifacts...")
             return self._create_and_cache_artifacts()

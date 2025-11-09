@@ -6,6 +6,7 @@ import logging
 from ..database.database import get_db
 from ..database.models import User
 from ..services.auth import get_current_user, get_current_user_optional
+from ..services.email_service import send_help_request_notification
 from ..schemas.help_request import (
     HelpRequestCreate,
     HelpRequestRead,
@@ -43,6 +44,15 @@ async def create_help_request(
         )
 
         logger.info(f"Help request {help_request.id} created successfully")
+
+        # Send email notification to admin
+        try:
+            await send_help_request_notification(help_request)
+            logger.info(f"Email notification sent for help request {help_request.id}")
+        except Exception as email_error:
+            logger.error(f"Failed to send email notification: {email_error}")
+            # Don't fail the request creation if email fails
+
         return help_request
 
     except Exception as e:

@@ -102,10 +102,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
-    await authService.logout();
-    setUser(null);
-    setIsAuthenticated(false);
-    setIsVerified(false);
+    try {
+      await authService.logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setUser(null);
+      setIsAuthenticated(false);
+      setIsVerified(false);
+    }
   };
 
   const showOtpModal = (

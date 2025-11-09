@@ -10,7 +10,7 @@ from app.core.security import create_access_token, create_refresh_token, verify_
 from app.core.security import get_password_hash
 from app.database.database import get_db
 from app.repository import user_repository
-from app.services import otp_service
+from app.services import brevo_email_service as otp_service
 from app.schemas.auth import ForgotPasswordRequest, ResetPasswordRequest
 
 router = APIRouter()

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
@@ -68,23 +68,34 @@ const MainStack = () => (
 );
 
 const AppNavigator = () => {
-  const { 
-    isAuthenticated, 
-    isLoading, 
-    isOtpModalVisible, 
-    otpEmail, 
-    hideOtpModal, 
+  const {
+    isAuthenticated,
+    isLoading,
+    isOtpModalVisible,
+    otpEmail,
+    hideOtpModal,
     onVerify,
     onResend,
     onSuccess
   } = useAuth();
+
+  const navigationRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!isAuthenticated && navigationRef.current) {
+      navigationRef.current.reset({
+        index: 0,
+        routes: [{ name: 'Welcome' }],
+      });
+    }
+  }, [isAuthenticated]);
 
   if (isLoading) {
     return <LoadingScreen />;
   }
 
   return (
-    <NavigationContainer linking={linking} fallback={<LoadingScreen />}>
+    <NavigationContainer ref={navigationRef} linking={linking} fallback={<LoadingScreen />}>
       {isAuthenticated ? <MainStack /> : <AuthStack />}
       {isOtpModalVisible && otpEmail && onVerify && onResend && onSuccess && (
         <OtpVerificationModal

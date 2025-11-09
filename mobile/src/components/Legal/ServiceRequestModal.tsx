@@ -63,6 +63,20 @@ const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
     }
 
     setErrors(newErrors);
+
+    // Show validation error alert if validation failed
+    if (!isValid) {
+      const errorMessages = [];
+      if (newErrors.title) errorMessages.push(newErrors.title);
+      if (newErrors.description) errorMessages.push(newErrors.description);
+
+      Alert.alert(
+        'Thông tin chưa đầy đủ',
+        'Vui lòng kiểm tra lại thông tin:\n' + errorMessages.map(msg => `• ${msg}`).join('\n'),
+        [{ text: 'OK' }]
+      );
+    }
+
     return isValid;
   };
 
