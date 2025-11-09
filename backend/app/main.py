@@ -75,6 +75,7 @@ from .services.auth import get_current_user
 
 # Lightweight health check endpoint
 @app.get("/health")
+@app.head("/health")
 async def health():
     return {"status": "ok"}
 
