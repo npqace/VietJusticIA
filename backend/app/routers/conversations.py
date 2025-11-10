@@ -374,7 +374,7 @@ def get_my_conversations(
 ):
     """
     Get all conversations for the current user (either as user or lawyer).
-    
+
     - Regular users get their conversations with lawyers
     - Lawyers get conversations with their clients
     """
@@ -384,7 +384,7 @@ def get_my_conversations(
             skip=skip,
             limit=limit
         )
-        
+
     elif current_user.role == User.Role.LAWYER:
         lawyer = db.query(Lawyer).filter(Lawyer.user_id == current_user.id).first()
         if not lawyer:
@@ -397,16 +397,39 @@ def get_my_conversations(
             skip=skip,
             limit=limit
         )
-        
+
     else:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only users and lawyers can access conversations"
         )
-    
+
+    # Enrich conversations with PostgreSQL data (service request title and user names)
+    from ..repository import service_request_repository
+    for conv in conversations:
+        try:
+            service_request = service_request_repository.get_service_request_by_id(
+                db, conv["service_request_id"]
+            )
+            if service_request:
+                conv["service_request_title"] = service_request.title
+                conv["service_request_status"] = service_request.status.value
+                conv["user_full_name"] = service_request.user.full_name if service_request.user else None
+                if service_request.lawyer and service_request.lawyer.user:
+                    conv["lawyer_full_name"] = service_request.lawyer.user.full_name
+                else:
+                    conv["lawyer_full_name"] = None
+        except Exception as e:
+            logger.error(f"Failed to enrich conversation {conv.get('_id')}: {e}")
+            # Continue even if enrichment fails
+            conv["service_request_title"] = f"Request #{conv['service_request_id']}"
+            conv["user_full_name"] = f"User #{conv['user_id']}"
+            conv["lawyer_full_name"] = None
+
     logger.info(
         f"Retrieved {len(conversations)} conversations for user {current_user.email}"
     )
-    
+
     return conversations
+
 

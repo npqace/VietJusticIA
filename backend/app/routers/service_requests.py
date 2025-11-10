@@ -131,7 +131,13 @@ def update_service_request_status(
         )
 
     # Check if status is being changed to ACCEPTED
-    is_accepting = update_data.status and update_data.status == ServiceRequest.RequestStatus.ACCEPTED and request.status != ServiceRequest.RequestStatus.ACCEPTED
+    # Use .value to extract just the string value from the Pydantic enum
+    is_accepting = (
+        update_data.status and
+        update_data.status.value == "ACCEPTED" and
+        request.status != ServiceRequest.RequestStatus.ACCEPTED
+    )
+    logger.info(f"Checking if accepting: update_data.status={update_data.status}, update_data.status.value={update_data.status.value if update_data.status else None}, request.status={request.status}, is_accepting={is_accepting}")
 
     # Update the request
     updated_request = service_request_repository.update_service_request(
@@ -146,6 +152,8 @@ def update_service_request_status(
 
     # Auto-create conversation if request is being accepted
     if is_accepting:
+        logger.info(f"Attempting to auto-create conversation for service request {request_id}")
+        logger.info(f"Request user_id: {request.user_id}, Lawyer ID: {lawyer.id}")
         try:
             # Check if conversation already exists
             existing_conversation = conversation_repository.get_conversation_by_service_request_id(
@@ -154,16 +162,22 @@ def update_service_request_status(
                 lawyer_id=lawyer.id
             )
 
-            if not existing_conversation:
+            if existing_conversation:
+                logger.info(f"Conversation already exists for service request {request_id}: {existing_conversation.get('_id')}")
+            else:
+                logger.info(f"No existing conversation found, creating new one for service request {request_id}")
                 # Create new conversation
-                conversation_repository.create_conversation(
+                created_conversation = conversation_repository.create_conversation(
                     service_request_id=request_id,
                     user_id=request.user_id,
                     lawyer_id=lawyer.id
                 )
-                logger.info(f"Auto-created conversation for accepted service request {request_id}")
+                if created_conversation:
+                    logger.info(f"Successfully created conversation {created_conversation.get('_id')} for service request {request_id}")
+                else:
+                    logger.error(f"create_conversation returned None for service request {request_id}")
         except Exception as e:
-            logger.error(f"Failed to auto-create conversation for service request {request_id}: {e}")
+            logger.error(f"Failed to auto-create conversation for service request {request_id}: {e}", exc_info=True)
             # Don't fail the request update if conversation creation fails
 
     logger.info(

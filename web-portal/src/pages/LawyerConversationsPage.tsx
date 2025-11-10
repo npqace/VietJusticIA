@@ -34,7 +34,7 @@ interface Conversation {
   messages: any[];
   created_at: string;
   updated_at: string;
-  unread_count_lawyer?: number;
+  unread_count?: number;
   service_request_title?: string;
   user_full_name?: string;
 }
@@ -172,9 +172,9 @@ const LawyerConversationsPage: React.FC = () => {
                       <Typography variant="h6" component="div">
                         {conversation.service_request_title || `Request #${conversation.service_request_id}`}
                       </Typography>
-                      {conversation.unread_count_lawyer && conversation.unread_count_lawyer > 0 && (
+                      {conversation.unread_count && conversation.unread_count > 0 && (
                         <Chip
-                          label={conversation.unread_count_lawyer}
+                          label={conversation.unread_count}
                           color="primary"
                           size="small"
                         />

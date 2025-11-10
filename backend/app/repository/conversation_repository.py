@@ -212,6 +212,8 @@ def add_message(
                 f"Message added to conversation {conversation_id} "
                 f"by {sender_type} {sender_id}"
             )
+            # Convert timestamp to ISO format string for JSON serialization
+            message["timestamp"] = message["timestamp"].isoformat()
             return message
         
         return None
@@ -422,4 +424,5 @@ def deactivate_conversation(conversation_id: str) -> bool:
     except Exception as e:
         logger.error(f"Failed to deactivate conversation: {e}")
         return False
+
 
