@@ -46,4 +46,4 @@ __pycache__/
 docker-compose.override.yml
 
 logs/
-# documents.jsonbackend/artifacts/
+backend/artifacts

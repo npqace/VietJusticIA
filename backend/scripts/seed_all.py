@@ -36,9 +36,9 @@ def seed_all():
         print("\n[1/2] Seeding admin user...")
         admin_data = {
             "full_name": "Administrator",
-            "email": "admin@vietjusticia.vn",
+            "email": "admin@vietjusticia.com",
             "phone": "0900000000",
-            "hashed_password": hash_password("Admin123!"),
+            "hashed_password": hash_password("Admin@123"),
             "is_active": True,
             "is_verified": True,
             "role": User.Role.ADMIN,
@@ -58,9 +58,9 @@ def seed_all():
             {
                 "user": {
                     "full_name": "Luật sư Nguyễn Văn An",
-                    "email": "ls.nguyenvanan@lawfirm.vn",
+                    "email": "ls.nguyenvanan@viejusticia.com",
                     "phone": "0901234567",
-                    "hashed_password": hash_password("Password123!"),
+                    "hashed_password": hash_password("Password@123"),
                     "is_active": True,
                     "is_verified": True,
                     "role": User.Role.LAWYER,
@@ -83,9 +83,9 @@ def seed_all():
             {
                 "user": {
                     "full_name": "Luật sư Trần Thị Bình",
-                    "email": "ls.tranthibinh@lawfirm.vn",
+                    "email": "ls.tranthibinh@viejusticia.com",
                     "phone": "0902345678",
-                    "hashed_password": hash_password("Password123!"),
+                    "hashed_password": hash_password("Lawyer@123"),
                     "is_active": True,
                     "is_verified": True,
                     "role": User.Role.LAWYER,
@@ -108,9 +108,9 @@ def seed_all():
             {
                 "user": {
                     "full_name": "Luật sư Lê Minh Cường",
-                    "email": "ls.leminhcuong@lawfirm.vn",
+                    "email": "ls.leminhcuong@viejusticia.com",
                     "phone": "0903456789",
-                    "hashed_password": hash_password("Password123!"),
+                    "hashed_password": hash_password("Lawyer@123"),
                     "is_active": True,
                     "is_verified": True,
                     "role": User.Role.LAWYER,
@@ -133,9 +133,9 @@ def seed_all():
             {
                 "user": {
                     "full_name": "Luật sư Phạm Thị Dung",
-                    "email": "ls.phamthidung@lawfirm.vn",
+                    "email": "ls.phamthidung@viejusticia.com",
                     "phone": "0904567890",
-                    "hashed_password": hash_password("Password123!"),
+                    "hashed_password": hash_password("Lawyer@123"),
                     "is_active": True,
                     "is_verified": True,
                     "role": User.Role.LAWYER,
@@ -158,9 +158,9 @@ def seed_all():
             {
                 "user": {
                     "full_name": "Luật sư Hoàng Văn Em",
-                    "email": "ls.hoangvanem@lawfirm.vn",
+                    "email": "ls.hoangvanem@viejusticia.com",
                     "phone": "0905678901",
-                    "hashed_password": hash_password("Password123!"),
+                    "hashed_password": hash_password("Lawyer@123"),
                     "is_active": True,
                     "is_verified": True,
                     "role": User.Role.LAWYER,
@@ -183,9 +183,9 @@ def seed_all():
             {
                 "user": {
                     "full_name": "Luật sư Vũ Thị Phương",
-                    "email": "ls.vuthiphuong@lawfirm.vn",
+                    "email": "ls.vuthiphuong@viejusticia.com",
                     "phone": "0906789012",
-                    "hashed_password": hash_password("Password123!"),
+                    "hashed_password": hash_password("Lawyer@123"),
                     "is_active": True,
                     "is_verified": True,
                     "role": User.Role.LAWYER,
@@ -233,16 +233,16 @@ def seed_all():
         print("=" * 60)
         print("\nTest Accounts Created:")
         print("\n[ADMIN]")
-        print("  Email: admin@vietjusticia.vn")
-        print("  Password: Admin123!")
+        print("  Email: admin@vietjusticia.com")
+        print("  Password: Admin@123")
 
-        print("\n[LAWYERS] (All use password: Password123!)")
-        print("  • ls.nguyenvanan@lawfirm.vn")
-        print("  • ls.tranthibinh@lawfirm.vn")
-        print("  • ls.leminhcuong@lawfirm.vn")
-        print("  • ls.phamthidung@lawfirm.vn")
-        print("  • ls.hoangvanem@lawfirm.vn")
-        print("  • ls.vuthiphuong@lawfirm.vn")
+        print("\n[LAWYERS] (All use password: Lawyer@123)")
+        print("  • ls.nguyenvanan@viejusticia.com")
+        print("  • ls.tranthibinh@viejusticia.com")
+        print("  • ls.leminhcuong@viejusticia.com")
+        print("  • ls.phamthidung@viejusticia.com")
+        print("  • ls.hoangvanem@viejusticia.com")
+        print("  • ls.vuthiphuong@viejusticia.com")
 
         print("\n[REGULAR USERS]")
         print("  Regular users should sign up through the app to test OTP/email flow!")

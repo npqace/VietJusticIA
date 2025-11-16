@@ -6,7 +6,7 @@ import os
 
 # MongoDB Connection
 MONGO_URL = os.getenv("MONGO_URL", "mongodb://mongodb:27017/")
-MONGO_DB_NAME = "vietjusticia"
+MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "vietjusticia")
 MONGO_COLLECTION_NAME = "chat_sessions"
 
 client = MongoClient(MONGO_URL)

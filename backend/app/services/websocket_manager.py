@@ -8,6 +8,7 @@ from fastapi import WebSocket
 from typing import Dict, List, Set
 import logging
 import json
+import asyncio
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -65,6 +66,9 @@ class ConnectionManager:
             f"WebSocket connected: conversation={conversation_id}, "
             f"user_id={user_id}, type={user_type}"
         )
+
+        # Small delay to let React Native WebSocket stabilize
+        await asyncio.sleep(0.1)
 
         # Notify about successful connection
         await self.send_personal_message(
@@ -185,6 +189,12 @@ class ConnectionManager:
         # Update typing status
         if conversation_id not in self.typing_status:
             self.typing_status[conversation_id] = {}
+
+        # Only broadcast if status actually changed
+        current_status = self.typing_status[conversation_id].get(user_id)
+        if current_status == is_typing:
+            # Status hasn't changed, don't broadcast
+            return
 
         self.typing_status[conversation_id][user_id] = is_typing
 

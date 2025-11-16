@@ -77,6 +77,9 @@ First, analyze the user's question to determine their intent.
 After your answer for a legal query, on a new line, you MUST list the titles of the exact sources you used in a machine-readable format.
 The format is:
 SOURCES_USED: ["title 1", "title 2", ...]
+
+IMPORTANT: You MUST include the SOURCES_USED line at the end of your response. This is required for proper source attribution.
+If you used information from the context, list all document titles you referenced.
 '''
 
 prompt = ChatPromptTemplate.from_template(template)
@@ -251,7 +254,20 @@ class RAGService:
                 final_sources = []
 
                 # Parse the raw answer to separate response and sources
-                sources_used_match = re.search(r"SOURCES_USED:\s*(\[.*\])", raw_answer, re.DOTALL)
+                # Try multiple patterns to catch different formats
+                sources_used_match = re.search(
+                    r"SOURCES_USED:\s*(\[.*?\])", 
+                    raw_answer, 
+                    re.DOTALL | re.MULTILINE
+                )
+                
+                # Also try without the colon
+                if not sources_used_match:
+                    sources_used_match = re.search(
+                        r"SOURCES_USED\s*(\[.*?\])", 
+                        raw_answer, 
+                        re.DOTALL | re.MULTILINE | re.IGNORECASE
+                    )
 
                 if sources_used_match:
                     response_text = raw_answer[:sources_used_match.start()].strip()
@@ -276,6 +292,20 @@ class RAGService:
                     except json.JSONDecodeError:
                         logger.warning(f"[PARSE] Could not parse SOURCES_USED JSON: {sources_used_match.group(1)}")
                         response_text = raw_answer
+                
+                # Fallback: If LLM didn't provide SOURCES_USED format but we have retrieved documents,
+                # include all retrieved documents as sources (since the LLM clearly used them)
+                if not final_sources and all_docs:
+                    logger.info("[SOURCES] LLM did not provide SOURCES_USED format, using all retrieved documents as fallback")
+                    for doc in all_docs:
+                        metadata = doc.metadata or {}
+                        final_sources.append({
+                            "document_id": metadata.get("_id", ""),
+                            "title": metadata.get("title", "N/A"),
+                            "document_number": metadata.get("document_number", "N/A"),
+                            "source_url": metadata.get("source_url", "#"),
+                            "page_content_preview": doc.page_content[:200] + "..."
+                        })
 
                 result_dict = {
                     "response": response_text,

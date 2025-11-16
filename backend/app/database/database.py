@@ -5,9 +5,13 @@ import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from dotenv import load_dotenv
 from sqlalchemy.engine.url import make_url
+from pathlib import Path
 
-# Load environment variables (.env)
-load_dotenv()
+# Load environment variables from project root .env file
+# Navigate up from backend/app/database/database.py to project root
+project_root = Path(__file__).parent.parent.parent.parent
+dotenv_path = project_root / ".env"
+load_dotenv(dotenv_path=dotenv_path)
 
 # connect to database via env or fallback
 DATABASE_URL = os.getenv("DATABASE_URL")

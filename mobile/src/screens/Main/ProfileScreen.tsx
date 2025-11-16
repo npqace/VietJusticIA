@@ -15,8 +15,8 @@ import { COLORS, FONTS, SIZES } from '../../constants/styles';
 import Header from '../../components/Header';
 import EditProfileModal from '../../components/Profile/EditProfileModal';
 import * as ImagePicker from 'expo-image-picker';
-import { storage } from '../../firebaseConfig';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+// import { storage } from '../../firebaseConfig';
+// import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import api from '../../api';
 import ChangePasswordModal from '../../components/Profile/ChangePasswordModal';
 import DeleteAccountModal from '../../components/Profile/DeleteAccountModal';
@@ -42,51 +42,51 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
     }
   }, [user]);
 
-  const handleChangeAvatar = async () => {
-    setIsUploading(true);
-    try {
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permissionResult.granted) {
-        Alert.alert("Permission Denied", "You need to allow access to your photos to change your avatar.");
-        return;
-      }
+  // const handleChangeAvatar = async () => {
+  //   setIsUploading(true);
+  //   try {
+  //     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  //     if (!permissionResult.granted) {
+  //       Alert.alert("Permission Denied", "You need to allow access to your photos to change your avatar.");
+  //       return;
+  //     }
 
-      const pickerResult = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.7,
-      });
+  //     const pickerResult = await ImagePicker.launchImageLibraryAsync({
+  //       mediaTypes: ImagePicker.MediaTypeOptions.Images,
+  //       allowsEditing: true,
+  //       aspect: [1, 1],
+  //       quality: 0.7,
+  //     });
 
-      if (pickerResult.canceled) {
-        return;
-      }
+  //     if (pickerResult.canceled) {
+  //       return;
+  //     }
 
-      const imageUri = pickerResult.assets[0].uri;
-      const response = await fetch(imageUri);
-      const blob = await response.blob();
+  //     const imageUri = pickerResult.assets[0].uri;
+  //     const response = await fetch(imageUri);
+  //     const blob = await response.blob();
 
-      // Create a unique path for the image
-      const storageRef = ref(storage, `avatars/${user.id}/${Date.now()}`);
+  //     // Create a unique path for the image
+  //     const storageRef = ref(storage, `avatars/${user.id}/${Date.now()}`);
       
-      const snapshot = await uploadBytes(storageRef, blob);
-      const downloadURL = await getDownloadURL(snapshot.ref);
+  //     const snapshot = await uploadBytes(storageRef, blob);
+  //     const downloadURL = await getDownloadURL(snapshot.ref);
 
-      // Update the backend with the new avatar URL
-      await api.patch('/api/v1/users/me', { avatar_url: downloadURL });
+  //     // Update the backend with the new avatar URL
+  //     await api.patch('/api/v1/users/me', { avatar_url: downloadURL });
 
-      // Refresh user data to show the new avatar
-      await refreshUserData();
+  //     // Refresh user data to show the new avatar
+  //     await refreshUserData();
 
-      Alert.alert("Success", "Your avatar has been updated.");
+  //     Alert.alert("Success", "Your avatar has been updated.");
 
-    } catch (error) {
-      console.error("Avatar upload error:", error);
-      Alert.alert("Upload Failed", "Sorry, we couldn't update your avatar. Please try again.");
-    } finally {
-      setIsUploading(false);
-    }
-  };
+  //   } catch (error) {
+  //     console.error("Avatar upload error:", error);
+  //     Alert.alert("Upload Failed", "Sorry, we couldn't update your avatar. Please try again.");
+  //   } finally {
+  //     setIsUploading(false);
+  //   }
+  // };
 
   const openModal = () => setModalVisible(true);
   const closeModal = () => setModalVisible(false);

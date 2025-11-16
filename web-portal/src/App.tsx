@@ -9,6 +9,7 @@ import AdminLawyersPage from './pages/AdminLawyersPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import AdminRequestsPage from './pages/AdminRequestsPage';
 import LawyerConversationsPage from './pages/LawyerConversationsPage';
+import AdminDocumentCMS from './pages/AdminDocumentCMS';
 
 // Create MUI theme
 const theme = createTheme({
@@ -117,6 +118,14 @@ const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute allowedRoles={['admin']}>
             <AdminRequestsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/documents"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminDocumentCMS />
           </ProtectedRoute>
         }
       />

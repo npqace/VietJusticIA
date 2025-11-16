@@ -17,6 +17,7 @@ import {
   PeopleOutlined,
   GavelOutlined,
   AssignmentOutlined,
+  DescriptionOutlined,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -173,6 +174,31 @@ const AdminDashboard: React.FC = () => {
                 </Box>
                 <Typography variant="h3" sx={{ mt: 2 }}>
                   {stats.total_requests}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Document CMS Card */}
+          <Grid item xs={12} md={3}>
+            <Card
+              sx={{
+                cursor: 'pointer',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: 4,
+                },
+              }}
+              onClick={() => navigate('/admin/documents')}
+            >
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <DescriptionOutlined color="secondary" />
+                  <Typography variant="h6">Document CMS</Typography>
+                </Box>
+                <Typography variant="body2" sx={{ mt: 2 }}>
+                  Manage legal documents
                 </Typography>
               </CardContent>
             </Card>
