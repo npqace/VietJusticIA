@@ -15,7 +15,14 @@ from tqdm import tqdm
 
 # --- Setup ---
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-load_dotenv()
+
+# Load environment variables
+# First try ai-engine/.env (for local runs), then fall back to root .env
+ai_engine_env = os.path.join(os.path.dirname(__file__), '..', '.env')
+if os.path.exists(ai_engine_env):
+    load_dotenv(ai_engine_env)
+else:
+    load_dotenv()  # Load from root .env
 
 try:
     from langchain_google_genai import ChatGoogleGenerativeAI
@@ -400,7 +407,7 @@ if __name__ == "__main__":
     PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..', '..'))
     SOURCE_DOCUMENTS_PATH = os.path.join(PROJECT_ROOT, "ai-engine", "data", "raw_data", "documents")
     MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017/")
-    MONGO_DB_NAME = "vietjusticia"
+    MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "vietjusticia")
     MONGO_COLLECTION_NAME = "legal_documents"
 
     # --- Connect to DB and Find New Documents ---

@@ -15,8 +15,13 @@ from qdrant_client.http.models import PointStruct
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables
+# First try ai-engine/.env (for local runs), then fall back to root .env
+ai_engine_env = os.path.join(os.path.dirname(__file__), '..', '.env')
+if os.path.exists(ai_engine_env):
+    load_dotenv(ai_engine_env)
+else:
+    load_dotenv()  # Load from root .env
 
 def load_legal_docs_from_folders(root_dir: str, existing_ids: Set[str]) -> List[Document]:
     """Loads legal documents from folders that are not already in the vector store based on document ID."""
@@ -175,14 +180,40 @@ if __name__ == "__main__":
     # --- Embedding and Upserting with Progress Bar ---
     print(f"\n[PHASE 4/4] Embedding chunks and upserting to Qdrant in batches of {args.batch_size}...")
     
+    seen_point_ids = set()  # Track duplicate chunks
+    duplicate_count = 0
+    error_count = 0
+    successful_count = 0
+    
     for i in tqdm(range(0, len(chunks), args.batch_size), desc="Upserting Batches"):
         batch_chunks = chunks[i:i + args.batch_size]
         
-        batch_contents = [chunk.page_content for chunk in batch_chunks]
+        # Filter out duplicates and empty chunks before embedding
+        valid_chunks = []
+        for idx, chunk in enumerate(batch_chunks):
+            point_id = get_deterministic_uuid(chunk.metadata['_id'], chunk.page_content)
+            
+            # Skip duplicate chunks (same content = same UUID)
+            if point_id in seen_point_ids:
+                duplicate_count += 1
+                continue
+            
+            # Skip empty or very short chunks
+            if not chunk.page_content or len(chunk.page_content.strip()) < 10:
+                continue
+            
+            seen_point_ids.add(point_id)
+            valid_chunks.append(chunk)
+        
+        if not valid_chunks:
+            continue
+        
+        # Only embed valid chunks
+        batch_contents = [chunk.page_content for chunk in valid_chunks]
         batch_vectors = embeddings.embed_documents(batch_contents)
         
         points_to_upsert = []
-        for idx, chunk in enumerate(batch_chunks):
+        for idx, chunk in enumerate(valid_chunks):
             point_id = get_deterministic_uuid(chunk.metadata['_id'], chunk.page_content)
             
             full_payload = {
@@ -197,12 +228,42 @@ if __name__ == "__main__":
                     payload=full_payload
                 )
             )
+        
+        if not points_to_upsert:
+            continue
             
-        qdrant_client.upsert(
-            collection_name=COLLECTION_NAME,
-            points=points_to_upsert,
-            wait=False
-        )
+        try:
+            # Use wait=True to ensure all points are saved and catch errors
+            qdrant_client.upsert(
+                collection_name=COLLECTION_NAME,
+                points=points_to_upsert,
+                wait=True  # Changed to True to ensure completion
+            )
+            successful_count += len(points_to_upsert)
+        except Exception as e:
+            error_count += len(points_to_upsert)
+            print(f"\n[ERROR] Failed to upsert batch starting at index {i}: {e}")
+            # Continue with next batch instead of failing completely
 
-    print(f"-> Qdrant collection '{COLLECTION_NAME}' updated successfully.")
+    # Verify final count
+    print(f"\n[STATS] Chunk processing summary:")
+    print(f"  - Total chunks created: {len(chunks)}")
+    print(f"  - Duplicate chunks skipped: {duplicate_count}")
+    print(f"  - Successfully upserted: {successful_count}")
+    print(f"  - Failed to upsert: {error_count}")
+    
+    # Get actual count from Qdrant
+    try:
+        collection_info = qdrant_client.get_collection(COLLECTION_NAME)
+        actual_points = collection_info.points_count
+        print(f"  - Actual points in Qdrant: {actual_points}")
+        
+        if actual_points != successful_count:
+            print(f"\n[WARNING] Mismatch detected!")
+            print(f"  Expected: {successful_count}, Actual: {actual_points}")
+            print(f"  Difference: {successful_count - actual_points}")
+    except Exception as e:
+        print(f"\n[WARNING] Could not verify final count: {e}")
+
+    print(f"\n-> Qdrant collection '{COLLECTION_NAME}' updated successfully.")
     print("\n--- Vector Store Build Process Complete ---")

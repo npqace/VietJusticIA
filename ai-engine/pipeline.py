@@ -60,7 +60,21 @@ def main():
     """Parses arguments and runs the full data pipeline."""
     parser = argparse.ArgumentParser(
         description="Master pipeline script to crawl, clean, and build the AI data stores.",
-        formatter_class=argparse.RawTextHelpFormatter)
+        formatter_class=argparse.RawTextHelpFormatter,
+        epilog="""
+Examples:
+  # Full pipeline: crawl 100 docs, clean, migrate, vectorize
+  python pipeline.py --max-docs 100
+
+  # Only run migration and vectorization (skip crawling/cleaning)
+  python pipeline.py --skip-crawl --skip-clean --max-docs 200
+
+  # Only vectorization (data already in MongoDB)
+  python pipeline.py --skip-crawl --skip-clean --skip-migrate
+
+  # Crawl specific category with all processing
+  python pipeline.py --max-docs 50 --category "Giáo dục"
+        """)
     
     # Crawler-specific arguments
     parser.add_argument('--max-docs', type=int, default=None, help='(Crawler) Max number of documents to scrape.')
@@ -68,46 +82,95 @@ def main():
     parser.add_argument('--status-filter', type=str, default='Còn hiệu lực', help='(Crawler) Filter documents by status.')
     parser.add_argument('--category', type=str, default=None, help='(Crawler) Specify a category to scrape.')
 
+    # Migration-specific arguments
+    parser.add_argument('--migration-workers', type=int, default=8, help='(Migration) Number of parallel workers for diagram generation.')
+    parser.add_argument('--migration-max-docs', type=int, default=None, help='(Migration) Limit documents to migrate (useful for daily quota management).')
+
+    # Vector store arguments
+    parser.add_argument('--vector-batch-size', type=int, default=64, help='(Vector Store) Batch size for embedding and upserting.')
+
     # Pipeline control arguments
     parser.add_argument('--force-rerun', action='store_true', help='Force all steps to re-run from scratch, ignoring existing data.')
+    parser.add_argument('--skip-crawl', action='store_true', help='Skip the crawling step (use existing raw data).')
+    parser.add_argument('--skip-clean', action='store_true', help='Skip the cleaning step (use existing cleaned data).')
+    parser.add_argument('--skip-migrate', action='store_true', help='Skip the MongoDB migration step (use existing MongoDB data).')
+    parser.add_argument('--skip-vectorize', action='store_true', help='Skip the vectorization step (use existing Qdrant data).')
 
     args = parser.parse_args()
 
-    # 1. Organize scripts first
-    # organize_scripts()
+    print("\n" + "="*60)
+    print("🚀 VIETJUSTICIA DATA PIPELINE")
+    print("="*60)
+    
+    # Show pipeline plan
+    steps = []
+    if not args.skip_crawl:
+        steps.append("1️⃣  Crawling")
+    if not args.skip_clean:
+        steps.append("2️⃣  Cleaning")
+    if not args.skip_migrate:
+        steps.append("3️⃣  Migration + Diagram Generation")
+    if not args.skip_vectorize:
+        steps.append("4️⃣  Vectorization")
+    
+    if not steps:
+        print("❌ ERROR: All steps are skipped. Nothing to do!")
+        sys.exit(1)
+    
+    print("\n📋 Pipeline Steps:")
+    for step in steps:
+        print(f"   {step}")
+    print("\n" + "="*60 + "\n")
 
     # 2. Run Crawler
-    # The crawler always fetches new data, so it doesn't have a --force flag.
-    crawler_command = f"python {CRAWLER_SCRIPT}"
-    if args.max_docs:
-        crawler_command += f" --max-docs {args.max_docs}"
-    if args.max_pages:
-        crawler_command += f" --max-pages {args.max_pages}"
-    if args.status_filter:
-        crawler_command += f" --status-filter \"{args.status_filter}\""
-    if args.category:
-        crawler_command += f" --category \"{args.category}\""
-    run_command(crawler_command, "Step 1: Crawling legal documents")
+    if not args.skip_crawl:
+        crawler_command = f"python {CRAWLER_SCRIPT}"
+        if args.max_docs:
+            crawler_command += f" --max-docs {args.max_docs}"
+        if args.max_pages:
+            crawler_command += f" --max-pages {args.max_pages}"
+        if args.status_filter:
+            crawler_command += f" --status-filter \"{args.status_filter}\""
+        if args.category:
+            crawler_command += f" --category \"{args.category}\""
+        run_command(crawler_command, "Step 1: Crawling legal documents")
+    else:
+        print("\n[PIPELINE] ⏭️  Skipping crawl step (using existing raw data)")
 
     # 3. Run Cleaner
-    cleaner_command = f"python {CLEANER_SCRIPT} {CRAWLER_OUTPUT_DIR}"
-    if args.force_rerun:
-        cleaner_command += " --force"
-    run_command(cleaner_command, "Step 2: Cleaning crawled text data")
+    if not args.skip_clean:
+        cleaner_command = f"python {CLEANER_SCRIPT} {CRAWLER_OUTPUT_DIR}"
+        if args.force_rerun:
+            cleaner_command += " --force"
+        run_command(cleaner_command, "Step 2: Cleaning crawled text data")
+    else:
+        print("\n[PIPELINE] ⏭️  Skipping clean step (using existing cleaned data)")
 
     # 4. Run MongoDB Migrator
-    migrator_command = f"python {MIGRATOR_SCRIPT}"
-    if args.force_rerun:
-        migrator_command += " --force"
-    run_command(migrator_command, "Step 3: Migrating documents to MongoDB (with AI diagram generation)")
+    if not args.skip_migrate:
+        migrator_command = f"python {MIGRATOR_SCRIPT}"
+        if args.force_rerun:
+            migrator_command += " --force"
+        if args.migration_workers:
+            migrator_command += f" --max-workers {args.migration_workers}"
+        if args.migration_max_docs:
+            migrator_command += f" --max-docs {args.migration_max_docs}"
+        run_command(migrator_command, "Step 3: Migrating documents to MongoDB (with AI diagram generation)")
+    else:
+        print("\n[PIPELINE] ⏭️  Skipping migration step (using existing MongoDB data)")
 
     # 5. Run Vector Store Builder
-    vector_builder_command = f"python {VECTOR_STORE_BUILDER_SCRIPT}"
-    if args.force_rerun:
-        vector_builder_command += " --force-rebuild"
-    run_command(vector_builder_command, "Step 4: Building Qdrant vector store")
+    if not args.skip_vectorize:
+        vector_builder_command = f"python {VECTOR_STORE_BUILDER_SCRIPT}"
+        if args.force_rerun:
+            vector_builder_command += " --force-rebuild"
+        if args.vector_batch_size:
+            vector_builder_command += f" --batch-size {args.vector_batch_size}"
+        run_command(vector_builder_command, "Step 4: Building Qdrant vector store")
+    else:
+        print("\n[PIPELINE] ⏭️  Skipping vectorization step (using existing Qdrant data)")
 
-    print(f"\n{'='*20}\n[PIPELINE] FULL DATA PIPELINE COMPLETED SUCCESSFULLY!\n{'='*20}")
+    print(f"\n{'='*60}\n✅ [PIPELINE] FULL DATA PIPELINE COMPLETED SUCCESSFULLY!\n{'='*60}\n")
 
 if __name__ == "__main__":
     main()

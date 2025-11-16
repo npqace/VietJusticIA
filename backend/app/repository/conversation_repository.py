@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 # MongoDB Connection
 MONGO_URL = os.getenv("MONGO_URL", "mongodb://mongodb:27017/")
-MONGO_DB_NAME = "vietjusticia"
+MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "vietjusticia")
 MONGO_COLLECTION_NAME = "service_request_conversations"
 
 client = MongoClient(MONGO_URL)
@@ -240,22 +240,37 @@ def mark_messages_as_read(
         logger.error(f"Invalid reader_type: {reader_type}")
         return False
 
-    read_field = f"messages.$[].read_by_{reader_type}"
+    read_field = f"read_by_{reader_type}"
 
     try:
+        # First check if conversation exists
+        conversation = collection.find_one({"_id": ObjectId(conversation_id)})
+        if not conversation:
+            logger.warning(f"Conversation {conversation_id} not found")
+            return False
+
+        messages = conversation.get("messages", [])
+        if not messages:
+            # No messages to mark as read, but conversation exists
+            logger.info(f"No messages to mark as read in conversation {conversation_id}")
+            return True
+
+        # Use simple $[] operator to update all messages
+        # This is more reliable than array_filters with dynamic field names
         result = collection.update_one(
             {"_id": ObjectId(conversation_id)},
-            {"$set": {read_field: True}}
+            {"$set": {f"messages.$[].{read_field}": True}}
         )
 
         logger.info(
             f"Messages marked as read in conversation {conversation_id} "
-            f"by {reader_type}"
+            f"by {reader_type} (matched: {result.matched_count}, modified: {result.modified_count})"
         )
 
-        return result.modified_count > 0
+        # Return True if document was found (even if no messages were modified)
+        return True
     except Exception as e:
-        logger.error(f"Failed to mark messages as read: {e}")
+        logger.error(f"Failed to mark messages as read: {e}", exc_info=True)
         return False
 
 

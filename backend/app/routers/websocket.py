@@ -138,7 +138,7 @@ async def websocket_conversation(
       - typing_indicator: {"type": "typing_indicator", ...}
       - read_receipt: {"type": "read_receipt", ...}
       - connection_established: {"type": "connection_established", ...}
-      - error: {"type": "error", "message": "..."}
+      - error: {"type": "error", "error": "..."}
     """
 
     # Step 1: Verify JWT token
@@ -190,7 +190,7 @@ async def websocket_conversation(
                             websocket,
                             {
                                 "type": "error",
-                                "message": "Message text cannot be empty"
+                                "error": "Message text cannot be empty"
                             }
                         )
                         continue
@@ -221,7 +221,7 @@ async def websocket_conversation(
                             websocket,
                             {
                                 "type": "error",
-                                "message": "Failed to send message"
+                                "error": "Failed to send message"
                             }
                         )
 
@@ -237,38 +237,57 @@ async def websocket_conversation(
 
                 elif message_type == "mark_read":
                     # Mark messages as read
-                    success = conversation_repository.mark_messages_as_read(
-                        conversation_id,
-                        user_type
-                    )
-
-                    if success:
-                        # Get all message IDs from conversation
-                        conversation = conversation_repository.get_conversation_by_id(
-                            conversation_id
-                        )
-                        message_ids = [
-                            msg["message_id"]
-                            for msg in conversation.get("messages", [])
-                        ]
-
-                        # Broadcast read receipt
-                        await manager.broadcast_read_receipt(
+                    try:
+                        success = conversation_repository.mark_messages_as_read(
                             conversation_id,
-                            user_id,
-                            user_type,
-                            message_ids
+                            user_type
                         )
-                        logger.info(
-                            f"Messages marked as read in conversation {conversation_id} "
-                            f"by {user_type} {user_id}"
-                        )
-                    else:
+
+                        if success:
+                            # Get all message IDs from conversation
+                            conversation = conversation_repository.get_conversation_by_id(
+                                conversation_id,
+                                user_id=user_id if user_type == "user" else None,
+                                lawyer_id=user_id if user_type == "lawyer" else None
+                            )
+                            
+                            if conversation:
+                                message_ids = [
+                                    msg["message_id"]
+                                    for msg in conversation.get("messages", [])
+                                ]
+
+                                # Broadcast read receipt
+                                await manager.broadcast_read_receipt(
+                                    conversation_id,
+                                    user_id,
+                                    user_type,
+                                    message_ids
+                                )
+                                logger.info(
+                                    f"Messages marked as read in conversation {conversation_id} "
+                                    f"by {user_type} {user_id}"
+                                )
+                            else:
+                                logger.warning(
+                                    f"Could not retrieve conversation {conversation_id} "
+                                    f"after marking as read"
+                                )
+                        else:
+                            await manager.send_personal_message(
+                                websocket,
+                                {
+                                    "type": "error",
+                                    "error": "Failed to mark messages as read"
+                                }
+                            )
+                    except Exception as e:
+                        logger.error(f"Error marking messages as read: {e}", exc_info=True)
                         await manager.send_personal_message(
                             websocket,
                             {
                                 "type": "error",
-                                "message": "Failed to mark messages as read"
+                                "error": "Internal server error"
                             }
                         )
 
@@ -278,7 +297,7 @@ async def websocket_conversation(
                         websocket,
                         {
                             "type": "error",
-                            "message": f"Unknown message type: {message_type}"
+                            "error": f"Unknown message type: {message_type}"
                         }
                     )
 
@@ -287,7 +306,7 @@ async def websocket_conversation(
                     websocket,
                     {
                         "type": "error",
-                        "message": "Invalid JSON format"
+                        "error": "Invalid JSON format"
                     }
                 )
             except Exception as e:
@@ -296,7 +315,7 @@ async def websocket_conversation(
                     websocket,
                     {
                         "type": "error",
-                        "message": "Internal server error"
+                        "error": "Internal server error"
                     }
                 )
 

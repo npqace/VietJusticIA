@@ -3,11 +3,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 import logging
 import time
+import os
 from contextlib import asynccontextmanager
-
+from .database.models import User
+from .services.auth import get_current_user
 from .database.database import init_db
 from .services.ai_service import rag_service
-from .routers import documents, auth, password, users, chat, lawyers, consultations, admin, help_requests, service_requests, conversations, websocket
+from .routers import documents, auth, password, users, chat, lawyers, consultations, admin, help_requests, service_requests, conversations, websocket, document_cms
 from .utils.response_cache import cleanup_expired_cache_entries
 import asyncio
 
@@ -50,28 +52,25 @@ app.include_router(help_requests.router)  # Help requests router already has pre
 app.include_router(service_requests.router) # Service requests router already has prefix="/api/v1/service-requests" in its definition
 app.include_router(conversations.router)  # Conversations router already has prefix="/api/v1/conversations" in its definition
 app.include_router(websocket.router)  # WebSocket router for real-time conversations with prefix="/api/v1/ws" in its definition
+app.include_router(document_cms.router)  # Document CMS router already has prefix="/api/v1/admin/documents" in its definition
 
 # Configure basic logging
 logger = logging.getLogger("vietjusticia.api")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
 
-# CORS Middleware
+# CORS Middleware - Allow all origins for mobile and web app support
+# Mobile apps (React Native/Expo) don't send proper Origin headers for WebSocket
+# Security is handled via JWT token validation in endpoints (not cookies)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",  # Vite dev server
-        "http://localhost:5174",  # Alternative Vite port
-        "https://vietjusticia-web-portal.vercel.app",  # Production web portal
-        "https://vietjusticia-web-portal-*.vercel.app",  # Vercel preview deployments
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],  # Allow all origins for mobile app support
+    allow_credentials=False,  # False because we use JWT tokens, not cookies
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
-from .database.models import User
-from .services.auth import get_current_user
 
 # Lightweight health check endpoint
 @app.get("/health")

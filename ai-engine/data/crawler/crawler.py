@@ -223,6 +223,43 @@ class Crawler:
         finally:
             page.close()
 
+    def _is_document_already_crawled(self, doc_id: str, doc_title: str) -> bool:
+        """
+        Checks if a document has already been fully crawled.
+        Returns True if all required files exist for this document.
+        """
+        # Create the folder name using the same logic as save_data
+        folder_name = re.sub(r'[\\/*?:"<>|]', "", doc_title)[:100].strip()
+        doc_folder = self.documents_dir / folder_name
+        
+        # Check if folder exists and has all required files
+        if not doc_folder.exists():
+            return False
+        
+        required_files = [
+            doc_folder / "metadata.json",
+            doc_folder / "content.txt",
+            doc_folder / "page_content.html",
+            doc_folder / "screenshot.png"
+        ]
+        
+        # Check if all files exist and are not empty
+        for file_path in required_files:
+            if not file_path.exists() or file_path.stat().st_size == 0:
+                return False
+        
+        # Additional check: verify the metadata has the correct doc_id
+        try:
+            with open(doc_folder / "metadata.json", 'r', encoding='utf-8') as f:
+                metadata = json.load(f)
+                stored_id = metadata.get("metadata", {}).get("_id") or metadata.get("metadata", {}).get("id")
+                if stored_id == doc_id:
+                    return True
+        except Exception:
+            return False
+        
+        return False
+
     def save_data(self, full_metadata: dict, content_data: dict, doc_number: int, max_docs: int | None, current_scraped_count: int):
         """Saves document data, combining API metadata and scraped content."""
         try:
@@ -265,16 +302,24 @@ class Crawler:
         """Worker function for a thread to scrape and save a single document."""
         if self.shutdown_event.is_set(): return
 
+        doc_id = api_data.get('id')
+        if not doc_id:
+            self.logger.error(f"API data for doc {doc_number} is missing an 'id'.")
+            return
+
+        # Get title for skip check (from diagram data)
+        doc_title = api_data.get("diagram", {}).get("ten", "Untitled Document")
+        
+        # --- SKIP CHECK: Check if document already exists ---
+        if self._is_document_already_crawled(doc_id, doc_title):
+            self.logger.info(f"[SKIP] Doc {doc_number} (ID: {doc_id}) already crawled: {doc_title[:50]}...")
+            return 'skipped_existing'
+
         # --- Politeness: Apply delay before starting ---
         delay = self._get_crawl_delay()
         if delay > 0:
             self.logger.info(f"Waiting for {delay}s as per crawl delay policy.")
             time.sleep(delay)
-
-        doc_id = api_data.get('id')
-        if not doc_id:
-            self.logger.error(f"API data for doc {doc_number} is missing an 'id'.")
-            return
 
         # Atomically check the limit and reserve a slot BEFORE any network calls.
         current_scraped_count = 0
@@ -330,10 +375,16 @@ class Crawler:
         # Reset thread-safe counter
         self.scraped_count = 0
         filtered_docs_count = 0
+        skipped_existing_count = 0  # Track how many were already crawled
         processed_docs_count = 0  # Count of documents processed (fetched from API)
+        newly_crawled_count = 0  # Count of newly crawled documents
         
         page_num = 1
         total_docs = -1
+
+        self.logger.info("=" * 60)
+        self.logger.info("STARTING CRAWL SESSION")
+        self.logger.info("=" * 60)
 
         try:
             with ThreadPoolExecutor(max_workers=CRAWLER_SETTINGS['max_workers']) as executor:
@@ -377,7 +428,11 @@ class Crawler:
                     for future in as_completed(futures):
                         try:
                             result = future.result()  # Get the result from worker
-                            if result == 'filtered':
+                            if result == 'processed':
+                                newly_crawled_count += 1
+                            elif result == 'skipped_existing':
+                                skipped_existing_count += 1
+                            elif result == 'filtered':
                                 filtered_docs_count += 1
                             elif result == 'skipped':
                                 pass  # Already logged in worker
@@ -391,7 +446,16 @@ class Crawler:
             self.shutdown_event.set()
             # The ThreadPoolExecutor's context manager will handle shutting down threads.
         
-        self.logger.info("Crawler finished.")
+        # Final summary
+        self.logger.info("=" * 60)
+        self.logger.info("CRAWL SESSION COMPLETE")
+        self.logger.info("=" * 60)
+        self.logger.info(f"📊 Documents examined: {processed_docs_count}")
+        self.logger.info(f"✅ Newly crawled: {newly_crawled_count}")
+        self.logger.info(f"⏭️  Skipped (already exist): {skipped_existing_count}")
+        if filtered_docs_count > 0:
+            self.logger.info(f"🚫 Filtered out: {filtered_docs_count}")
+        self.logger.info("=" * 60)
 
 def parse_arguments():
     """Parse command line arguments"""

@@ -42,8 +42,10 @@ const ConversationChat: React.FC<ConversationChatProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Get access token from localStorage
-  const accessToken = localStorage.getItem('access_token');
+  // Get access token from localStorage (memoized to prevent unnecessary re-renders)
+  const accessToken = React.useMemo(() => {
+    return localStorage.getItem('access_token');
+  }, []);
 
   // WebSocket hook
   const {
@@ -69,8 +71,10 @@ const ConversationChat: React.FC<ConversationChatProps> = ({
 
       if (response.data && response.data.messages) {
         setAllMessages(response.data.messages);
-        // Mark messages as read
-        markAsRead();
+        // Mark messages as read only if WebSocket is connected
+        if (isConnected) {
+          markAsRead();
+        }
       }
     } catch (error) {
       console.error('Failed to fetch conversation history:', error);
@@ -78,6 +82,17 @@ const ConversationChat: React.FC<ConversationChatProps> = ({
       setIsLoadingHistory(false);
     }
   };
+
+  // Mark messages as read when WebSocket connects
+  useEffect(() => {
+    if (isConnected && allMessages.length > 0) {
+      // Small delay to ensure WebSocket is fully ready
+      const timer = setTimeout(() => {
+        markAsRead();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isConnected, conversationId, allMessages.length, markAsRead]); // Only run when connection state or conversation changes
 
   // Merge websocket messages with history
   useEffect(() => {

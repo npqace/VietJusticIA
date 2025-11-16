@@ -73,6 +73,7 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route, navigati
       // Try to get or create conversation
       getOrCreateConversation();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId]);
 
   const getOrCreateConversation = async () => {
@@ -111,8 +112,10 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route, navigati
 
       if (response.data && response.data.messages) {
         setAllMessages(response.data.messages);
-        // Mark messages as read
-        markAsRead();
+        // Mark messages as read only if WebSocket is connected
+        if (isConnected) {
+          markAsRead();
+        }
       }
     } catch (error) {
       console.error('Failed to fetch conversation history:', error);
@@ -120,6 +123,17 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route, navigati
       setIsLoadingHistory(false);
     }
   };
+
+  // Mark messages as read when WebSocket connects
+  useEffect(() => {
+    if (isConnected && allMessages.length > 0 && conversationId) {
+      // Small delay to ensure WebSocket is fully ready
+      const timer = setTimeout(() => {
+        markAsRead();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isConnected, conversationId, allMessages.length, markAsRead]); // Only run when connection state or conversation changes
 
   // Merge websocket messages with history
   useEffect(() => {

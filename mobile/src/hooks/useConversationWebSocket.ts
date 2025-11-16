@@ -238,7 +238,8 @@ export const useConversationWebSocket = (
     return () => {
       disconnect();
     };
-  }, [conversationId, connect, disconnect]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId]);
 
   return {
     messages,
