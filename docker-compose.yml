@@ -47,9 +47,12 @@ services:
       - .env
     restart: unless-stopped
     environment:
-      # DATABASE_URL and MONGO_URL are loaded from .env file
+      # DATABASE_URL and MONGO_URL are loaded from .env file via env_file
       ENVIRONMENT: ${ENVIRONMENT:-development}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      # CMS API keys - add more GOOGLE_API_KEY_CMS_N as needed
+      GOOGLE_API_KEY_CMS_1: ${GOOGLE_API_KEY_CMS_1:-}
+      GOOGLE_API_KEY_CMS_2: ${GOOGLE_API_KEY_CMS_2:-}
       PORT: 8000
     ports:
       - "${BACKEND_PORT:-8000}:8000"

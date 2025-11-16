@@ -48,9 +48,9 @@ async def get_dashboard_stats(
         # Count total lawyers
         total_lawyers = db.query(func.count(Lawyer.id)).scalar()
 
-        # Count pending lawyer applications
-        pending_lawyers = db.query(func.count(Lawyer.id)).filter(
-            Lawyer.verification_status == Lawyer.VerificationStatus.PENDING
+        # Count total admins
+        total_admins = db.query(func.count(User.id)).filter(
+            User.role == User.Role.ADMIN
         ).scalar()
 
         # Count total service requests
@@ -59,7 +59,7 @@ async def get_dashboard_stats(
         stats = {
             "total_users": total_users,
             "total_lawyers": total_lawyers,
-            "pending_lawyers": pending_lawyers,
+            "total_admins": total_admins,
             "total_requests": total_requests
         }
 

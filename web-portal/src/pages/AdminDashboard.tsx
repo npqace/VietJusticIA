@@ -18,6 +18,7 @@ import {
   GavelOutlined,
   AssignmentOutlined,
   DescriptionOutlined,
+  AdminPanelSettingsOutlined,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -26,7 +27,7 @@ import api from '../services/api';
 interface DashboardStats {
   total_users: number;
   total_lawyers: number;
-  pending_lawyers: number;
+  total_admins: number;
   total_requests: number;
 }
 
@@ -36,7 +37,7 @@ const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats>({
     total_users: 0,
     total_lawyers: 0,
-    pending_lawyers: 0,
+    total_admins: 0,
     total_requests: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
@@ -66,7 +67,7 @@ const AdminDashboard: React.FC = () => {
       <AppBar position="static">
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            VietJusticIA - Admin Dashboard
+            VietJusticIA - Bảng Điều Khiển Quản Trị
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -98,7 +99,7 @@ const AdminDashboard: React.FC = () => {
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <PeopleOutlined color="primary" />
-                  <Typography variant="h6">Total Users</Typography>
+                  <Typography variant="h6">Tổng Người Dùng</Typography>
                 </Box>
                 <Typography variant="h3" sx={{ mt: 2 }}>
                   {stats.total_users}
@@ -122,7 +123,7 @@ const AdminDashboard: React.FC = () => {
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <GavelOutlined color="success" />
-                  <Typography variant="h6">Total Lawyers</Typography>
+                  <Typography variant="h6">Tổng Luật Sư</Typography>
                 </Box>
                 <Typography variant="h3" sx={{ mt: 2 }}>
                   {stats.total_lawyers}
@@ -141,15 +142,15 @@ const AdminDashboard: React.FC = () => {
                   boxShadow: 4,
                 },
               }}
-              onClick={() => navigate('/admin/lawyers?status=pending')}
+              onClick={() => navigate('/admin/users?role=admin')}
             >
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <GavelOutlined color="warning" />
-                  <Typography variant="h6">Pending Approvals</Typography>
+                  <AdminPanelSettingsOutlined color="warning" />
+                  <Typography variant="h6">Tổng Admin</Typography>
                 </Box>
                 <Typography variant="h3" sx={{ mt: 2 }}>
-                  {stats.pending_lawyers}
+                  {stats.total_admins}
                 </Typography>
               </CardContent>
             </Card>
@@ -170,7 +171,7 @@ const AdminDashboard: React.FC = () => {
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <AssignmentOutlined color="info" />
-                  <Typography variant="h6">Service Requests</Typography>
+                  <Typography variant="h6">Yêu Cầu Dịch Vụ</Typography>
                 </Box>
                 <Typography variant="h3" sx={{ mt: 2 }}>
                   {stats.total_requests}
@@ -195,10 +196,10 @@ const AdminDashboard: React.FC = () => {
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <DescriptionOutlined color="secondary" />
-                  <Typography variant="h6">Document CMS</Typography>
+                  <Typography variant="h6">Quản Lý Văn Bản</Typography>
                 </Box>
                 <Typography variant="body2" sx={{ mt: 2 }}>
-                  Manage legal documents
+                  Quản lý văn bản pháp luật
                 </Typography>
               </CardContent>
             </Card>
@@ -208,12 +209,12 @@ const AdminDashboard: React.FC = () => {
           <Grid item xs={12}>
             <Paper sx={{ p: 3 }}>
               <Typography variant="h5" gutterBottom>
-                Recent Activity
+                Hoạt Động Gần Đây
               </Typography>
               {isLoading ? (
-                <Typography>Loading...</Typography>
+                <Typography>Đang tải...</Typography>
               ) : (
-                <Typography color="text.secondary">No recent activity.</Typography>
+                <Typography color="text.secondary">Không có hoạt động gần đây.</Typography>
               )}
             </Paper>
           </Grid>
