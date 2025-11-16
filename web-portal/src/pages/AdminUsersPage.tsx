@@ -38,6 +38,8 @@ import {
   BlockOutlined,
   CheckCircleOutline,
   AddOutlined,
+  ArrowUpward,
+  ArrowDownward,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -53,6 +55,7 @@ const AdminUsersPage: React.FC = () => {
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -91,7 +94,7 @@ const AdminUsersPage: React.FC = () => {
 
   useEffect(() => {
     filterUsers();
-  }, [searchQuery, users, roleFilter]);
+  }, [searchQuery, users, roleFilter, sortOrder]);
 
   const fetchUsers = async () => {
     try {
@@ -123,7 +126,20 @@ const AdminUsersPage: React.FC = () => {
       );
     }
 
+    // Sort by ID
+    filtered = [...filtered].sort((a, b) => {
+      if (sortOrder === 'asc') {
+        return a.id - b.id;
+      } else {
+        return b.id - a.id;
+      }
+    });
+
     setFilteredUsers(filtered);
+  };
+
+  const handleSortById = () => {
+    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
   };
 
   const handleViewDetails = (selectedUser: User) => {
@@ -199,17 +215,17 @@ const AdminUsersPage: React.FC = () => {
   const validateForm = () => {
     const errors: Record<string, string> = {};
 
-    if (!newUser.full_name.trim()) errors.full_name = 'Full name is required';
-    if (!newUser.email.trim()) errors.email = 'Email is required';
-    if (!newUser.phone.trim()) errors.phone = 'Phone is required';
+    if (!newUser.full_name.trim()) errors.full_name = 'Họ và tên là bắt buộc';
+    if (!newUser.email.trim()) errors.email = 'Email là bắt buộc';
+    if (!newUser.phone.trim()) errors.phone = 'Số điện thoại là bắt buộc';
 
     if (newUser.role === 'lawyer') {
       if (!newUser.lawyer_profile.specialization.trim())
-        errors.specialization = 'Specialization is required';
+        errors.specialization = 'Chuyên môn là bắt buộc';
       if (!newUser.lawyer_profile.bar_license_number.trim())
-        errors.bar_license_number = 'Bar license number is required';
+        errors.bar_license_number = 'Số giấy phép hành nghề là bắt buộc';
       if (newUser.lawyer_profile.years_of_experience < 0)
-        errors.years_of_experience = 'Years of experience cannot be negative';
+        errors.years_of_experience = 'Số năm kinh nghiệm không thể âm';
     }
 
     setFormErrors(errors);
@@ -249,7 +265,7 @@ const AdminUsersPage: React.FC = () => {
       handleCloseCreateDialog();
       setCredentialsDialogOpen(true);
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || 'Failed to create user';
+      const errorMessage = error.response?.data?.detail || 'Tạo người dùng thất bại';
       alert(errorMessage);
       console.error('Failed to create user:', error);
     }
@@ -257,9 +273,9 @@ const AdminUsersPage: React.FC = () => {
 
   const handleCopyCredentials = () => {
     if (createdCredentials) {
-      const text = `Email: ${createdCredentials.email}\nPassword: ${createdCredentials.password}`;
+      const text = `Email: ${createdCredentials.email}\nMật khẩu: ${createdCredentials.password}`;
       navigator.clipboard.writeText(text);
-      alert('Credentials copied to clipboard!');
+      alert('Đã sao chép thông tin đăng nhập vào clipboard!');
     }
   };
 
@@ -271,7 +287,7 @@ const AdminUsersPage: React.FC = () => {
             <ArrowBackOutlined />
           </IconButton>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            VietJusticIA - Manage Users
+            VietJusticIA - Quản Lý Người Dùng
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -288,11 +304,11 @@ const AdminUsersPage: React.FC = () => {
       <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
         <Paper sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h5">User Management</Typography>
+            <Typography variant="h5">Quản Lý Người Dùng</Typography>
             <Box sx={{ display: 'flex', gap: 2 }}>
               <TextField
                 size="small"
-                placeholder="Search by name, email, or phone"
+                placeholder="Tìm kiếm theo tên, email hoặc số điện thoại"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 sx={{ width: 300 }}
@@ -309,39 +325,57 @@ const AdminUsersPage: React.FC = () => {
                 startIcon={<AddOutlined />}
                 onClick={handleOpenCreateDialog}
               >
-                Create User
+                Tạo Người Dùng
               </Button>
             </Box>
           </Box>
 
           <Box sx={{ borderBottom: 1, borderColor: 'divider', mt: 2 }}>
             <Tabs value={roleFilter} onChange={handleRoleFilterChange}>
-              <Tab label="All" value="all" />
-              <Tab label="Users" value="user" />
-              <Tab label="Lawyers" value="lawyer" />
-              <Tab label="Admins" value="admin" />
+              <Tab label="Tất cả" value="all" />
+              <Tab label="Người dùng" value="user" />
+              <Tab label="Luật sư" value="lawyer" />
+              <Tab label="Admin" value="admin" />
             </Tabs>
           </Box>
 
           {isLoading ? (
-            <Typography sx={{ mt: 3 }}>Loading...</Typography>
+            <Typography sx={{ mt: 3 }}>Đang tải...</Typography>
           ) : filteredUsers.length === 0 ? (
             <Typography color="text.secondary" sx={{ mt: 3 }}>
-              No users found.
+              Không tìm thấy người dùng.
             </Typography>
           ) : (
             <TableContainer sx={{ mt: 3 }}>
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell>ID</TableCell>
-                    <TableCell>Name</TableCell>
+                    <TableCell>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 0.5,
+                          cursor: 'pointer',
+                          userSelect: 'none',
+                        }}
+                        onClick={handleSortById}
+                      >
+                        ID
+                        {sortOrder === 'asc' ? (
+                          <ArrowUpward fontSize="small" />
+                        ) : (
+                          <ArrowDownward fontSize="small" />
+                        )}
+                      </Box>
+                    </TableCell>
+                    <TableCell>Tên</TableCell>
                     <TableCell>Email</TableCell>
-                    <TableCell>Phone</TableCell>
-                    <TableCell>Role</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Verified</TableCell>
-                    <TableCell align="center">Actions</TableCell>
+                    <TableCell>Số điện thoại</TableCell>
+                    <TableCell>Vai trò</TableCell>
+                    <TableCell>Trạng thái</TableCell>
+                    <TableCell>Đã xác thực</TableCell>
+                    <TableCell align="center">Thao tác</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -374,7 +408,7 @@ const AdminUsersPage: React.FC = () => {
                           variant="outlined"
                           onClick={() => handleViewDetails(u)}
                         >
-                          View Details
+                          Xem Chi Tiết
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -388,13 +422,13 @@ const AdminUsersPage: React.FC = () => {
 
       {/* User Details Dialog */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>User Details</DialogTitle>
+        <DialogTitle>Chi Tiết Người Dùng</DialogTitle>
         <DialogContent>
           {selectedUser && (
             <Grid container spacing={2} sx={{ mt: 1 }}>
               <Grid item xs={12}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Full Name
+                  Họ và tên
                 </Typography>
                 <Typography variant="body1">{selectedUser.full_name}</Typography>
               </Grid>
@@ -406,34 +440,34 @@ const AdminUsersPage: React.FC = () => {
               </Grid>
               <Grid item xs={12}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Phone
+                  Số điện thoại
                 </Typography>
                 <Typography variant="body1">{selectedUser.phone}</Typography>
               </Grid>
               <Grid item xs={6}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Role
+                  Vai trò
                 </Typography>
                 <Chip label={selectedUser.role} color={getRoleColor(selectedUser.role) as any} />
               </Grid>
               <Grid item xs={6}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Status
+                  Trạng thái
                 </Typography>
                 <Chip
-                  label={selectedUser.is_active ? 'Active' : 'Inactive'}
+                  label={selectedUser.is_active ? 'Hoạt động' : 'Không hoạt động'}
                   color={selectedUser.is_active ? 'success' : 'default'}
                 />
               </Grid>
               <Grid item xs={6}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Verified
+                  Đã xác thực
                 </Typography>
-                <Typography variant="body1">{selectedUser.is_verified ? 'Yes' : 'No'}</Typography>
+                <Typography variant="body1">{selectedUser.is_verified ? 'Có' : 'Không'}</Typography>
               </Grid>
               <Grid item xs={6}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Created At
+                  Ngày tạo
                 </Typography>
                 <Typography variant="body1">
                   {formatDate(selectedUser.created_at)}
@@ -448,23 +482,23 @@ const AdminUsersPage: React.FC = () => {
               color={selectedUser.is_active ? 'error' : 'success'}
               onClick={() => handleToggleUserStatus(selectedUser.id, selectedUser.is_active)}
             >
-              {selectedUser.is_active ? 'Deactivate' : 'Activate'}
+              {selectedUser.is_active ? 'Vô hiệu hóa' : 'Kích hoạt'}
             </Button>
           )}
-          <Button onClick={() => setDialogOpen(false)}>Close</Button>
+          <Button onClick={() => setDialogOpen(false)}>Đóng</Button>
         </DialogActions>
       </Dialog>
 
       {/* Create User Dialog */}
       <Dialog open={createDialogOpen} onClose={handleCloseCreateDialog} maxWidth="md" fullWidth>
-        <DialogTitle>Create New User Account</DialogTitle>
+        <DialogTitle>Tạo Tài Khoản Người Dùng Mới</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             {/* Basic Info */}
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Full Name"
+                label="Họ và tên"
                 value={newUser.full_name}
                 onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
                 error={!!formErrors.full_name}
@@ -487,7 +521,7 @@ const AdminUsersPage: React.FC = () => {
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Phone"
+                label="Số điện thoại"
                 value={newUser.phone}
                 onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
                 error={!!formErrors.phone}
@@ -497,16 +531,16 @@ const AdminUsersPage: React.FC = () => {
             </Grid>
             <Grid item xs={12}>
               <FormControl fullWidth required>
-                <InputLabel>Role</InputLabel>
+                <InputLabel>Vai trò</InputLabel>
                 <Select
                   value={newUser.role}
-                  label="Role"
+                  label="Vai trò"
                   onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
                 >
-                  <MenuItem value="lawyer">Lawyer</MenuItem>
+                  <MenuItem value="lawyer">Luật sư</MenuItem>
                   <MenuItem value="admin">Admin</MenuItem>
                 </Select>
-                <FormHelperText>Password will be auto-generated and displayed after creation</FormHelperText>
+                <FormHelperText>Mật khẩu sẽ được tự động tạo và hiển thị sau khi tạo tài khoản</FormHelperText>
               </FormControl>
             </Grid>
 
@@ -515,13 +549,13 @@ const AdminUsersPage: React.FC = () => {
               <>
                 <Grid item xs={12}>
                   <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }}>
-                    Lawyer Profile
+                    Thông Tin Luật Sư
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
-                    label="Specialization"
+                    label="Chuyên môn"
                     value={newUser.lawyer_profile.specialization}
                     onChange={(e) =>
                       setNewUser({
@@ -537,7 +571,7 @@ const AdminUsersPage: React.FC = () => {
                 <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
-                    label="Bar License Number"
+                    label="Số giấy phép hành nghề"
                     value={newUser.lawyer_profile.bar_license_number}
                     onChange={(e) =>
                       setNewUser({
@@ -553,7 +587,7 @@ const AdminUsersPage: React.FC = () => {
                 <Grid item xs={12} md={4}>
                   <TextField
                     fullWidth
-                    label="Years of Experience"
+                    label="Số năm kinh nghiệm"
                     type="number"
                     value={newUser.lawyer_profile.years_of_experience}
                     onChange={(e) =>
@@ -572,7 +606,7 @@ const AdminUsersPage: React.FC = () => {
                 <Grid item xs={12} md={4}>
                   <TextField
                     fullWidth
-                    label="City"
+                    label="Thành phố"
                     value={newUser.lawyer_profile.city}
                     onChange={(e) =>
                       setNewUser({
@@ -585,7 +619,7 @@ const AdminUsersPage: React.FC = () => {
                 <Grid item xs={12} md={4}>
                   <TextField
                     fullWidth
-                    label="Province"
+                    label="Tỉnh/Thành phố"
                     value={newUser.lawyer_profile.province}
                     onChange={(e) =>
                       setNewUser({
@@ -598,7 +632,7 @@ const AdminUsersPage: React.FC = () => {
                 <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
-                    label="Consultation Fee (VND)"
+                    label="Phí tư vấn (VNĐ)"
                     type="number"
                     value={newUser.lawyer_profile.consultation_fee}
                     onChange={(e) =>
@@ -612,7 +646,7 @@ const AdminUsersPage: React.FC = () => {
                 <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
-                    label="Languages"
+                    label="Ngôn ngữ"
                     value={newUser.lawyer_profile.languages}
                     onChange={(e) =>
                       setNewUser({
@@ -625,7 +659,7 @@ const AdminUsersPage: React.FC = () => {
                 <Grid item xs={12}>
                   <TextField
                     fullWidth
-                    label="Bio"
+                    label="Giới thiệu"
                     multiline
                     rows={3}
                     value={newUser.lawyer_profile.bio}
@@ -642,9 +676,9 @@ const AdminUsersPage: React.FC = () => {
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseCreateDialog}>Cancel</Button>
+          <Button onClick={handleCloseCreateDialog}>Hủy</Button>
           <Button variant="contained" onClick={handleCreateUser}>
-            Create User
+            Tạo Người Dùng
           </Button>
         </DialogActions>
       </Dialog>
@@ -656,12 +690,12 @@ const AdminUsersPage: React.FC = () => {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Account Created Successfully</DialogTitle>
+        <DialogTitle>Tài Khoản Đã Được Tạo Thành Công</DialogTitle>
         <DialogContent>
           {createdCredentials && (
             <Box sx={{ mt: 2 }}>
               <Typography variant="body1" gutterBottom>
-                The {createdCredentials.role} account has been created. Please share these credentials with the user:
+                Tài khoản {createdCredentials.role === 'lawyer' ? 'luật sư' : 'admin'} đã được tạo. Vui lòng chia sẻ thông tin đăng nhập này với người dùng:
               </Typography>
               <Paper sx={{ p: 2, mt: 2, bgcolor: 'grey.100' }}>
                 <Grid container spacing={2}>
@@ -675,7 +709,7 @@ const AdminUsersPage: React.FC = () => {
                   </Grid>
                   <Grid item xs={12}>
                     <Typography variant="subtitle2" color="text.secondary">
-                      Password
+                      Mật khẩu
                     </Typography>
                     <Typography variant="body1" sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
                       {createdCredentials.password}
@@ -684,17 +718,17 @@ const AdminUsersPage: React.FC = () => {
                 </Grid>
               </Paper>
               <Typography variant="caption" color="error" sx={{ mt: 2, display: 'block' }}>
-                Important: Save these credentials now. The password cannot be retrieved later.
+                Quan trọng: Lưu thông tin đăng nhập ngay bây giờ. Mật khẩu không thể lấy lại sau này.
               </Typography>
             </Box>
           )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCopyCredentials} variant="outlined">
-            Copy to Clipboard
+            Sao Chép Vào Clipboard
           </Button>
           <Button onClick={() => setCredentialsDialogOpen(false)} variant="contained">
-            Done
+            Hoàn Tất
           </Button>
         </DialogActions>
       </Dialog>

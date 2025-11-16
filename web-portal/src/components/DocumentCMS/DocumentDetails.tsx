@@ -287,14 +287,14 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document }) => {
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
               {getStatusIcon(document.indexing_status.mongodb)}
               <Typography variant="body2">
-                MongoDB Atlas: <strong>{document.indexing_status.mongodb}</strong>
+                MongoDB: <strong>{document.indexing_status.mongodb}</strong>
               </Typography>
             </Box>
 
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
               {getStatusIcon(document.indexing_status.qdrant)}
               <Typography variant="body2">
-                Qdrant Cloud: <strong>{document.indexing_status.qdrant}</strong>
+                Qdrant: <strong>{document.indexing_status.qdrant}</strong>
               </Typography>
             </Box>
 

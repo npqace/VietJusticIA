@@ -234,11 +234,11 @@ const AdminRequestsPage: React.FC = () => {
     // Check if allowed to delete
     const allowedStatuses = ['pending', 'rejected'];
     if (!allowedStatuses.includes(selectedConsultation.status)) {
-      alert(`Cannot delete request with status '${selectedConsultation.status}'. Only 'pending' or 'rejected' requests can be deleted.`);
+      alert(`Không thể xóa yêu cầu với trạng thái '${selectedConsultation.status}'. Chỉ có thể xóa yêu cầu ở trạng thái 'chờ xử lý' hoặc 'từ chối'.`);
       return;
     }
 
-    if (!window.confirm('Are you sure you want to permanently delete this consultation request? This action cannot be undone.')) {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa vĩnh viễn yêu cầu tư vấn này? Hành động này không thể hoàn tác.')) {
       return;
     }
 
@@ -249,7 +249,7 @@ const AdminRequestsPage: React.FC = () => {
       await fetchConsultationRequests();
       setConsultationDialogOpen(false);
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || 'Failed to delete consultation request';
+      const errorMessage = error.response?.data?.detail || 'Xóa yêu cầu tư vấn thất bại';
       alert(errorMessage);
       console.error('Failed to delete consultation request:', error);
     }
@@ -261,11 +261,11 @@ const AdminRequestsPage: React.FC = () => {
     // Check if allowed to delete
     const allowedStatuses = ['pending', 'closed'];
     if (!allowedStatuses.includes(selectedHelpRequest.status)) {
-      alert(`Cannot delete request with status '${selectedHelpRequest.status}'. Only 'pending' or 'closed' requests can be deleted.`);
+      alert(`Không thể xóa yêu cầu với trạng thái '${selectedHelpRequest.status}'. Chỉ có thể xóa yêu cầu ở trạng thái 'chờ xử lý' hoặc 'đã đóng'.`);
       return;
     }
 
-    if (!window.confirm('Are you sure you want to permanently delete this help request? This action cannot be undone.')) {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa vĩnh viễn yêu cầu hỗ trợ này? Hành động này không thể hoàn tác.')) {
       return;
     }
 
@@ -276,7 +276,7 @@ const AdminRequestsPage: React.FC = () => {
       await fetchHelpRequests();
       setHelpDialogOpen(false);
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || 'Failed to delete help request';
+      const errorMessage = error.response?.data?.detail || 'Xóa yêu cầu hỗ trợ thất bại';
       alert(errorMessage);
       console.error('Failed to delete help request:', error);
     }
@@ -330,7 +330,7 @@ const AdminRequestsPage: React.FC = () => {
             <ArrowBackOutlined />
           </IconButton>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            VietJusticIA - All Requests
+            VietJusticIA - Tất Cả Yêu Cầu
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -347,33 +347,33 @@ const AdminRequestsPage: React.FC = () => {
       <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
         <Paper sx={{ p: 3 }}>
           <Tabs value={currentTab} onChange={(_, newValue) => setCurrentTab(newValue)}>
-            <Tab label={`Service Requests (${serviceRequests.length})`} />
-            <Tab label={`Consultation Requests (${consultationRequests.length})`} />
-            <Tab label={`Help Requests (${helpRequests.length})`} />
+            <Tab label={`Yêu Cầu Dịch Vụ (${serviceRequests.length})`} />
+            <Tab label={`Yêu Cầu Tư Vấn (${consultationRequests.length})`} />
+            <Tab label={`Yêu Cầu Hỗ Trợ (${helpRequests.length})`} />
           </Tabs>
 
           {/* Service Requests Tab */}
           {currentTab === 0 && (
             <Box sx={{ mt: 3 }}>
               <Typography variant="h6" gutterBottom>
-                Service Requests (User → Specific Lawyer)
+                Yêu Cầu Dịch Vụ (Người Dùng → Luật Sư Cụ Thể)
               </Typography>
               {isLoadingService ? (
-                <Typography>Loading...</Typography>
+                <Typography>Đang tải...</Typography>
               ) : serviceRequests.length === 0 ? (
-                <Typography color="text.secondary">No service requests found.</Typography>
+                <Typography color="text.secondary">Không tìm thấy yêu cầu dịch vụ.</Typography>
               ) : (
                 <TableContainer sx={{ mt: 2 }}>
                   <Table>
                     <TableHead>
                       <TableRow>
                         <TableCell>ID</TableCell>
-                        <TableCell>User</TableCell>
-                        <TableCell>Lawyer</TableCell>
-                        <TableCell>Title</TableCell>
-                        <TableCell>Status</TableCell>
-                        <TableCell>Created</TableCell>
-                        <TableCell align="center">Actions</TableCell>
+                        <TableCell>Người dùng</TableCell>
+                        <TableCell>Luật sư</TableCell>
+                        <TableCell>Tiêu đề</TableCell>
+                        <TableCell>Trạng thái</TableCell>
+                        <TableCell>Ngày tạo</TableCell>
+                        <TableCell align="center">Thao tác</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -381,7 +381,7 @@ const AdminRequestsPage: React.FC = () => {
                         <TableRow key={request.id}>
                           <TableCell>{request.id}</TableCell>
                           <TableCell>{request.user_name}</TableCell>
-                          <TableCell>{request.lawyer_name || 'N/A'}</TableCell>
+                          <TableCell>{request.lawyer_name || 'Chưa gán'}</TableCell>
                           <TableCell>{request.title}</TableCell>
                           <TableCell>
                             <Chip
@@ -397,7 +397,7 @@ const AdminRequestsPage: React.FC = () => {
                               variant="outlined"
                               onClick={() => handleViewServiceRequest(request)}
                             >
-                              View Details
+                              Xem Chi Tiết
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -413,25 +413,25 @@ const AdminRequestsPage: React.FC = () => {
           {currentTab === 1 && (
             <Box sx={{ mt: 3 }}>
               <Typography variant="h6" gutterBottom>
-                Consultation Requests (Legal Consultation Form)
+                Yêu Cầu Tư Vấn (Biểu Mẫu Tư Vấn Pháp Luật)
               </Typography>
               {isLoadingConsultation ? (
-                <Typography>Loading...</Typography>
+                <Typography>Đang tải...</Typography>
               ) : consultationRequests.length === 0 ? (
-                <Typography color="text.secondary">No consultation requests found.</Typography>
+                <Typography color="text.secondary">Không tìm thấy yêu cầu tư vấn.</Typography>
               ) : (
                 <TableContainer sx={{ mt: 2 }}>
                   <Table>
                     <TableHead>
                       <TableRow>
                         <TableCell>ID</TableCell>
-                        <TableCell>Name</TableCell>
+                        <TableCell>Tên</TableCell>
                         <TableCell>Email</TableCell>
-                        <TableCell>Location</TableCell>
-                        <TableCell>Priority</TableCell>
-                        <TableCell>Status</TableCell>
-                        <TableCell>Created</TableCell>
-                        <TableCell align="center">Actions</TableCell>
+                        <TableCell>Địa điểm</TableCell>
+                        <TableCell>Mức độ ưu tiên</TableCell>
+                        <TableCell>Trạng thái</TableCell>
+                        <TableCell>Ngày tạo</TableCell>
+                        <TableCell align="center">Thao tác</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -462,7 +462,7 @@ const AdminRequestsPage: React.FC = () => {
                               variant="outlined"
                               onClick={() => handleViewConsultation(request.id)}
                             >
-                              Manage
+                              Quản Lý
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -478,24 +478,24 @@ const AdminRequestsPage: React.FC = () => {
           {currentTab === 2 && (
             <Box sx={{ mt: 3 }}>
               <Typography variant="h6" gutterBottom>
-                Help Requests (Contact Us Form)
+                Yêu Cầu Hỗ Trợ (Biểu Mẫu Liên Hệ)
               </Typography>
               {isLoadingHelp ? (
-                <Typography>Loading...</Typography>
+                <Typography>Đang tải...</Typography>
               ) : helpRequests.length === 0 ? (
-                <Typography color="text.secondary">No help requests found.</Typography>
+                <Typography color="text.secondary">Không tìm thấy yêu cầu hỗ trợ.</Typography>
               ) : (
                 <TableContainer sx={{ mt: 2 }}>
                   <Table>
                     <TableHead>
                       <TableRow>
                         <TableCell>ID</TableCell>
-                        <TableCell>Name</TableCell>
+                        <TableCell>Tên</TableCell>
                         <TableCell>Email</TableCell>
-                        <TableCell>Subject</TableCell>
-                        <TableCell>Status</TableCell>
-                        <TableCell>Created</TableCell>
-                        <TableCell align="center">Actions</TableCell>
+                        <TableCell>Chủ đề</TableCell>
+                        <TableCell>Trạng thái</TableCell>
+                        <TableCell>Ngày tạo</TableCell>
+                        <TableCell align="center">Thao tác</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -519,7 +519,7 @@ const AdminRequestsPage: React.FC = () => {
                               variant="outlined"
                               onClick={() => handleViewHelpRequest(request.id)}
                             >
-                              Manage
+                              Quản Lý
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -535,19 +535,19 @@ const AdminRequestsPage: React.FC = () => {
 
       {/* Service Request Details Dialog */}
       <Dialog open={serviceDialogOpen} onClose={() => setServiceDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Service Request Details</DialogTitle>
+        <DialogTitle>Chi Tiết Yêu Cầu Dịch Vụ</DialogTitle>
         <DialogContent>
           {selectedServiceRequest && (
             <Grid container spacing={2} sx={{ mt: 1 }}>
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Request ID
+                  ID Yêu cầu
                 </Typography>
                 <Typography variant="body1">{selectedServiceRequest.id}</Typography>
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Status
+                  Trạng thái
                 </Typography>
                 <Chip
                   label={selectedServiceRequest.status}
@@ -556,25 +556,25 @@ const AdminRequestsPage: React.FC = () => {
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  User
+                  Người dùng
                 </Typography>
                 <Typography variant="body1">{selectedServiceRequest.user_name}</Typography>
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Lawyer
+                  Luật sư
                 </Typography>
-                <Typography variant="body1">{selectedServiceRequest.lawyer_name || 'Not assigned'}</Typography>
+                <Typography variant="body1">{selectedServiceRequest.lawyer_name || 'Chưa gán'}</Typography>
               </Grid>
               <Grid item xs={12}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Title
+                  Tiêu đề
                 </Typography>
                 <Typography variant="body1">{selectedServiceRequest.title}</Typography>
               </Grid>
               <Grid item xs={12}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Description
+                  Mô tả
                 </Typography>
                 <Paper sx={{ p: 2, bgcolor: 'grey.50' }}>
                   <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
@@ -585,7 +585,7 @@ const AdminRequestsPage: React.FC = () => {
               {selectedServiceRequest.lawyer_response && (
                 <Grid item xs={12}>
                   <Typography variant="subtitle2" color="text.secondary">
-                    Lawyer Response
+                    Phản hồi của luật sư
                   </Typography>
                   <Paper sx={{ p: 2, bgcolor: 'blue.50' }}>
                     <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
@@ -597,7 +597,7 @@ const AdminRequestsPage: React.FC = () => {
               {selectedServiceRequest.rejected_reason && (
                 <Grid item xs={12}>
                   <Typography variant="subtitle2" color="text.secondary">
-                    Rejection Reason
+                    Lý do từ chối
                   </Typography>
                   <Paper sx={{ p: 2, bgcolor: 'error.light' }}>
                     <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
@@ -608,13 +608,13 @@ const AdminRequestsPage: React.FC = () => {
               )}
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Created At
+                  Ngày tạo
                 </Typography>
                 <Typography variant="body1">{formatDate(selectedServiceRequest.created_at)}</Typography>
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Updated At
+                  Ngày cập nhật
                 </Typography>
                 <Typography variant="body1">{formatDate(selectedServiceRequest.updated_at)}</Typography>
               </Grid>
@@ -622,31 +622,31 @@ const AdminRequestsPage: React.FC = () => {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setServiceDialogOpen(false)}>Close</Button>
+          <Button onClick={() => setServiceDialogOpen(false)}>Đóng</Button>
         </DialogActions>
       </Dialog>
 
-      {/* Help Form Request Details Dialog */}
+      {/* Consultation Request Details Dialog */}
       <Dialog open={consultationDialogOpen} onClose={() => setConsultationDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Help Form Request Details</DialogTitle>
+        <DialogTitle>Chi Tiết Yêu Cầu Tư Vấn</DialogTitle>
         <DialogContent>
           {selectedConsultation && (
             <Grid container spacing={2} sx={{ mt: 1 }}>
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Request ID
+                  ID Yêu cầu
                 </Typography>
                 <Typography variant="body1">{selectedConsultation.id}</Typography>
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  User Type
+                  Loại người dùng
                 </Typography>
-                <Chip label={selectedConsultation.user_id ? 'Registered User' : 'Guest'} size="small" />
+                <Chip label={selectedConsultation.user_id ? 'Người dùng đã đăng ký' : 'Khách'} size="small" />
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Full Name
+                  Họ và tên
                 </Typography>
                 <Typography variant="body1">{selectedConsultation.full_name}</Typography>
               </Grid>
@@ -658,19 +658,19 @@ const AdminRequestsPage: React.FC = () => {
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Phone
+                  Số điện thoại
                 </Typography>
                 <Typography variant="body1">{selectedConsultation.phone}</Typography>
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Location
+                  Địa điểm
                 </Typography>
                 <Typography variant="body1">{selectedConsultation.district}, {selectedConsultation.province}</Typography>
               </Grid>
               <Grid item xs={12}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Request Content
+                  Nội dung yêu cầu
                 </Typography>
                 <Paper sx={{ p: 2, bgcolor: 'grey.50' }}>
                   <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
@@ -682,35 +682,35 @@ const AdminRequestsPage: React.FC = () => {
               {/* Admin Management Section */}
               <Grid item xs={12}>
                 <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
-                  Admin Management
+                  Quản Lý Admin
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth>
-                  <InputLabel>Status</InputLabel>
+                  <InputLabel>Trạng thái</InputLabel>
                   <Select
                     value={editStatus}
-                    label="Status"
+                    label="Trạng thái"
                     onChange={(e) => setEditStatus(e.target.value)}
                   >
-                    <MenuItem value="pending">Pending</MenuItem>
-                    <MenuItem value="in_progress">In Progress</MenuItem>
-                    <MenuItem value="completed">Completed</MenuItem>
-                    <MenuItem value="rejected">Rejected</MenuItem>
+                    <MenuItem value="pending">Chờ xử lý</MenuItem>
+                    <MenuItem value="in_progress">Đang xử lý</MenuItem>
+                    <MenuItem value="completed">Hoàn thành</MenuItem>
+                    <MenuItem value="rejected">Từ chối</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth>
-                  <InputLabel>Priority</InputLabel>
+                  <InputLabel>Mức độ ưu tiên</InputLabel>
                   <Select
                     value={editPriority}
-                    label="Priority"
+                    label="Mức độ ưu tiên"
                     onChange={(e) => setEditPriority(e.target.value)}
                   >
-                    <MenuItem value="low">Low</MenuItem>
-                    <MenuItem value="medium">Medium</MenuItem>
-                    <MenuItem value="high">High</MenuItem>
+                    <MenuItem value="low">Thấp</MenuItem>
+                    <MenuItem value="medium">Trung bình</MenuItem>
+                    <MenuItem value="high">Cao</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
@@ -719,21 +719,21 @@ const AdminRequestsPage: React.FC = () => {
                   fullWidth
                   multiline
                   rows={4}
-                  label="Admin Notes"
+                  label="Ghi chú Admin"
                   value={editNotes}
                   onChange={(e) => setEditNotes(e.target.value)}
-                  placeholder="Add notes about this request..."
+                  placeholder="Thêm ghi chú về yêu cầu này..."
                 />
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Created At
+                  Ngày tạo
                 </Typography>
                 <Typography variant="body1">{formatDate(selectedConsultation.created_at)}</Typography>
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Updated At
+                  Ngày cập nhật
                 </Typography>
                 <Typography variant="body1">{formatDate(selectedConsultation.updated_at)}</Typography>
               </Grid>
@@ -747,38 +747,38 @@ const AdminRequestsPage: React.FC = () => {
                 color="error"
                 onClick={handleDeleteConsultation}
               >
-                Delete
+                Xóa
               </Button>
             )}
           </Box>
-          <Button onClick={() => setConsultationDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setConsultationDialogOpen(false)}>Hủy</Button>
           <Button variant="contained" onClick={handleUpdateConsultation}>
-            Save Changes
+            Lưu Thay Đổi
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Help Request Details Dialog */}
       <Dialog open={helpDialogOpen} onClose={() => setHelpDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Help Request Details</DialogTitle>
+        <DialogTitle>Chi Tiết Yêu Cầu Hỗ Trợ</DialogTitle>
         <DialogContent>
           {selectedHelpRequest && (
             <Grid container spacing={2} sx={{ mt: 1 }}>
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Request ID
+                  ID Yêu cầu
                 </Typography>
                 <Typography variant="body1">{selectedHelpRequest.id}</Typography>
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  User Type
+                  Loại người dùng
                 </Typography>
-                <Chip label={selectedHelpRequest.user_id ? 'Registered User' : 'Guest'} size="small" />
+                <Chip label={selectedHelpRequest.user_id ? 'Người dùng đã đăng ký' : 'Khách'} size="small" />
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Full Name
+                  Họ và tên
                 </Typography>
                 <Typography variant="body1">{selectedHelpRequest.full_name}</Typography>
               </Grid>
@@ -790,13 +790,13 @@ const AdminRequestsPage: React.FC = () => {
               </Grid>
               <Grid item xs={12}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Subject
+                  Chủ đề
                 </Typography>
                 <Typography variant="body1">{selectedHelpRequest.subject}</Typography>
               </Grid>
               <Grid item xs={12}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Request Content
+                  Nội dung yêu cầu
                 </Typography>
                 <Paper sx={{ p: 2, bgcolor: 'grey.50' }}>
                   <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
@@ -808,21 +808,21 @@ const AdminRequestsPage: React.FC = () => {
               {/* Admin Management Section */}
               <Grid item xs={12}>
                 <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
-                  Admin Management
+                  Quản Lý Admin
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth>
-                  <InputLabel>Status</InputLabel>
+                  <InputLabel>Trạng thái</InputLabel>
                   <Select
                     value={editHelpStatus}
-                    label="Status"
+                    label="Trạng thái"
                     onChange={(e) => setEditHelpStatus(e.target.value)}
                   >
-                    <MenuItem value="pending">Pending</MenuItem>
-                    <MenuItem value="in_progress">In Progress</MenuItem>
-                    <MenuItem value="resolved">Resolved</MenuItem>
-                    <MenuItem value="closed">Closed</MenuItem>
+                    <MenuItem value="pending">Chờ xử lý</MenuItem>
+                    <MenuItem value="in_progress">Đang xử lý</MenuItem>
+                    <MenuItem value="resolved">Đã giải quyết</MenuItem>
+                    <MenuItem value="closed">Đã đóng</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
@@ -831,21 +831,21 @@ const AdminRequestsPage: React.FC = () => {
                   fullWidth
                   multiline
                   rows={4}
-                  label="Admin Notes"
+                  label="Ghi chú Admin"
                   value={editHelpNotes}
                   onChange={(e) => setEditHelpNotes(e.target.value)}
-                  placeholder="Add notes about this request..."
+                  placeholder="Thêm ghi chú về yêu cầu này..."
                 />
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Created At
+                  Ngày tạo
                 </Typography>
                 <Typography variant="body1">{formatDate(selectedHelpRequest.created_at)}</Typography>
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Updated At
+                  Ngày cập nhật
                 </Typography>
                 <Typography variant="body1">{formatDate(selectedHelpRequest.updated_at)}</Typography>
               </Grid>
@@ -859,13 +859,13 @@ const AdminRequestsPage: React.FC = () => {
                 color="error"
                 onClick={handleDeleteHelpRequest}
               >
-                Delete
+                Xóa
               </Button>
             )}
           </Box>
-          <Button onClick={() => setHelpDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setHelpDialogOpen(false)}>Hủy</Button>
           <Button variant="contained" onClick={handleUpdateHelpRequest}>
-            Save Changes
+            Lưu Thay Đổi
           </Button>
         </DialogActions>
       </Dialog>

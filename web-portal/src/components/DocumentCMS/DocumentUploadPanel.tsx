@@ -211,7 +211,7 @@ const DocumentUploadPanel: React.FC<DocumentUploadPanelProps> = ({ onUploadSucce
               size="small"
             />
           }
-          label="Lập chỉ mục Qdrant Cloud"
+          label="Lập chỉ mục Qdrant"
         />
         <FormControlLabel
           control={
@@ -222,7 +222,7 @@ const DocumentUploadPanel: React.FC<DocumentUploadPanelProps> = ({ onUploadSucce
               size="small"
             />
           }
-          label="Lập chỉ mục MongoDB Atlas"
+          label="Lập chỉ mục MongoDB"
         />
         <FormControlLabel
           control={

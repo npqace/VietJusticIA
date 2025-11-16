@@ -65,10 +65,24 @@ class DocumentProcessingService:
 
             # Initialize LLM for diagram generation
             logger.info("Initializing Gemini LLM")
-            self.llm = ChatGoogleGenerativeAI(
-                model="gemini-2.0-flash-exp",
-                temperature=0.2
-            )
+            
+            # Discover CMS-specific API keys (supports multiple keys for rotation)
+            self._cms_keys = self._discover_cms_keys()
+            self._current_key_index = 0
+            
+            if not self._cms_keys:
+                logger.error("No CMS API keys found! Please set GOOGLE_API_KEY_CMS or GOOGLE_API_KEY_CMS_1, GOOGLE_API_KEY_CMS_2, etc.")
+                raise ValueError("GOOGLE_API_KEY_CMS is required for document uploads")
+            
+            # Log discovered keys (masked)
+            logger.info(f"Discovered {len(self._cms_keys)} CMS API key(s)")
+            for i, key in enumerate(self._cms_keys, 1):
+                masked_key = f"{key[:8]}...{key[-4:]}" if len(key) > 12 else "***"
+                key_name = f"GOOGLE_API_KEY_CMS_{i}" if len(self._cms_keys) > 1 else "GOOGLE_API_KEY_CMS"
+                logger.info(f"  Key {i}: {key_name} = {masked_key}")
+            
+            # Note: We'll create LLM instances with specific API keys when needed
+            # No need to initialize here since we'll use different keys
 
             self.initialized = True
             logger.info("Document processing service initialized successfully")
@@ -76,6 +90,49 @@ class DocumentProcessingService:
         except Exception as e:
             logger.error(f"Failed to initialize document processing service: {e}")
             raise
+
+    def _discover_cms_keys(self) -> List[str]:
+        """
+        Discover all available CMS API keys.
+        Checks for GOOGLE_API_KEY_CMS or GOOGLE_API_KEY_CMS_1, GOOGLE_API_KEY_CMS_2, etc.
+        
+        Returns:
+            List of API keys found
+        """
+        keys = []
+        
+        # Check for numbered keys (rotation mode)
+        i = 1
+        while True:
+            key = os.getenv(f"GOOGLE_API_KEY_CMS_{i}")
+            if key:
+                keys.append(key)
+                i += 1
+            else:
+                break
+        
+        # If no numbered keys, check for single CMS key
+        if not keys:
+            single_key = os.getenv("GOOGLE_API_KEY_CMS")
+            if single_key:
+                keys.append(single_key)
+        
+        return keys
+    
+    def _get_current_cms_key(self) -> str:
+        """Get current active CMS API key."""
+        if not self._cms_keys:
+            raise ValueError("No CMS API keys available")
+        return self._cms_keys[self._current_key_index]
+    
+    def _rotate_cms_key(self):
+        """Rotate to next CMS API key."""
+        if len(self._cms_keys) > 1:
+            old_index = self._current_key_index
+            self._current_key_index = (self._current_key_index + 1) % len(self._cms_keys)
+            logger.info(f"Rotated CMS API key: Key {old_index + 1} -> Key {self._current_key_index + 1}")
+        else:
+            logger.warning("Only one CMS API key available, cannot rotate")
 
     def validate_folder_structure(self, files: List[tuple]) -> tuple[Optional[str], Optional[str]]:
         """
@@ -177,11 +234,51 @@ Here is the document text:
 """
 
             logger.info("Generating ASCII diagram with Gemini")
-            response = self.llm.invoke(prompt)
-            diagram = response.content
-
-            logger.info("ASCII diagram generated successfully")
-            return diagram
+            
+            # Retry with different CMS API keys if quota exceeded
+            max_retries = len(self._cms_keys)
+            
+            for attempt in range(max_retries):
+                try:
+                    # Get current CMS key
+                    current_key = self._get_current_cms_key()
+                    
+                    masked_key = f"{current_key[:8]}...{current_key[-4:]}" if len(current_key) > 12 else "***"
+                    key_name = f"GOOGLE_API_KEY_CMS_{self._current_key_index + 1}" if len(self._cms_keys) > 1 else "GOOGLE_API_KEY_CMS"
+                    logger.info(f"Using {key_name} ({masked_key}) for diagram generation")
+                    
+                    # Create LLM instance with specific CMS API key
+                    llm = ChatGoogleGenerativeAI(
+                        model="gemini-2.0-flash",
+                        temperature=0.2,
+                        google_api_key=current_key  # Pass API key directly!
+                    )
+                    
+                    response = llm.invoke(prompt)
+                    diagram = response.content
+                    
+                    logger.info("ASCII diagram generated successfully")
+                    return diagram
+                    
+                except Exception as e:
+                    error_msg = str(e)
+                    
+                    # Check if it's a quota error
+                    if "quota" in error_msg.lower() or "429" in error_msg or "ResourceExhausted" in str(type(e).__name__):
+                        logger.warning(f"Quota exceeded for {key_name}: {error_msg}")
+                        
+                        if attempt < max_retries - 1:
+                            # Try next key
+                            self._rotate_cms_key()
+                            logger.info(f"Retrying with next CMS API key (attempt {attempt + 2}/{max_retries})")
+                            continue
+                        else:
+                            logger.error(f"All {max_retries} CMS API keys exhausted")
+                            return f"Error: All CMS API keys have exceeded quota. Please wait or add more keys."
+                    else:
+                        # Non-quota error, don't retry
+                        logger.error(f"Failed to generate ASCII diagram: {e}")
+                        return f"Error generating diagram: {error_msg}"
 
         except Exception as e:
             logger.error(f"Failed to generate ASCII diagram: {e}")
