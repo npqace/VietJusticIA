@@ -1,5 +1,5 @@
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from typing import Optional
 
@@ -75,9 +75,7 @@ class ServiceRequestRead(BaseModel):
 
 
 
-    class Config:
-
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 
@@ -101,9 +99,7 @@ class ServiceRequestListItem(BaseModel):
 
 
 
-    class Config:
-
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 
@@ -131,9 +127,7 @@ class ServiceRequestOut(BaseModel):
 
 
 
-    class Config:
-
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ServiceRequestDetail(BaseModel):
@@ -163,6 +157,5 @@ class ServiceRequestDetail(BaseModel):
     lawyer_phone: Optional[str] = None
     lawyer_specialties: Optional[str] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 

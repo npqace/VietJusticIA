@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 
@@ -13,20 +13,20 @@ class ConversationMessage(BaseModel):
     read_by_user: bool = False
     read_by_lawyer: bool = False
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SendMessageRequest(BaseModel):
     """Schema for sending a new message."""
     text: str = Field(..., min_length=1, max_length=5000)
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "text": "Hello, I need help with my case."
             }
         }
+    )
 
 
 class ConversationCreate(BaseModel):
@@ -48,9 +48,7 @@ class ConversationRead(BaseModel):
     is_active: bool = True
     messages: List[ConversationMessage] = []
 
-    class Config:
-        from_attributes = True
-        populate_by_name = True
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 class ConversationListItem(BaseModel):
@@ -68,9 +66,7 @@ class ConversationListItem(BaseModel):
     unread_count: int = 0
     messages: List[ConversationMessage] = []  # Last message only
 
-    class Config:
-        from_attributes = True
-        populate_by_name = True
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 class MarkAsReadRequest(BaseModel):
@@ -101,8 +97,6 @@ class ConversationWithDetails(BaseModel):
     user_full_name: Optional[str] = None
     lawyer_full_name: Optional[str] = None
 
-    class Config:
-        from_attributes = True
-        populate_by_name = True
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 

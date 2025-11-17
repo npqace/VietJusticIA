@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
 from typing import Optional
 from datetime import datetime
 
@@ -23,8 +23,7 @@ class UserProfile(BaseModel):
             return v.value
         return v
 
-    class Config:
-        from_attributes = True # Used to be orm_mode
+    model_config = ConfigDict(from_attributes=True)
 
 class UserUpdateProfile(BaseModel):
     """Schema for updating user profile data."""

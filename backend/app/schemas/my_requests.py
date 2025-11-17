@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 from datetime import datetime
 
@@ -11,8 +11,7 @@ class ServiceRequestItem(BaseModel):
     status: str
     created_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ConsultationRequestItem(BaseModel):
     id: int
@@ -20,8 +19,7 @@ class ConsultationRequestItem(BaseModel):
     status: str
     created_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class HelpRequestItem(BaseModel):
     id: int
@@ -29,8 +27,7 @@ class HelpRequestItem(BaseModel):
     status: str
     created_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MyRequestsResponse(BaseModel):

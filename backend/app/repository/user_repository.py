@@ -78,8 +78,17 @@ def verify_otp(db: Session, user: models.User, otp: str) -> bool:
     
     if user.otp != otp:
         return False
+    
+    # Handle both timezone-aware and timezone-naive datetimes
+    # SQLite returns naive datetimes, but we store aware ones
+    now = datetime.now(timezone.utc)
+    expires_at = user.otp_expires_at
+    
+    # If expires_at is naive, assume it's UTC (SQLite behavior)
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
         
-    if user.otp_expires_at < datetime.now(timezone.utc):
+    if expires_at < now:
         return False
         
     return True

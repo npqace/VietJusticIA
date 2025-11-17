@@ -1,7 +1,7 @@
 """
 Pydantic schemas for Document CMS (Admin Portal).
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -83,8 +83,7 @@ class DocumentListItem(BaseModel):
     upload_date: datetime
     uploaded_by: Optional[int] = None
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class DocumentDetail(BaseModel):
@@ -110,8 +109,7 @@ class DocumentDetail(BaseModel):
     usage_analytics: Optional[UsageAnalytics] = None
     file_metadata: Optional[UploadMetadata] = None
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class ChunkInfo(BaseModel):
@@ -208,8 +206,7 @@ class SourceDocument(BaseModel):
     content: Optional[str] = None
     relevance_score: Optional[float] = None
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class TestQueryResponse(BaseModel):
