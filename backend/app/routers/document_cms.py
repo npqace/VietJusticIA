@@ -27,7 +27,8 @@ from ..schemas.document_cms import (
     DocumentStatus,
     IndexingStatus,
     UploadMetadata,
-    FileMetadata
+    FileMetadata,
+    FilterOptionsResponse
 )
 
 logger = logging.getLogger(__name__)
@@ -269,6 +270,34 @@ async def list_documents(
         )
 
 
+@router.get("/filters/options", response_model=FilterOptionsResponse)
+async def get_filter_options(
+    current_user: User = Depends(verify_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Get dynamic filter options (unique categories and statuses) for the filter dropdowns.
+    This endpoint is admin-specific to ensure consistent admin portal experience.
+    """
+    try:
+        categories = document_cms_repository.get_unique_categories()
+        statuses = document_cms_repository.get_unique_statuses()
+
+        logger.info(f"Retrieved filter options: {len(categories)} categories, {len(statuses)} statuses")
+
+        return FilterOptionsResponse(
+            categories=categories,
+            statuses=statuses
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to get filter options: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve filter options"
+        )
+
+
 @router.get("/{document_id}", response_model=DocumentDetail)
 async def get_document_details(
     document_id: str,
@@ -438,4 +467,51 @@ async def get_document_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve document status"
+        )
+
+
+@router.get("/{document_id}/chunks", response_model=DocumentChunksResponse)
+async def get_document_chunks(
+    document_id: str,
+    current_user: User = Depends(verify_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all chunks for a specific document from Qdrant.
+
+    Returns chunk information including:
+    - chunk_id: Unique identifier in Qdrant
+    - vector_id: UUID for the vector point
+    - content: Chunk text content
+    - character_count: Length of chunk
+    - indexed status in Qdrant and BM25
+    """
+    try:
+        # Verify document exists
+        document = document_cms_repository.get_document_by_id(document_id)
+
+        if not document:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Document {document_id} not found"
+            )
+
+        # Get chunks from Qdrant
+        chunks = document_processing_service.get_document_chunks(document_id)
+
+        logger.info(f"Retrieved {len(chunks)} chunks for document {document_id}")
+
+        return DocumentChunksResponse(
+            document_id=document_id,
+            chunk_count=len(chunks),
+            chunks=chunks
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get chunks for document {document_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve chunks: {str(e)}"
         )

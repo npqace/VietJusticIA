@@ -417,6 +417,141 @@ Here is the document text:
             logger.error(f"Failed to delete document from Qdrant: {e}")
             raise
 
+    def get_document_chunks(self, document_id: str) -> List[Dict[str, Any]]:
+        """
+        Get all chunks for a specific document from Qdrant.
+
+        Args:
+            document_id: Document ID
+
+        Returns:
+            List of chunks with metadata
+        """
+        if not self.initialized:
+            self.initialize()
+
+        try:
+            logger.info(f"Fetching chunks for document {document_id} from Qdrant")
+
+            # Query for all points with this document ID
+            scroll_result = self.qdrant_client.scroll(
+                collection_name=QDRANT_COLLECTION_NAME,
+                scroll_filter=models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="_id",
+                            match=models.MatchValue(value=document_id)
+                        )
+                    ]
+                ),
+                limit=1000,
+                with_payload=True,
+                with_vectors=False  # No need for vector data in list view
+            )
+
+            points = scroll_result[0]
+            chunks = []
+
+            for point in points:
+                chunk_data = {
+                    "chunk_id": point.id,
+                    "vector_id": point.id,
+                    "content": point.payload.get("page_content", ""),
+                    "character_count": len(point.payload.get("page_content", "")),
+                    "indexed_in_qdrant": True,
+                    "indexed_in_bm25": True,  # Assume true if in Qdrant
+                    "parent_document_id": point.payload.get("_id", ""),
+                    "metadata": {
+                        "title": point.payload.get("title", ""),
+                        "document_number": point.payload.get("document_number", ""),
+                        "category": point.payload.get("category", "")
+                    }
+                }
+                chunks.append(chunk_data)
+
+            logger.info(f"Found {len(chunks)} chunks for document {document_id}")
+            return chunks
+
+        except Exception as e:
+            logger.error(f"Failed to get chunks for document {document_id}: {e}")
+            raise
+
+    def re_embed_chunk(self, document_id: str, chunk_id: str, new_content: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Re-embed a specific chunk (useful after model updates or content changes).
+
+        Args:
+            document_id: Document ID
+            chunk_id: Chunk/Point ID in Qdrant
+            new_content: Optional new content for the chunk (if None, re-embeds existing content)
+
+        Returns:
+            Dictionary with new chunk info
+        """
+        if not self.initialized:
+            self.initialize()
+
+        try:
+            logger.info(f"Re-embedding chunk {chunk_id} from document {document_id}")
+
+            # Retrieve existing chunk
+            points = self.qdrant_client.retrieve(
+                collection_name=QDRANT_COLLECTION_NAME,
+                ids=[chunk_id],
+                with_payload=True
+            )
+
+            if not points:
+                raise ValueError(f"Chunk {chunk_id} not found in Qdrant")
+
+            existing_point = points[0]
+            content = new_content if new_content else existing_point.payload.get("page_content", "")
+
+            # Generate new embedding
+            logger.info("Generating new embedding for chunk")
+            new_vector = self.embeddings_model.embed_documents([content])[0]
+
+            # Create new point ID (deterministic based on content)
+            new_point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{document_id}_{content}"))
+
+            # Update payload if content changed
+            payload = existing_point.payload
+            if new_content:
+                payload["page_content"] = new_content
+
+            # Upsert new point (overwrites if same ID, creates new if different)
+            self.qdrant_client.upsert(
+                collection_name=QDRANT_COLLECTION_NAME,
+                points=[
+                    PointStruct(
+                        id=new_point_id,
+                        vector=new_vector,
+                        payload=payload
+                    )
+                ],
+                wait=True
+            )
+
+            # Delete old point if ID changed
+            if new_point_id != chunk_id:
+                logger.info(f"Deleting old chunk {chunk_id}")
+                self.qdrant_client.delete(
+                    collection_name=QDRANT_COLLECTION_NAME,
+                    points_selector=models.PointIdsList(points=[chunk_id])
+                )
+
+            logger.info(f"Chunk re-embedded successfully: {chunk_id} -> {new_point_id}")
+            return {
+                "old_chunk_id": chunk_id,
+                "new_chunk_id": new_point_id,
+                "content": content,
+                "content_changed": new_content is not None
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to re-embed chunk {chunk_id}: {e}")
+            raise
+
     async def process_document(
         self,
         document_id: str,

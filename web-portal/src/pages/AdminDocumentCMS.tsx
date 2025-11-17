@@ -119,7 +119,7 @@ const AdminDocumentCMS: React.FC = () => {
 
   const fetchFilterOptions = async () => {
     try {
-      const response = await api.get('/api/v1/documents/filters/options');
+      const response = await api.get('/api/v1/admin/documents/filters/options');
       const { categories, statuses } = response.data;
       setCategoryOptions(categories || []);
       setStatusOptions(statuses || []);

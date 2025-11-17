@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -9,6 +9,10 @@ import {
   Chip,
   Button,
   Alert,
+  CircularProgress,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
 import {
   DescriptionOutlined,
@@ -17,8 +21,10 @@ import {
   CheckCircleOutline,
   ErrorOutline,
   HourglassEmpty,
+  ExpandMore,
 } from '@mui/icons-material';
 import type { DocumentDetail } from '../../pages/AdminDocumentCMS';
+import api from '../../services/api';
 
 interface DocumentDetailsProps {
   document: DocumentDetail;
@@ -28,6 +34,21 @@ interface TabPanelProps {
   children?: React.ReactNode;
   index: number;
   value: number;
+}
+
+interface ChunkInfo {
+  chunk_id: string;
+  vector_id: string;
+  content: string;
+  character_count: number;
+  indexed_in_qdrant: boolean;
+  indexed_in_bm25: boolean;
+  parent_document_id: string;
+  metadata: {
+    title: string;
+    document_number: string;
+    category: string;
+  };
 }
 
 const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => {
@@ -53,9 +74,50 @@ const getStatusIcon = (status: string) => {
 
 const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document }) => {
   const [tabValue, setTabValue] = useState(0);
+  const [chunks, setChunks] = useState<ChunkInfo[]>([]);
+  const [isLoadingChunks, setIsLoadingChunks] = useState(false);
+  const [chunksError, setChunksError] = useState<string | null>(null);
+  const [displayedChunksCount, setDisplayedChunksCount] = useState(5);
+
+  // Reset chunks when document changes
+  useEffect(() => {
+    setChunks([]);
+    setChunksError(null);
+    setDisplayedChunksCount(5);
+
+    // If user is on Chunks tab (index 1), auto-fetch chunks for new document
+    if (tabValue === 1) {
+      fetchChunks();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [document._id]); // Trigger when document ID changes
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
+
+    // Fetch chunks when Chunks tab is selected (index 1)
+    if (newValue === 1 && chunks.length === 0 && !isLoadingChunks) {
+      fetchChunks();
+    }
+  };
+
+  const fetchChunks = async () => {
+    setIsLoadingChunks(true);
+    setChunksError(null);
+
+    try {
+      const response = await api.get(`/api/v1/admin/documents/${document._id}/chunks`);
+      setChunks(response.data.chunks);
+    } catch (err: any) {
+      console.error('Failed to fetch chunks:', err);
+      setChunksError('Không thể tải danh sách đoạn văn. Vui lòng thử lại.');
+    } finally {
+      setIsLoadingChunks(false);
+    }
+  };
+
+  const handleLoadMore = () => {
+    setDisplayedChunksCount(prev => Math.min(prev + 5, chunks.length));
   };
 
   // Add error boundary check
@@ -256,22 +318,129 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document }) => {
       {/* Tab 2: Chunks */}
       <TabPanel value={tabValue} index={1}>
         <Paper sx={{ p: 2 }}>
-          <Typography variant="subtitle1" gutterBottom fontWeight={600}>
-            Đoạn Văn Bản
+          <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
+            🧩 Đoạn Văn Bản
           </Typography>
 
-          <Box sx={{ mt: 2 }}>
+          {/* Summary */}
+          <Box sx={{ mb: 2, bgcolor: 'grey.50', p: 1.5, borderRadius: 1 }}>
             <Typography variant="body2" color="textSecondary">
-              Tổng số đoạn: <strong>{document.chunk_count}</strong>
+              • Tổng số đoạn: <strong>{chunks.length || document.chunk_count}</strong>
             </Typography>
-
-            <Alert severity="info" sx={{ mt: 2 }}>
-              Trực quan hóa chi tiết các đoạn văn sẽ được triển khai trong Giai đoạn 2.
-              <br />
-              <br />
-              Hiện tại: {document.chunk_count} đoạn văn đã được lập chỉ mục trong Qdrant.
-            </Alert>
+            {chunks.length > 0 && (
+              <>
+                <Typography variant="body2" color="textSecondary">
+                  • Kích thước trung bình: <strong>{Math.round(chunks.reduce((sum, c) => sum + c.character_count, 0) / chunks.length)} ký tự</strong>
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  • Tổng số ký tự: <strong>{chunks.reduce((sum, c) => sum + c.character_count, 0).toLocaleString()}</strong>
+                </Typography>
+              </>
+            )}
           </Box>
+
+          {/* Loading State */}
+          {isLoadingChunks && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+              <CircularProgress />
+            </Box>
+          )}
+
+          {/* Error State */}
+          {chunksError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {chunksError}
+              <Button size="small" onClick={fetchChunks} sx={{ ml: 2 }}>
+                Thử lại
+              </Button>
+            </Alert>
+          )}
+
+          {/* Chunks List */}
+          {!isLoadingChunks && chunks.length > 0 && (
+            <Box>
+              {chunks.slice(0, displayedChunksCount).map((chunk, index) => (
+                <Accordion key={chunk.chunk_id} sx={{ mb: 1 }}>
+                  <AccordionSummary expandIcon={<ExpandMore />}>
+                    <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', pr: 2 }}>
+                      <Typography variant="body2" fontWeight={500}>
+                        Đoạn {index + 1} / {chunks.length}
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        {chunk.indexed_in_qdrant && (
+                          <Chip label="Qdrant" size="small" color="success" variant="outlined" />
+                        )}
+                        {chunk.indexed_in_bm25 && (
+                          <Chip label="BM25" size="small" color="primary" variant="outlined" />
+                        )}
+                        <Chip label={`${chunk.character_count} ký tự`} size="small" variant="outlined" />
+                      </Box>
+                    </Box>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    {/* Vector ID */}
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="caption" color="textSecondary">
+                        Vector ID:
+                      </Typography>
+                      <Typography variant="caption" component="div" sx={{ fontFamily: 'monospace', fontSize: '0.7rem', wordBreak: 'break-all' }}>
+                        {chunk.vector_id}
+                      </Typography>
+                    </Box>
+
+                    {/* Content Preview */}
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="caption" color="textSecondary">
+                        Nội dung:
+                      </Typography>
+                      <Paper variant="outlined" sx={{ p: 1.5, mt: 0.5, bgcolor: 'grey.50' }}>
+                        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', fontSize: '0.85rem' }}>
+                          {chunk.content}
+                        </Typography>
+                      </Paper>
+                    </Box>
+
+                    {/* Indexing Status */}
+                    <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                      <Typography variant="caption" color="textSecondary">
+                        Trạng thái lập chỉ mục:
+                      </Typography>
+                      <Box>
+                        <Chip
+                          label={chunk.indexed_in_qdrant ? '✓ Qdrant' : '✗ Qdrant'}
+                          size="small"
+                          color={chunk.indexed_in_qdrant ? 'success' : 'default'}
+                          sx={{ mr: 0.5 }}
+                        />
+                        <Chip
+                          label={chunk.indexed_in_bm25 ? '✓ BM25' : '✗ BM25'}
+                          size="small"
+                          color={chunk.indexed_in_bm25 ? 'success' : 'default'}
+                        />
+                      </Box>
+                    </Box>
+
+                  </AccordionDetails>
+                </Accordion>
+              ))}
+
+              {/* Load More Button */}
+              {displayedChunksCount < chunks.length && (
+                <Box sx={{ textAlign: 'center', mt: 2 }}>
+                  <Button variant="outlined" onClick={handleLoadMore}>
+                    Tải thêm ({chunks.length - displayedChunksCount} đoạn còn lại)
+                  </Button>
+                </Box>
+              )}
+            </Box>
+          )}
+
+          {/* Empty State */}
+          {!isLoadingChunks && chunks.length === 0 && !chunksError && (
+            <Alert severity="info">
+              Không có đoạn văn nào. Văn bản có thể chưa được lập chỉ mục.
+            </Alert>
+          )}
         </Paper>
       </TabPanel>
 

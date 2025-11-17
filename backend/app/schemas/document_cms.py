@@ -175,3 +175,19 @@ class DocumentListResponse(BaseModel):
     """Paginated list of documents."""
     documents: List[DocumentListItem]
     pagination: Dict[str, int]
+
+
+class ReEmbedChunkResponse(BaseModel):
+    """Response after re-embedding a chunk."""
+    success: bool
+    old_chunk_id: str
+    new_chunk_id: str
+    content: str
+    content_changed: bool
+    message: str
+
+
+class FilterOptionsResponse(BaseModel):
+    """Response with filter options (categories, statuses)."""
+    categories: List[str]
+    statuses: List[str]

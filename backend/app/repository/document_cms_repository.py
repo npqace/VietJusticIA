@@ -281,3 +281,39 @@ def get_document_statistics() -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Failed to get document statistics: {e}")
         raise
+
+
+def get_unique_categories() -> List[str]:
+    """
+    Get list of unique categories from all documents.
+
+    Returns:
+        List of unique category names
+    """
+    try:
+        categories = legal_docs_collection.distinct("category")
+        # Filter out None/empty and return sorted list
+        unique_categories = sorted([cat for cat in categories if cat])
+        logger.info(f"Found {len(unique_categories)} unique categories")
+        return unique_categories
+    except Exception as e:
+        logger.error(f"Failed to get unique categories: {e}")
+        raise
+
+
+def get_unique_statuses() -> List[str]:
+    """
+    Get list of unique document statuses from all documents.
+
+    Returns:
+        List of unique status values
+    """
+    try:
+        statuses = legal_docs_collection.distinct("status")
+        # Filter out None/empty and return sorted list
+        unique_statuses = sorted([status for status in statuses if status])
+        logger.info(f"Found {len(unique_statuses)} unique statuses")
+        return unique_statuses
+    except Exception as e:
+        logger.error(f"Failed to get unique statuses: {e}")
+        raise
