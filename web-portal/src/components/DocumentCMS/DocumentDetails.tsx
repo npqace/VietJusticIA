@@ -101,7 +101,7 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, sourceChunk
 
       // Wait a bit for DOM to render
       setTimeout(() => {
-        const element = document.getElementById(`chunk-${firstSourceId}`);
+        const element = window.document.getElementById(`chunk-${firstSourceId}`);
         if (element) {
           element.scrollIntoView({ behavior: 'smooth', block: 'center' });
           console.log('Scrolled to highlighted chunk:', firstSourceId);

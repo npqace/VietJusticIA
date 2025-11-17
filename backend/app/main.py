@@ -1,9 +1,11 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 import logging
 import time
 import os
+from pathlib import Path
 from contextlib import asynccontextmanager
 from .database.models import User
 from .services.auth import get_current_user
@@ -70,6 +72,12 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"],
 )
+
+# Static files - Serve uploaded avatars
+# Use absolute path relative to project root (works in both Docker and local dev)
+UPLOAD_DIR = Path(__file__).parent.parent / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 
 # Lightweight health check endpoint
