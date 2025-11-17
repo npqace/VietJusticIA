@@ -1,10 +1,10 @@
 
 from ..services.auth import get_current_active_user
 from ..schemas.user import (
-    UserProfile, 
-    UserUpdateProfile, 
-    ChangePasswordRequest, 
-    UpdateContactRequest, 
+    UserProfile,
+    UserUpdateProfile,
+    ChangePasswordRequest,
+    UpdateContactRequest,
     VerifyUpdateContactRequest
 )
 from ..repository import user_repository
@@ -12,12 +12,11 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from ..database.database import get_db
 from ..database.models import User
-# import cloudinary
-# import cloudinary.uploader
 from ..schemas.my_requests import MyRequestsResponse
 from ..repository import service_request_repository, consultation_repository, help_request_repository
 from ..core.security import verify_password, get_password_hash, create_access_token
 from ..services.brevo_email_service import send_verification_otp
+from ..utils.file_storage import save_avatar, delete_avatar
 
 
 
@@ -66,6 +65,53 @@ async def update_user_profile(
     """
     update_data = user_update.model_dump(exclude_unset=True)
     updated_user = user_repository.update_user(db, current_user, update_data)
+    return updated_user
+
+
+@router.post("/me/avatar", response_model=UserProfile)
+async def upload_avatar(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Uploads a new avatar for the current user.
+    Accepts image files (JPG, PNG, WEBP) up to 5MB.
+    Automatically resizes images larger than 2048x2048.
+    """
+    # Delete old avatar if exists
+    if current_user.avatar_url:
+        delete_avatar(current_user.avatar_url)
+
+    # Save new avatar
+    avatar_url = await save_avatar(file, current_user.id)
+
+    # Update user record
+    updated_user = user_repository.update_user(db, current_user, {"avatar_url": avatar_url})
+
+    return updated_user
+
+
+@router.delete("/me/avatar", response_model=UserProfile)
+async def delete_user_avatar(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Deletes the current user's avatar.
+    """
+    if not current_user.avatar_url:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No avatar to delete"
+        )
+
+    # Delete avatar file
+    delete_avatar(current_user.avatar_url)
+
+    # Update user record
+    updated_user = user_repository.update_user(db, current_user, {"avatar_url": None})
+
     return updated_user
 
 @router.post("/me/change-password", response_model=dict)

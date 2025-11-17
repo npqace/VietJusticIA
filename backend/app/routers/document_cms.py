@@ -16,6 +16,8 @@ from ..database.models import User
 from ..services.auth import get_current_user
 from ..repository import document_cms_repository
 from ..services.document_cms_service import document_processing_service
+from ..services.ai_service import rag_service
+import time
 from ..schemas.document_cms import (
     DocumentListResponse,
     DocumentListItem,
@@ -27,7 +29,11 @@ from ..schemas.document_cms import (
     DocumentStatus,
     IndexingStatus,
     UploadMetadata,
-    FileMetadata
+    FileMetadata,
+    FilterOptionsResponse,
+    TestQueryRequest,
+    TestQueryResponse,
+    SourceDocument
 )
 
 logger = logging.getLogger(__name__)
@@ -269,6 +275,96 @@ async def list_documents(
         )
 
 
+@router.get("/filters/options", response_model=FilterOptionsResponse)
+async def get_filter_options(
+    current_user: User = Depends(verify_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Get dynamic filter options (unique categories and statuses) for the filter dropdowns.
+    This endpoint is admin-specific to ensure consistent admin portal experience.
+    """
+    try:
+        categories = document_cms_repository.get_unique_categories()
+        statuses = document_cms_repository.get_unique_statuses()
+
+        logger.info(f"Retrieved filter options: {len(categories)} categories, {len(statuses)} statuses")
+
+        return FilterOptionsResponse(
+            categories=categories,
+            statuses=statuses
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to get filter options: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve filter options"
+        )
+
+
+@router.post("/test-query", response_model=TestQueryResponse)
+async def test_rag_query(
+    request: TestQueryRequest,
+    current_user: User = Depends(verify_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Test RAG system with a query - same experience as regular users.
+
+    This endpoint allows admins to test the RAG system and see exactly what
+    users experience when they ask questions. It returns the AI response,
+    source documents, and processing time.
+
+    The response format matches what users see in the mobile app, ensuring
+    consistent testing of document quality and retrieval accuracy.
+    """
+    try:
+        logger.info(f"Admin {current_user.email} testing RAG query: {request.query[:50]}...")
+
+        # Record start time for performance tracking
+        start_time = time.time()
+
+        # Call the same RAG service that users interact with
+        # This ensures admins see the exact same results as users
+        rag_result = await rag_service.invoke_chain(request.query)
+
+        # Calculate processing time in milliseconds
+        processing_time = (time.time() - start_time) * 1000
+
+        # Extract and format sources
+        raw_sources = rag_result.get("sources", [])
+        formatted_sources = []
+
+        for source in raw_sources:
+            # RAG service returns: document_id, title, document_number, source_url, page_content_preview
+            # We normalize it to our SourceDocument schema
+            source_doc = SourceDocument(
+                document_id=source.get("document_id"),  # RAG uses "document_id" not "_id"
+                document_title=source.get("title"),
+                chunk_id=None,  # RAG service doesn't provide chunk_id
+                content=source.get("page_content_preview"),  # RAG uses "page_content_preview"
+                relevance_score=None  # RAG service doesn't provide relevance scores
+            )
+            formatted_sources.append(source_doc)
+
+        logger.info(f"RAG test completed in {processing_time:.2f}ms with {len(formatted_sources)} sources")
+
+        return TestQueryResponse(
+            query=request.query,
+            response=rag_result.get("response", ""),
+            sources=formatted_sources,
+            processing_time_ms=round(processing_time, 2)
+        )
+
+    except Exception as e:
+        logger.error(f"RAG test query failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Query failed: {str(e)}"
+        )
+
+
 @router.get("/{document_id}", response_model=DocumentDetail)
 async def get_document_details(
     document_id: str,
@@ -439,3 +535,52 @@ async def get_document_status(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve document status"
         )
+
+
+@router.get("/{document_id}/chunks", response_model=DocumentChunksResponse)
+async def get_document_chunks(
+    document_id: str,
+    current_user: User = Depends(verify_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all chunks for a specific document from Qdrant.
+
+    Returns chunk information including:
+    - chunk_id: Unique identifier in Qdrant
+    - vector_id: UUID for the vector point
+    - content: Chunk text content
+    - character_count: Length of chunk
+    - indexed status in Qdrant and BM25
+    """
+    try:
+        # Verify document exists
+        document = document_cms_repository.get_document_by_id(document_id)
+
+        if not document:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Document {document_id} not found"
+            )
+
+        # Get chunks from Qdrant
+        chunks = document_processing_service.get_document_chunks(document_id)
+
+        logger.info(f"Retrieved {len(chunks)} chunks for document {document_id}")
+
+        return DocumentChunksResponse(
+            document_id=document_id,
+            chunk_count=len(chunks),
+            chunks=chunks
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get chunks for document {document_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve chunks: {str(e)}"
+        )
+
+

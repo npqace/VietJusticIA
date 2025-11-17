@@ -15,9 +15,8 @@ import { COLORS, FONTS, SIZES } from '../../constants/styles';
 import Header from '../../components/Header';
 import EditProfileModal from '../../components/Profile/EditProfileModal';
 import * as ImagePicker from 'expo-image-picker';
-// import { storage } from '../../firebaseConfig';
-// import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import api from '../../api';
+import { API_URL } from '@env';
 import ChangePasswordModal from '../../components/Profile/ChangePasswordModal';
 import DeleteAccountModal from '../../components/Profile/DeleteAccountModal';
 import { changePassword, forgotPassword, deactivateAccount, deleteAccount } from '../../services/authService';
@@ -42,51 +41,64 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
     }
   }, [user]);
 
-  // const handleChangeAvatar = async () => {
-  //   setIsUploading(true);
-  //   try {
-  //     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  //     if (!permissionResult.granted) {
-  //       Alert.alert("Permission Denied", "You need to allow access to your photos to change your avatar.");
-  //       return;
-  //     }
+  const handleChangeAvatar = async () => {
+    setIsUploading(true);
+    try {
+      // Request permission to access media library
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert("Quyền truy cập bị từ chối", "Bạn cần cho phép truy cập vào ảnh để thay đổi ảnh đại diện.");
+        setIsUploading(false);
+        return;
+      }
 
-  //     const pickerResult = await ImagePicker.launchImageLibraryAsync({
-  //       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-  //       allowsEditing: true,
-  //       aspect: [1, 1],
-  //       quality: 0.7,
-  //     });
+      // Launch image picker
+      const pickerResult = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
 
-  //     if (pickerResult.canceled) {
-  //       return;
-  //     }
+      if (pickerResult.canceled) {
+        setIsUploading(false);
+        return;
+      }
 
-  //     const imageUri = pickerResult.assets[0].uri;
-  //     const response = await fetch(imageUri);
-  //     const blob = await response.blob();
+      const imageUri = pickerResult.assets[0].uri;
 
-  //     // Create a unique path for the image
-  //     const storageRef = ref(storage, `avatars/${user.id}/${Date.now()}`);
-      
-  //     const snapshot = await uploadBytes(storageRef, blob);
-  //     const downloadURL = await getDownloadURL(snapshot.ref);
+      // Create FormData for multipart upload
+      const formData = new FormData();
+      const filename = imageUri.split('/').pop() || 'avatar.jpg';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
 
-  //     // Update the backend with the new avatar URL
-  //     await api.patch('/api/v1/users/me', { avatar_url: downloadURL });
+      formData.append('file', {
+        uri: imageUri,
+        name: filename,
+        type: type,
+      } as any);
 
-  //     // Refresh user data to show the new avatar
-  //     await refreshUserData();
+      // Upload to backend
+      const response = await api.post('/api/v1/users/me/avatar', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
 
-  //     Alert.alert("Success", "Your avatar has been updated.");
+      // Refresh user data to show the new avatar
+      await refreshUserData();
 
-  //   } catch (error) {
-  //     console.error("Avatar upload error:", error);
-  //     Alert.alert("Upload Failed", "Sorry, we couldn't update your avatar. Please try again.");
-  //   } finally {
-  //     setIsUploading(false);
-  //   }
-  // };
+      Alert.alert("Thành công", "Ảnh đại diện của bạn đã được cập nhật.");
+
+    } catch (error: any) {
+      console.error("Avatar upload error:", error);
+      const errorMessage = error.response?.data?.detail || 'Không thể cập nhật ảnh đại diện. Vui lòng thử lại.';
+      Alert.alert("Tải lên thất bại", errorMessage);
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const openModal = () => setModalVisible(true);
   const closeModal = () => setModalVisible(false);
@@ -148,7 +160,20 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
     }
   };
 
-  const profileImageUrl = user?.avatar_url || 'https://www.gravatar.com/avatar/?d=mp';
+  // Construct full URL for avatar (handles both absolute URLs and relative paths)
+  const getAvatarUrl = () => {
+    if (!user?.avatar_url) {
+      return 'https://www.gravatar.com/avatar/?d=mp';
+    }
+    // If avatar_url is a relative path (starts with /), prepend API_URL
+    if (user.avatar_url.startsWith('/')) {
+      return `${API_URL}${user.avatar_url}`;
+    }
+    // Otherwise, it's an absolute URL (legacy gravatar or other external URLs)
+    return user.avatar_url;
+  };
+
+  const profileImageUrl = getAvatarUrl();
 
   if (!user) {
     return <View style={styles.center}><ActivityIndicator size="large" color={COLORS.primary} /></View>;
@@ -176,7 +201,7 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
                     <Text style={styles.changeAvatarButton}>Thay đổi ảnh đại diện</Text>
                   )}
                 </TouchableOpacity>
-                <Text style={styles.avatarHint}>Định dạng hình ảnh JPEG, PNG, tối đa 2MB.</Text>
+                <Text style={styles.avatarHint}>Định dạng hình ảnh JPEG, PNG, WEBP, tối đa 5MB.</Text>
             </View>
           </View>
 
