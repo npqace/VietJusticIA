@@ -35,6 +35,7 @@ import api from '../services/api';
 import DocumentUploadPanel from '../components/DocumentCMS/DocumentUploadPanel';
 import DocumentList from '../components/DocumentCMS/DocumentList';
 import DocumentDetails from '../components/DocumentCMS/DocumentDetails';
+import RAGTester from '../components/DocumentCMS/RAGTester';
 
 export interface DocumentListItem {
   _id: string;
@@ -96,6 +97,9 @@ const AdminDocumentCMS: React.FC = () => {
   const [selectedDocument, setSelectedDocument] = useState<DocumentDetail | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // RAG Testing - source highlighting
+  const [sourceChunkIds, setSourceChunkIds] = useState<string[]>([]);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -201,6 +205,19 @@ const AdminDocumentCMS: React.FC = () => {
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleSourceClick = (chunkId: string, sources: any[]) => {
+    // Extract all chunk IDs from sources for highlighting
+    const chunkIds = sources
+      .map(s => s.chunk_id)
+      .filter(id => id !== undefined && id !== null);
+
+    console.log('Source clicked, highlighting chunks:', chunkIds);
+    setSourceChunkIds(chunkIds);
+
+    // TODO: Could also switch to chunks tab automatically if desired
+    // For now, just set the highlight state - user can manually switch to chunks tab
   };
 
   const handleBackToDashboard = () => {
@@ -332,23 +349,22 @@ const AdminDocumentCMS: React.FC = () => {
             </Box>
         </Box>
 
-        {/* Middle Column: RAG Testing Interface (Placeholder for Phase 3) */}
-        <Box sx={{ width: '33.33%', height: '100%', overflow: 'auto', borderRight: 1, borderColor: 'divider', flexShrink: 0 }}>
-          <Box sx={{ p: 2 }}>
-              <Typography variant="h6" gutterBottom>
-                Giao Diện Kiểm Tra RAG
-              </Typography>
-              <Alert severity="info">
-                Giao diện kiểm tra RAG sẽ được triển khai trong Giai đoạn 3.
-              </Alert>
-          </Box>
+        {/* Middle Column: RAG Testing Interface */}
+        <Box sx={{ width: '33.33%', height: '100%', overflow: 'hidden', borderRight: 1, borderColor: 'divider', flexShrink: 0 }}>
+          <RAGTester
+            onSourceClick={handleSourceClick}
+            onDocumentSelect={fetchDocumentDetails}
+          />
         </Box>
 
         {/* Right Column: Document Details */}
         <Box sx={{ width: '33.33%', height: '100%', overflow: 'auto', flexShrink: 0 }}>
           <Box sx={{ p: 2 }}>
               {selectedDocument ? (
-                <DocumentDetails document={selectedDocument} />
+                <DocumentDetails
+                  document={selectedDocument}
+                  sourceChunkIds={sourceChunkIds}
+                />
               ) : (
                 <Box sx={{ textAlign: 'center', mt: 8 }}>
                   <Typography variant="h6" color="textSecondary">

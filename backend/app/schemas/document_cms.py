@@ -191,3 +191,30 @@ class FilterOptionsResponse(BaseModel):
     """Response with filter options (categories, statuses)."""
     categories: List[str]
     statuses: List[str]
+
+
+# --- RAG Testing Schemas ---
+
+class TestQueryRequest(BaseModel):
+    """Request for testing a RAG query."""
+    query: str = Field(..., min_length=1, description="The query to test against the RAG system")
+
+
+class SourceDocument(BaseModel):
+    """Source document information from RAG retrieval."""
+    document_id: Optional[str] = None
+    document_title: Optional[str] = None
+    chunk_id: Optional[str] = None
+    content: Optional[str] = None
+    relevance_score: Optional[float] = None
+
+    class Config:
+        populate_by_name = True
+
+
+class TestQueryResponse(BaseModel):
+    """Response from RAG test query."""
+    query: str
+    response: str
+    sources: List[SourceDocument] = Field(default_factory=list)
+    processing_time_ms: float

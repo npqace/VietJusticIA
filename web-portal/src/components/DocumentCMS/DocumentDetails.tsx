@@ -28,6 +28,7 @@ import api from '../../services/api';
 
 interface DocumentDetailsProps {
   document: DocumentDetail;
+  sourceChunkIds?: string[]; // Chunk IDs to highlight from RAG testing
 }
 
 interface TabPanelProps {
@@ -72,7 +73,7 @@ const getStatusIcon = (status: string) => {
   }
 };
 
-const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document }) => {
+const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, sourceChunkIds = [] }) => {
   const [tabValue, setTabValue] = useState(0);
   const [chunks, setChunks] = useState<ChunkInfo[]>([]);
   const [isLoadingChunks, setIsLoadingChunks] = useState(false);
@@ -91,6 +92,25 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document }) => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [document._id]); // Trigger when document ID changes
+
+  // Scroll to first highlighted chunk when source chunks change
+  useEffect(() => {
+    if (sourceChunkIds.length > 0 && tabValue === 1 && chunks.length > 0) {
+      // Find the first source chunk ID
+      const firstSourceId = sourceChunkIds[0];
+
+      // Wait a bit for DOM to render
+      setTimeout(() => {
+        const element = document.getElementById(`chunk-${firstSourceId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          console.log('Scrolled to highlighted chunk:', firstSourceId);
+        } else {
+          console.log('Chunk element not found for ID:', firstSourceId);
+        }
+      }, 300);
+    }
+  }, [sourceChunkIds, tabValue, chunks]);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -359,24 +379,51 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document }) => {
           {/* Chunks List */}
           {!isLoadingChunks && chunks.length > 0 && (
             <Box>
-              {chunks.slice(0, displayedChunksCount).map((chunk, index) => (
-                <Accordion key={chunk.chunk_id} sx={{ mb: 1 }}>
-                  <AccordionSummary expandIcon={<ExpandMore />}>
-                    <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', pr: 2 }}>
-                      <Typography variant="body2" fontWeight={500}>
-                        Đoạn {index + 1} / {chunks.length}
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 1 }}>
-                        {chunk.indexed_in_qdrant && (
-                          <Chip label="Qdrant" size="small" color="success" variant="outlined" />
-                        )}
-                        {chunk.indexed_in_bm25 && (
-                          <Chip label="BM25" size="small" color="primary" variant="outlined" />
-                        )}
-                        <Chip label={`${chunk.character_count} ký tự`} size="small" variant="outlined" />
+              {chunks.slice(0, displayedChunksCount).map((chunk, index) => {
+                // Check if this chunk is highlighted from RAG testing
+                const isHighlighted = sourceChunkIds.includes(chunk.chunk_id);
+
+                return (
+                  <Accordion
+                    key={chunk.chunk_id}
+                    id={`chunk-${chunk.chunk_id}`}
+                    sx={{
+                      mb: 1,
+                      border: isHighlighted ? '2px solid' : '1px solid',
+                      borderColor: isHighlighted ? 'primary.main' : 'divider',
+                      backgroundColor: isHighlighted ? 'primary.light' : 'background.paper',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        boxShadow: isHighlighted ? 3 : 1
+                      }
+                    }}
+                  >
+                    <AccordionSummary expandIcon={<ExpandMore />}>
+                      <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', pr: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="body2" fontWeight={500}>
+                            Đoạn {index + 1} / {chunks.length}
+                          </Typography>
+                          {isHighlighted && (
+                            <Chip
+                              label="Nguồn RAG"
+                              size="small"
+                              color="primary"
+                              sx={{ fontWeight: 'bold' }}
+                            />
+                          )}
+                        </Box>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          {chunk.indexed_in_qdrant && (
+                            <Chip label="Qdrant" size="small" color="success" variant="outlined" />
+                          )}
+                          {chunk.indexed_in_bm25 && (
+                            <Chip label="BM25" size="small" color="primary" variant="outlined" />
+                          )}
+                          <Chip label={`${chunk.character_count} ký tự`} size="small" variant="outlined" />
+                        </Box>
                       </Box>
-                    </Box>
-                  </AccordionSummary>
+                    </AccordionSummary>
                   <AccordionDetails>
                     {/* Vector ID */}
                     <Box sx={{ mb: 2 }}>
@@ -422,7 +469,8 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document }) => {
 
                   </AccordionDetails>
                 </Accordion>
-              ))}
+              );
+              })}
 
               {/* Load More Button */}
               {displayedChunksCount < chunks.length && (
