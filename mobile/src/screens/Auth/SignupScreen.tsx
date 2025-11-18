@@ -21,6 +21,7 @@ import { COLORS, SIZES, FONTS, LOGO_PATH, GOOGLE_LOGO_PATH } from '../../constan
 import { Ionicons } from '@expo/vector-icons';
 import { signup, verifyOTP, resendOTP } from '../../services/authService';
 import { useAuth } from '../../context/AuthContext';
+import PasswordRequirements from '../../components/PasswordRequirements';
 
 const { width } = Dimensions.get('window');
 
@@ -90,6 +91,7 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
 
   const { showOtpModal, handleOtpVerified } = useAuth();
 
@@ -221,18 +223,34 @@ const SignupScreen = ({ navigation }: { navigation: any }) => {
                   </>}
                 />
 
-                <InputField
-                  icon="lock-closed-outline"
-                  placeholder="Mật khẩu"
-                  value={password}
-                  onChange={(text: string) => handleInputChange('password', text)}
-                  onBlur={() => handleBlur('password')}
-                  error={errors.password}
-                  secureTextEntry={!showPassword}
-                  suffix={<TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIconTouchable}>
-                    <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={24} color={COLORS.gray} />
-                  </TouchableOpacity>}
-                />
+                <View style={styles.inputContainerWrapper}>
+                  <View style={[styles.inputOuterContainer, errors.password ? styles.errorBorder : null]}>
+                    <Ionicons name="lock-closed-outline" size={22} color={COLORS.gray} style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Mật khẩu"
+                      placeholderTextColor={COLORS.gray}
+                      value={password}
+                      onChangeText={(text: string) => handleInputChange('password', text)}
+                      onFocus={() => setPasswordFocused(true)}
+                      onBlur={() => {
+                        setPasswordFocused(false);
+                        handleBlur('password');
+                      }}
+                      autoCapitalize="none"
+                      secureTextEntry={!showPassword}
+                    />
+                    <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIconTouchable}>
+                      <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={24} color={COLORS.gray} />
+                    </TouchableOpacity>
+                  </View>
+                  {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
+                </View>
+
+                {/* Password Requirements Component */}
+                {(passwordFocused || password.length > 0) && (
+                  <PasswordRequirements password={password} showRequirements={true} />
+                )}
                 
                 <InputField
                   icon="lock-closed-outline"

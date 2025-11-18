@@ -14,6 +14,7 @@ import CustomButton from '../CustomButton';
 import { COLORS, SIZES, FONTS } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
 import { resetPassword } from '../../services/authService';
+import PasswordRequirements from '../PasswordRequirements';
 
 interface ResetPasswordModalProps {
   visible: boolean;
@@ -22,10 +23,20 @@ interface ResetPasswordModalProps {
   token: string | null;
 }
 
+const validatePassword = (password: string): string => {
+  if (password.length < 8) return 'Mật khẩu phải có ít nhất 8 ký tự.';
+  if (!/[A-Z]/.test(password)) return 'Mật khẩu phải chứa ít nhất 1 chữ hoa.';
+  if (!/[a-z]/.test(password)) return 'Mật khẩu phải chứa ít nhất 1 chữ thường.';
+  if (!/[0-9]/.test(password)) return 'Mật khẩu phải chứa ít nhất 1 chữ số.';
+  if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) return 'Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt.';
+  return '';
+};
+
 const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ visible, onClose, onSuccess, token }) => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [newPasswordFocused, setNewPasswordFocused] = useState(false);
 
   const handleResetPassword = async () => {
     Keyboard.dismiss();
@@ -37,6 +48,14 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ visible, onClos
       Alert.alert('Lỗi', 'Vui lòng điền đầy đủ tất cả các trường.');
       return;
     }
+    
+    // Validate new password
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      Alert.alert('Lỗi', passwordError);
+      return;
+    }
+    
     if (newPassword !== confirmPassword) {
       Alert.alert('Lỗi', 'Mật khẩu mới không khớp.');
       return;
@@ -79,9 +98,18 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ visible, onClos
                   placeholderTextColor={COLORS.gray}
                   value={newPassword}
                   onChangeText={setNewPassword}
+                  onFocus={() => setNewPasswordFocused(true)}
+                  onBlur={() => setNewPasswordFocused(false)}
                   secureTextEntry
                 />
               </View>
+
+              {/* Password Requirements Component */}
+              {(newPasswordFocused || newPassword.length > 0) && (
+                <View style={{ width: '100%', marginBottom: 10 }}>
+                  <PasswordRequirements password={newPassword} showRequirements={true} />
+                </View>
+              )}
 
               <View style={styles.inputOuterContainer}>
                 <Ionicons name="lock-closed-outline" size={22} color={COLORS.gray} style={styles.inputIcon} />
