@@ -130,8 +130,6 @@ class AuthRateLimitMiddleware(BaseHTTPMiddleware):
         "/api/v1/auth/signup": (3, 60),
         "/api/v1/auth/verify-otp": (5, 15),
         "/api/v1/auth/resend-otp": (3, 15),
-        "/api/v1/auth/forgot-password": (3, 60),
-        "/api/v1/auth/reset-password": (5, 15),
         "/api/v1/password/change-password": (5, 15),
     }
     

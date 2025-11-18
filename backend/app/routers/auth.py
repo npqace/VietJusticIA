@@ -57,30 +57,7 @@ class VerifyOTPRequest(BaseModel):
 
 @router.post("/verify-otp", response_model=dict)
 async def verify_otp(request: VerifyOTPRequest, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.email == request.email).first()
-    
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-        
-    if user.is_verified:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Account already verified")
-
-    if not user.otp or not user.otp_expires_at:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OTP not found. Please request a new one.")
-
-    if user.otp_expires_at < datetime.now(timezone.utc):
-        user.otp = None
-        user.otp_expires_at = None
-        db.commit()
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OTP has expired. Please request a new one.")
-        
-    if user.otp != request.otp:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OTP provided.")
-        
-    user.is_verified = True
-    user.otp = None
-    user.otp_expires_at = None
-    db.commit()
+    user = user_repository.verify_signup_otp(db, email=request.email, otp=request.otp)
     
     token_claims = {"sub": user.email, "role": user.role.value}
     access_token = create_access_token(data=token_claims)
@@ -93,51 +70,22 @@ class ResendOTPRequest(BaseModel):
 
 @router.post("/resend-otp", response_model=dict)
 async def resend_otp(request: ResendOTPRequest, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.email == request.email).first()
+    user = user_repository.resend_signup_otp(db, email=request.email)
     
-    if not user or user.is_verified:
+    if not user:
+        # This prevents user enumeration. If the user doesn't exist or is already verified,
+        # we return a generic success message. The actual email is only sent if a valid,
+        # unverified user is found.
         return {"message": "If an account with this email exists and is not verified, a new OTP has been sent."}
         
-    otp = otp_service.generate_otp()
-    user.otp = otp
+    new_otp = otp_service.generate_otp()
+    user.otp = new_otp
     user.otp_expires_at = otp_service.get_otp_expiry_time()
     db.commit()
 
-    await otp_service.send_otp_email(email=user.email, otp=otp)
+    await otp_service.send_otp_email(email=user.email, otp=new_otp)
 
     return {"message": "A new OTP has been sent to your email address."}
-
-@router.post("/forgot-password", response_model=dict)
-async def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db)):
-    user = user_repository.get_user_by_email(db, request.email)
-    if user:
-        await otp_service.send_password_reset_otp(db, user)
-    # Always return a generic message to prevent user enumeration
-    return {"message": "If an account with that email exists, a password reset OTP has been sent."}
-
-@router.post("/reset-password", response_model=dict)
-async def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db)):
-    user = user_repository.get_user_by_email(db, request.email)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid OTP or email.",
-        )
-
-    if not user_repository.verify_otp(db, user, request.otp):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired OTP.",
-        )
-
-    # Hash the new password and update the user
-    user.hashed_password = get_password_hash(request.new_password)
-    # Clear the OTP fields
-    user.otp = None
-    user.otp_expires_at = None
-    db.commit()
-
-    return {"message": "Password has been reset successfully."}
 
 class RefreshRequest(BaseModel):
     refresh_token: str

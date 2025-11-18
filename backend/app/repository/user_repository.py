@@ -109,3 +109,42 @@ def update_user(db: Session, user: models.User, user_update) -> models.User:
     db.commit()
     db.refresh(user)
     return user
+
+
+def verify_signup_otp(db: Session, email: str, otp: str) -> models.User:
+    """
+    Verifies the signup OTP for a user and activates their account.
+    Returns the user object on success, otherwise raises HTTPException.
+    """
+    user = get_user_by_email(db, email)
+
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        
+    if user.is_verified:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Account already verified")
+
+    if not verify_otp(db, user, otp):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired OTP.")
+        
+    user.is_verified = True
+    user.otp = None
+    user.otp_expires_at = None
+    db.commit()
+    db.refresh(user)
+    
+    return user
+
+
+def resend_signup_otp(db: Session, email: str) -> models.User:
+    """
+    Generates and sends a new signup OTP for a non-verified user.
+    Returns the user object.
+    """
+    user = get_user_by_email(db, email)
+    
+    if not user or user.is_verified:
+        # Return None to send a generic message and prevent user enumeration
+        return None
+        
+    return user
