@@ -1,13 +1,6 @@
 """
 Core web-scraping logic for aitracuuluat.vn.
 This version uses the API to get document metadata and Playwright to scrape content.
-
-NOTE ON COMPLIANCE: This scraper is designed to be respectful of the target website
-by adhering to its robots.txt file and implementing rate limiting. However, developers
-must ensure that the use of this scraper and the data it collects complies with all
-applicable laws, including Vietnam's Personal Data Protection Law (PDPL). This may
-involve handling data responsibly, not collecting personal information, and ensuring
-the purpose of data collection is legitimate.
 """
 import json
 import re

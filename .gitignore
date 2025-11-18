@@ -49,3 +49,12 @@ logs/
 backend/artifacts
 backend/uploads/avatars/*
 !backend/uploads/avatars/.gitkeep
+
+# Testing
+backend/htmlcov/
+backend/.pytest_cache/
+backend/.coverage
+backend/coverage.xml
+backend/.tox/
+backend/.mypy_cache/
+backend/.ruff_cache/

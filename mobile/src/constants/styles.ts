@@ -19,7 +19,9 @@ export const COLORS = {
 
   // Semantic colors
   green: '#28A745',
+  success: '#28A745',  // Alias for green
   red: '#DC3545',
+  error: '#DC3545',  // Alias for red
 
   
   // Gradient colors

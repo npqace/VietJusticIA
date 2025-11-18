@@ -36,8 +36,7 @@ def process_directory(input_dir: str, force: bool):
                         f.write(cleaned_text)
                     
                     processed_count += 1
-                    # Optional: a more verbose log
-                    # print(f"Successfully cleaned: {input_path}")
+                    print(f"Successfully cleaned: {input_path}")
 
                 except Exception as e:
                     print(f"Error processing {input_path}: {e}")

@@ -31,7 +31,6 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isForgotPasswordVisible, setForgotPasswordVisible] = useState(false);
   const [isOtpModalVisible, setOtpModalVisible] = useState(false);
@@ -141,17 +140,7 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={styles.rememberMeContainer} onPress={() => setRememberMe(!rememberMe)}>
-                <Ionicons
-                  name={rememberMe ? "checkbox" : "square-outline"}
-                  size={24}
-                  color={rememberMe ? COLORS.primary : COLORS.black}
-                  style={styles.checkboxIcon}
-                />
-                <Text style={styles.rememberMeText}>Ghi nhớ đăng nhập</Text>
-            </TouchableOpacity>
-            
-                          <CustomButton
+            <CustomButton
                             title="Đăng nhập"
                             onPress={handleLogin}
                             buttonStyle={styles.loginButton}
@@ -282,23 +271,8 @@ const styles = StyleSheet.create({
   eyeIconTouchable: {
     padding: 8,
   },
-  rememberMeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    marginBottom: 24,
-    marginTop: 4,
-  },
-  checkboxIcon: {
-    marginRight: 8,
-  },
-  rememberMeText: {
-    fontFamily: FONTS.regular,
-    fontSize: SIZES.body,
-    fontWeight: '600',
-    color: COLORS.black,
-  },
   loginButton: {
+    marginTop: 24,
     backgroundColor: COLORS.primary,
     height: 55,
     width: '100%',

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query, HTTPException
 from pymongo import MongoClient
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
 import os
 import math
@@ -58,8 +58,7 @@ class DocumentDetailResponse(BaseModel):
     ascii_diagram: Optional[str] = None
     related_documents: List[RelatedDocument] = []
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 # --- Endpoints ---
 

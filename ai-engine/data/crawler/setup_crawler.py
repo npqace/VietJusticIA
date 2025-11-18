@@ -19,7 +19,6 @@ def run_command(command, description):
 def create_directories():
     """Create necessary output directories."""
     print("🔄 Creating output directories...")
-    # These directories are now defined in crawler.py, but we can create the base one.
     Path("../raw_data").mkdir(parents=True, exist_ok=True)
     print("✅ Directories created.")
 
@@ -29,14 +28,14 @@ def main():
     print("🚀 Setting up the Legal Documents Crawler")
     print("=" * 50)
 
-    # 1. Create directories
+    # Create directories
     create_directories()
 
-    # 2. Install Python packages from requirements.txt
+    # Install Python packages from requirements.txt
     if not run_command(f"pip install -r requirements.txt", "Installing Python packages"):
         return
 
-    # 3. Install Playwright browsers
+    # Install Playwright browsers
     if not run_command("playwright install chromium", "Installing Playwright browser"):
         print("⚠️  Playwright browser installation failed. Please run manually: playwright install")
         return

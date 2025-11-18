@@ -18,7 +18,7 @@ class TextCleaner:
         # Keeps Vietnamese characters, numbers, and essential punctuation for legal text.
         self.special_char_remover = re.compile(r'[^\w\s.,;:"“”‘’()-]')
         # Matches specific boilerplate text to be removed.
-        self.unwanted_text_remover = re.compile(r'(HỘI ĐỒNG NHÂN DÂN TỈNH BÌNH ĐỊNH|CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM|Độc lập - Tự do - Hạnh phúc|Số:.*|Bình Định, ngày.*|NGHỊ QUYẾT|HỘI ĐỒNG NHÂN DÂN TỈNH.*|Căn cứ Luật.*|Xét Tờ trình.*|QUYẾT NGHỊ:|Điều 2.*|Điều 3.*|CHỦ TỊCH.*|Hết hiệu lực)')
+        self.unwanted_text_remover = re.compile(r'(HỘI ĐỒNG NHÂN DÂN TỈNH BÌNH ĐỊNH|CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM|Độc lập - Tự do - Hạnh phúc|Số:.*|, ngày.*|NGHỊ QUYẾT|HỘI ĐỒNG NHÂN DÂN TỈNH.*|Căn cứ Luật.*|Xét Tờ trình.*|QUYẾT NGHỊ:|Điều 2.*|Điều 3.*|CHỦ TỊCH.*|Hết hiệu lực)')
 
     def remove_html_tags(self, text: str) -> str:
         """Removes HTML tags from a string using BeautifulSoup."""
