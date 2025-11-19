@@ -1,14 +1,29 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from ..database import models
 from ..core.security import get_password_hash, verify_password
 from ..model.userModel import SignUpModel
 from ..schemas.user import UserUpdateProfile
 from fastapi import HTTPException, status
 from datetime import datetime, timezone
+from typing import Optional, List, Union, Any, Dict
 
-def create_user(db: Session, user: SignUpModel):
-    # Check if email already exists
-    db_user_email = db.query(models.User).filter(models.User.email == user.email).first()
+def create_user(db: Session, user: SignUpModel) -> models.User:
+    """
+    Create a new user in the database.
+    
+    Args:
+        db: Database session
+        user: Signup data model
+        
+    Returns:
+        models.User: The created user
+        
+    Raises:
+        HTTPException: If email or phone already exists
+    """
+    # Check if email already exists (case-insensitive)
+    db_user_email = db.query(models.User).filter(func.lower(models.User.email) == user.email.lower()).first()
     if db_user_email:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, 
                            detail="Email already registered")
@@ -34,26 +49,42 @@ def create_user(db: Session, user: SignUpModel):
     
     return db_user
 
-def get_user_by_email(db: Session, email: str):
-    return db.query(models.User).filter(models.User.email == email).first()
+def get_user_by_email(db: Session, email: str) -> Optional[models.User]:
+    """Get user by email (case-insensitive)."""
+    return db.query(models.User).filter(func.lower(models.User.email) == email.lower()).first()
 
-def get_user_by_phone(db: Session, phone: str):
+def get_user_by_phone(db: Session, phone: str) -> Optional[models.User]:
+    """Get user by phone number."""
     return db.query(models.User).filter(models.User.phone == phone).first()
 
 
-def get_user_by_id(db: Session, user_id: int):
+def get_user_by_id(db: Session, user_id: int) -> Optional[models.User]:
     """Get user by ID."""
     return db.query(models.User).filter(models.User.id == user_id).first()
 
 
-def get_all_users(db: Session):
+def get_all_users(db: Session) -> List[models.User]:
     """Get all users."""
     return db.query(models.User).order_by(models.User.created_at.desc()).all()
 
 
-def authenticate_user(db: Session, identifier: str, password: str):
-    # Check if user exists with email or phone
-    user = db.query(models.User).filter(models.User.email == identifier).first()
+def authenticate_user(db: Session, identifier: str, password: str) -> Optional[models.User]:
+    """
+    Authenticate user by email or phone.
+    
+    Args:
+        db: Database session
+        identifier: Email or phone number
+        password: Plain text password
+        
+    Returns:
+        models.User or None: Authenticated user or None if failed
+    """
+    # Check if user exists with email (case-insensitive) or phone
+    # Try email first
+    user = db.query(models.User).filter(func.lower(models.User.email) == identifier.lower()).first()
+    
+    # If not found by email, try phone
     if not user:
         user = db.query(models.User).filter(models.User.phone == identifier).first()
 
@@ -72,6 +103,14 @@ def authenticate_user(db: Session, identifier: str, password: str):
 def verify_otp(db: Session, user: models.User, otp: str) -> bool:
     """
     Verifies the OTP for a user.
+    
+    Args:
+        db: Database session (unused but kept for signature compatibility)
+        user: User model
+        otp: OTP string to verify
+        
+    Returns:
+        bool: True if valid, False otherwise
     """
     if not user.otp or not user.otp_expires_at:
         return False
@@ -93,7 +132,7 @@ def verify_otp(db: Session, user: models.User, otp: str) -> bool:
         
     return True
 
-def update_user(db: Session, user: models.User, user_update) -> models.User:
+def update_user(db: Session, user: models.User, user_update: Union[Dict[str, Any], UserUpdateProfile]) -> models.User:
     """
     Updates a user's profile.
     Accepts a dictionary or Pydantic model of updates to apply to the user model.
@@ -136,10 +175,10 @@ def verify_signup_otp(db: Session, email: str, otp: str) -> models.User:
     return user
 
 
-def resend_signup_otp(db: Session, email: str) -> models.User:
+def resend_signup_otp(db: Session, email: str) -> Optional[models.User]:
     """
     Generates and sends a new signup OTP for a non-verified user.
-    Returns the user object.
+    Returns the user object if found and not verified, None otherwise.
     """
     user = get_user_by_email(db, email)
     
