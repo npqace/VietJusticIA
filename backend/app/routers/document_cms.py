@@ -41,14 +41,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/admin/documents", tags=["Admin Document CMS"])
 
 
-def verify_admin(current_user: User = Depends(get_current_user)):
-    """Dependency to verify user is admin."""
-    if current_user.role != User.Role.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required"
-        )
-    return current_user
+from ..core.rbac import verify_admin
 
 
 @router.post("/upload", response_model=UploadResponse)
