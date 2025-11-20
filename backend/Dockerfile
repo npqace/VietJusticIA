@@ -36,9 +36,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Copy entrypoint script
-COPY entrypoint.sh /app/entrypoint.sh
-RUN sed -i 's/\r$//' /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Create logs and artifacts directories
 RUN mkdir -p logs /tmp/artifacts
@@ -61,6 +61,6 @@ RUN mkdir -p /home/appuser/.cache/huggingface && \
 #     CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
 
 # Run the application via entrypoint
-ENTRYPOINT ["sh", "/app/entrypoint.sh"]
+ENTRYPOINT ["sh", "/usr/local/bin/entrypoint.sh"]
 # HuggingFace Spaces uses port 7860, Railway/local uses PORT env var or 8000
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-7860}"]
