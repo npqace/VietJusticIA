@@ -29,7 +29,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.environment = os.getenv("ENVIRONMENT", "development")
         
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next) -> Response:
         """Add security headers to response."""
         response = await call_next(request)
         
@@ -52,18 +52,36 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             )
         
         # Content Security Policy (CSP)
-        # Allow same-origin content and specific external sources
-        csp_directives = [
-            "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'",  # Unsafe for development
-            "style-src 'self' 'unsafe-inline'",
-            "img-src 'self' data: https:",
-            "font-src 'self' data:",
-            "connect-src 'self'",
-            "frame-ancestors 'none'",  # Prevent framing
-            "base-uri 'self'",  # Prevent base tag injection
-            "form-action 'self'",  # Restrict form submissions
-        ]
+        # Environment-aware CSP configuration
+        if self.environment == "production":
+            # STRICT CSP for production
+            csp_directives = [
+                "default-src 'self'",
+                "script-src 'self'",  # No unsafe-inline, no unsafe-eval
+                "style-src 'self'",   # No unsafe-inline (consider adding nonce/hash if needed)
+                "img-src 'self' data: https:",
+                "font-src 'self' data:",
+                "connect-src 'self'",
+                "frame-ancestors 'none'",
+                "base-uri 'self'",
+                "form-action 'self'",
+                "object-src 'none'",          # Prevent plugin exploits
+                "upgrade-insecure-requests",  # Force HTTPS
+            ]
+        else:
+            # PERMISSIVE CSP for development
+            csp_directives = [
+                "default-src 'self'",
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval'",  # Allow hot-reloading
+                "style-src 'self' 'unsafe-inline'",
+                "img-src 'self' data: https:",
+                "font-src 'self' data:",
+                "connect-src 'self' ws: wss:",  # Allow WebSocket for hot-reloading
+                "frame-ancestors 'none'",
+                "base-uri 'self'",
+                "form-action 'self'",
+            ]
+            
         response.headers["Content-Security-Policy"] = "; ".join(csp_directives)
         
         # Control referrer information leakage

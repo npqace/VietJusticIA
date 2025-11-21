@@ -164,7 +164,7 @@ class AuthRateLimitMiddleware(BaseHTTPMiddleware):
         
         return "unknown"
     
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next) -> Response:
         """Check rate limit before processing request."""
         
         # Only check POST requests to auth endpoints

@@ -1,7 +1,7 @@
 """
 Admin router for Document CMS (Upload, List, Delete, View documents).
 """
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import logging
@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from ..database.database import get_db
 from ..database.models import User
 from ..services.auth import get_current_user
+from ..services.audit_service import audit_service
 from ..repository import document_cms_repository
 from ..services.document_cms_service import document_processing_service
 from ..services.ai_service import rag_service
@@ -47,6 +48,7 @@ from ..core.rbac import verify_admin
 @router.post("/upload", response_model=UploadResponse)
 async def upload_document(
     background_tasks: BackgroundTasks,
+    request: Request,
     files: List[UploadFile] = File(...),
     generate_diagram: bool = Form(True),
     index_qdrant: bool = Form(True),
@@ -173,6 +175,17 @@ async def upload_document(
             cleaned_content,
             current_user.id,
             processing_options
+        )
+        
+        # Audit Log
+        audit_service.log_action(
+            db=db,
+            admin_id=current_user.id,
+            action="UPLOAD_DOCUMENT",
+            target_type="DOCUMENT",
+            target_id=str(document_id),
+            details=f"Title: {title}, Files: {len(files)}",
+            request=request
         )
 
         logger.info(f"Document {document_id} upload initiated, background processing queued")
@@ -420,6 +433,7 @@ async def get_document_details(
 @router.delete("/{document_id}", response_model=DeleteResponse)
 async def delete_document(
     document_id: str,
+    request: Request,
     current_user: User = Depends(verify_admin),
     db: Session = Depends(get_db)
 ):
@@ -474,6 +488,17 @@ async def delete_document(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to delete document from MongoDB"
             )
+        
+        # Audit Log
+        audit_service.log_action(
+            db=db,
+            admin_id=current_user.id,
+            action="DELETE_DOCUMENT",
+            target_type="DOCUMENT",
+            target_id=str(document_id),
+            details=f"Deleted document {document_id} (chunks: {chunks_deleted})",
+            request=request
+        )
 
         logger.info(f"Document {document_id} deleted successfully")
 

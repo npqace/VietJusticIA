@@ -21,7 +21,10 @@ def get_lawyer_by_id(db: Session, lawyer_id: int) -> Optional[Lawyer]:
 
 def get_lawyer_by_user_id(db: Session, user_id: int) -> Optional[Lawyer]:
     """Get lawyer profile by user ID."""
-    return db.query(Lawyer).filter(Lawyer.user_id == user_id).first()
+    return db.query(Lawyer).options(joinedload(Lawyer.user)).filter(Lawyer.user_id == user_id).first()
+
+
+
 
 
 def get_lawyers(
@@ -129,6 +132,7 @@ def get_service_request_by_id(db: Session, request_id: int) -> Optional[ServiceR
 def get_user_service_requests(db: Session, user_id: int, skip: int = 0, limit: int = 50) -> List[ServiceRequest]:
     """Get all service requests made by a user."""
     return db.query(ServiceRequest).options(
+        joinedload(ServiceRequest.user),
         joinedload(ServiceRequest.lawyer).joinedload(Lawyer.user)
     ).filter(
         ServiceRequest.user_id == user_id
@@ -146,7 +150,8 @@ def get_lawyer_service_requests(
 ) -> List[ServiceRequest]:
     """Get all service requests for a lawyer, optionally filtered by status."""
     query = db.query(ServiceRequest).options(
-        joinedload(ServiceRequest.user)
+        joinedload(ServiceRequest.user),
+        joinedload(ServiceRequest.lawyer).joinedload(Lawyer.user)
     ).filter(
         ServiceRequest.lawyer_id == lawyer_id
     )

@@ -1,7 +1,7 @@
 """
 Admin-only endpoints for managing users, lawyers, and viewing statistics.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List
@@ -10,6 +10,7 @@ import logging
 from ..database.database import get_db
 from ..database.models import User, Lawyer, ServiceRequest
 from ..services.auth import get_current_user
+from ..services.audit_service import audit_service
 from ..schemas.user import UserProfile, AdminCreateUser, AdminCreateUserResponse
 from ..repository import lawyer_repository, user_repository
 from ..core.security import get_password_hash
@@ -93,6 +94,7 @@ async def get_all_users(
 async def update_user_status(
     user_id: int,
     is_active: bool,
+    request: Request,
     current_user: User = Depends(verify_admin),
     db: Session = Depends(get_db)
 ):
@@ -100,6 +102,7 @@ async def update_user_status(
     try:
         logger.info(f"Admin {current_user.email} updating status for user {user_id} to {is_active}")
 
+        # Check if user exists
         user = user_repository.get_user_by_id(db, user_id)
         if not user:
             raise HTTPException(
@@ -114,8 +117,19 @@ async def update_user_status(
                 detail="Cannot deactivate your own account"
             )
 
-        user.is_active = is_active
-        db.commit()
+        # Update status via repository
+        updated_user = user_repository.update_user_status(db, user_id, is_active)
+        
+        # Audit Log
+        audit_service.log_action(
+            db=db,
+            admin_id=current_user.id,
+            action="UPDATE_USER_STATUS",
+            target_type="USER",
+            target_id=str(user_id),
+            details=f"Status changed to {'Active' if is_active else 'Inactive'}",
+            request=request
+        )
 
         logger.info(f"User {user_id} status updated successfully")
         return {"message": "User status updated successfully"}
@@ -182,6 +196,7 @@ def generate_secure_password(length: int = 12) -> str:
 @router.post("/users/create", response_model=AdminCreateUserResponse)
 async def create_user_account(
     user_data: AdminCreateUser,
+    request: Request,
     current_user: User = Depends(verify_admin),
     db: Session = Depends(get_db)
 ):
@@ -270,6 +285,17 @@ async def create_user_account(
             db.refresh(lawyer_profile)
             logger.info(f"Lawyer profile created for user {new_user.id}")
 
+        # Audit Log
+        audit_service.log_action(
+            db=db,
+            admin_id=current_user.id,
+            action="CREATE_USER",
+            target_type="USER",
+            target_id=str(new_user.id),
+            details=f"Created {user_data.role} account: {user_data.email}",
+            request=request
+        )
+
         logger.info(f"User account created successfully: {new_user.id} ({user_data.role})")
 
         # Return user info with generated password
@@ -287,3 +313,6 @@ async def create_user_account(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create user account"
         )
+
+
+

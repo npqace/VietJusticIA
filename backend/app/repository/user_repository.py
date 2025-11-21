@@ -187,3 +187,25 @@ def resend_signup_otp(db: Session, email: str) -> Optional[models.User]:
         return None
         
     return user
+
+
+def update_user_status(db: Session, user_id: int, is_active: bool) -> Optional[models.User]:
+    """
+    Update user active status.
+    
+    Args:
+        db: Database session
+        user_id: ID of the user to update
+        is_active: New active status
+        
+    Returns:
+        Optional[models.User]: Updated user or None if not found
+    """
+    user = get_user_by_id(db, user_id)
+    if not user:
+        return None
+        
+    user.is_active = is_active
+    db.commit()
+    db.refresh(user)
+    return user

@@ -203,3 +203,29 @@ class HelpRequest(Base):
     # Relationships
     user = relationship("User", foreign_keys=[user_id])
     admin = relationship("User", foreign_keys=[admin_id])
+
+
+class SystemLog(Base):
+    __tablename__ = "system_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # Who performed the action
+    admin_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    
+    # What they did
+    action = Column(String(50), nullable=False, index=True)  # e.g., "BAN_USER", "DELETE_DOCUMENT"
+    
+    # What/Who was affected
+    target_id = Column(String(100), nullable=True)  # Can be int ID or string ID (like mongo/qdrant IDs)
+    target_type = Column(String(50), nullable=False)  # e.g., "USER", "LAWYER", "DOCUMENT"
+    
+    # Context
+    details = Column(Text, nullable=True)  # JSON string or plain text details
+    ip_address = Column(String(45), nullable=True)  # IPv4 or IPv6
+    
+    # When
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    
+    # Relationships
+    admin = relationship("User", foreign_keys=[admin_id])
