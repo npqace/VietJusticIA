@@ -249,7 +249,7 @@ Here is the document text:
                     
                     # Create LLM instance with specific CMS API key
                     llm = ChatGoogleGenerativeAI(
-                        model="gemini-2.0-flash",
+                        model="gemini-2.5-flash",
                         temperature=0.2,
                         google_api_key=current_key  # Pass API key directly!
                     )

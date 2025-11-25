@@ -474,21 +474,21 @@ if __name__ == "__main__":
                 sys.exit(0)
 
     # --- Initialize AI Models (one per key for parallel distribution) ---
-    logger.info("Initializing AI models (gemini-2.0-flash)...")
+    logger.info("Initializing AI models (gemini-2.5-flash)...")
     llm_pool = []
     try:
         if key_pool.keys and len(key_pool.keys) > 1:
             # Create one LLM instance per key
             for i, key in enumerate(key_pool.keys):
                 os.environ["GOOGLE_API_KEY"] = key
-                llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.2)
+                llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.2)
                 llm_pool.append((llm, key))
             logger.info(f"[INIT] Created {len(llm_pool)} LLM instances for parallel processing")
             # Reset to first key
             os.environ["GOOGLE_API_KEY"] = key_pool.keys[0]
         else:
             # Single key mode - create one LLM
-            llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.2)
+            llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.2)
             current_key = key_pool.get_current_key() if key_pool.keys else os.getenv("GOOGLE_API_KEY")
             llm_pool.append((llm, current_key))
     except Exception as e:
