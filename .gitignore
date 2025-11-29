@@ -1,0 +1,60 @@
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+# python
+__pycache__/
+.env
+.env.local
+
+# Docker
+.env.docker.local
+docker-compose.override.yml
+
+logs/
+backend/artifacts
+backend/uploads/avatars/*
+!backend/uploads/avatars/.gitkeep
+
+# Testing
+backend/htmlcov/
+backend/.pytest_cache/
+backend/.coverage
+backend/coverage.xml
+backend/.tox/
+backend/.mypy_cache/
+backend/.ruff_cache/

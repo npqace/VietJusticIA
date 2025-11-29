@@ -1,0 +1,127 @@
+services:
+  # Local database services for development
+  
+  # PostgreSQL Database Service (Local)
+  postgres:
+    image: postgres:16
+    container_name: vietjusticia_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-vietjusticia}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-vietjusticia}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vietjusticia_network
+
+  # MongoDB Document Store Service (Local)
+  mongodb:
+    image: mongo:latest
+    container_name: vietjusticia_mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    command: mongod --bind_ip 0.0.0.0
+    networks:
+      - vietjusticia_network
+
+  # Backend API Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: vietjusticia_backend
+    env_file:
+      - .env
+    restart: unless-stopped
+    environment:
+      # DATABASE_URL and MONGO_URL are loaded from .env file via env_file
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      # CMS API keys - add more GOOGLE_API_KEY_CMS_N as needed
+      GOOGLE_API_KEY_CMS_1: ${GOOGLE_API_KEY_CMS_1:-}
+      GOOGLE_API_KEY_CMS_2: ${GOOGLE_API_KEY_CMS_2:-}
+      PORT: 8000
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_started
+    volumes:
+      - ./backend:/app # Mount the entire backend directory for hot-reloading
+      - ./ai-engine:/app/ai-engine # Mount ai-engine for document access
+      - backend_logs:/app/logs
+      - huggingface_cache:/home/appuser/.cache/huggingface/hub # Persist model cache
+      - ./backend/artifacts:/app/backend/artifacts # Persist RAG cache artifacts for fast startup
+    networks:
+      - vietjusticia_network
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  # Qdrant Vector Database Service (Local)
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: vietjusticia_qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333" # API port
+      - "6334:6334" # gRPC port
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - vietjusticia_network
+
+  # PgAdmin (Optional - for database management)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: vietjusticia_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@vietjusticia.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    depends_on:
+      - postgres
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - vietjusticia_network
+
+volumes:
+  postgres_data:
+    driver: local
+  mongo_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  backend_logs:
+    driver: local
+  qdrant_data: # Add volume for Qdrant
+    driver: local
+  huggingface_cache: # Persist Hugging Face model cache
+    driver: local
+
+networks:
+  vietjusticia_network:
+    driver: bridge
