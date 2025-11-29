@@ -158,6 +158,15 @@ export const verifyResetOTP = async (email: string, otp: string) => {
   }
 };
 
+export const resendPasswordResetOTP = async (email: string) => {
+  try {
+    const response = await api.post<MessageResponse>('/api/v1/auth/resend-password-reset-otp', { email });
+    return response.data;
+  } catch (err) {
+    handleError(err);
+  }
+};
+
 export const resetPassword = async (data: { token: string; new_password: string }) => {
   try {
     const response = await api.post<MessageResponse>('/api/v1/password/reset-password', data);

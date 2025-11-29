@@ -30,7 +30,7 @@ class AuthService:
     def __init__(self, db: Session):
         self.db = db
 
-    def forgot_password(self, email: str) -> bool:
+    async def forgot_password(self, email: str) -> bool:
         user = user_repository.get_user_by_email(self.db, email)
         if not user:
             logger.warning(f"Password reset requested for non-existent email: {email}")
@@ -38,7 +38,7 @@ class AuthService:
 
         try:
             # Send the password reset OTP
-            send_password_reset_otp(self.db, user)
+            await send_password_reset_otp(self.db, user)
             logger.info(f"Password reset OTP sent to {email}")
             return True
         except Exception as e:

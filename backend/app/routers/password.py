@@ -8,12 +8,12 @@ from ..database.database import get_db
 router = APIRouter()
 
 @router.post("/forgot-password", status_code=status.HTTP_200_OK)
-def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db)):
+async def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db)):
     """
     Handles a forgot password request by sending an OTP to the user's email.
     """
     auth_service = AuthService(db)
-    auth_service.forgot_password(request.email)
+    await auth_service.forgot_password(request.email)
     # Always return a generic success message to prevent user enumeration
     return {"message": "If an account with that email exists, a password reset OTP has been sent."}
 

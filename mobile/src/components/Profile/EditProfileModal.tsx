@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SIZES } from '../../constants/styles';
 import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
-import { requestContactUpdate, verifyContactUpdate, resendOTP } from '../../services/authService';
+import { requestContactUpdate, verifyContactUpdate } from '../../services/authService';
 
 interface EditProfileModalProps {
   visible: boolean;
@@ -50,11 +50,11 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
         await requestContactUpdate(payload);
         onClose(); // Close the edit modal first
-        
+
         showOtpModal(
           emailChanged ? email : user.email,
           (otp) => verifyContactUpdate({ ...payload, otp }),
-          () => resendOTP(emailChanged ? email : user.email),
+          () => requestContactUpdate(payload), // Resend by calling update-contact again
           handleUpdateSuccess
         );
 

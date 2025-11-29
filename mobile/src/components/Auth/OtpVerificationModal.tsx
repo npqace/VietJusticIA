@@ -40,30 +40,43 @@ const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
   const [countdown, setCountdown] = useState(60);
 
   const otpInputs = useRef<Array<TextInput | null>>([]);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Function to start countdown timer
+  const startCountdownTimer = () => {
+    // Clear any existing timer
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+
+    setResendDisabled(true);
+    setCountdown(60);
+
+    timerRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+          setResendDisabled(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
-
     if (visible) {
       setOtp(new Array(6).fill(''));
-      setResendDisabled(true);
-      setCountdown(60);
-
-      timer = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            setResendDisabled(false);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+      startCountdownTimer();
     }
 
     return () => {
-      if (timer) {
-        clearInterval(timer);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
       }
     };
   }, [visible]);
@@ -90,8 +103,8 @@ const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
     try {
       await onResend();
       Alert.alert('Đã gửi lại OTP', 'Một mã OTP mới đã được gửi tới email của bạn.');
-      setResendDisabled(true);
-      setCountdown(60);
+      // Restart the countdown timer
+      startCountdownTimer();
     } catch (error: any) {
       Alert.alert('Lỗi', error.response?.data?.detail || 'Không thể gửi lại OTP.');
     } finally {

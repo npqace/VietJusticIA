@@ -115,6 +115,16 @@ async def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(
     # Always return a generic message to prevent user enumeration
     return {"message": "If an account with that email exists, a password reset OTP has been sent."}
 
+@router.post("/resend-password-reset-otp", response_model=dict)
+async def resend_password_reset_otp(request: ResendOTPRequest, db: Session = Depends(get_db)):
+    """Resend OTP for password reset."""
+    user = user_repository.get_user_by_email(db, request.email)
+    if user:
+        await otp_service.send_password_reset_otp(db, user)
+    # Always return a generic message to prevent user enumeration
+    return {"message": "If an account with that email exists, a new password reset OTP has been sent."}
+
+
 @router.post("/reset-password", response_model=dict)
 async def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db)):
     user = user_repository.get_user_by_email(db, request.email)
