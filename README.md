@@ -1,7 +1,5 @@
 # VietJusticIA - AI-Powered Vietnamese Legal Assistance Platform
 
-![VietJusticIA Banner](https://via.placeholder.com/1200x300?text=VietJusticIA+-+Bridging+the+Justice+Gap)
-
 **Democratising access to Vietnamese legal knowledge through advanced Artificial Intelligence.**
 
 ---
