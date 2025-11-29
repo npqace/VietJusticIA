@@ -58,29 +58,30 @@ api.interceptors.response.use(
       try {
         const refreshToken = await SecureStore.getItemAsync('refresh_token');
         if (!refreshToken) {
-          console.log('No refresh token, logging out.');
-          // It's better to delegate logout to the AuthContext to avoid circular dependencies
-          // Instead, we'll just reject, and the UI can decide what to do.
-          return Promise.reject(new Error('No refresh token'));
+          console.log('[AUTH] No refresh token available, silent logout');
+          // Clear tokens silently
+          await SecureStore.deleteItemAsync('access_token');
+          await SecureStore.deleteItemAsync('refresh_token');
+          // Return a silent rejection - AuthContext will handle navigation
+          return Promise.reject({ silent: true, message: 'No refresh token' });
         }
-        
-        console.log('Attempting to refresh token with:', refreshToken);
+
+        console.log('[AUTH] Attempting to refresh access token...');
         const { data } = await api.post('/api/v1/auth/refresh', { refresh_token: refreshToken });
-        
+
         await SecureStore.setItemAsync('access_token', data.access_token);
         api.defaults.headers.common['Authorization'] = `Bearer ${data.access_token}`;
         originalRequest.headers['Authorization'] = `Bearer ${data.access_token}`;
-        
+
+        console.log('[AUTH] Token refreshed successfully');
         return api(originalRequest);
       } catch (refreshError) {
-        console.error('Failed to refresh token:', refreshError);
-        // If refresh fails, we should clear tokens and effectively log the user out.
-        // This logic is often best handled in a central place like AuthContext.
-        console.log('Logging out due to refresh failure.');
+        console.log('[AUTH] Token refresh failed, silent logout');
+        // Clear tokens silently without throwing visible error
         await SecureStore.deleteItemAsync('access_token');
         await SecureStore.deleteItemAsync('refresh_token');
-        // Here you might want to trigger a global logout state change.
-        return Promise.reject(refreshError);
+        // Return silent rejection - AuthContext will navigate to Welcome screen
+        return Promise.reject({ silent: true, message: 'Token refresh failed' });
       }
     }
     return Promise.reject(error);

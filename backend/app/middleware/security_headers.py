@@ -55,8 +55,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # Allow same-origin content and specific external sources
         csp_directives = [
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'",  # Unsafe for development
-            "style-src 'self' 'unsafe-inline'",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net",  # Unsafe for development, allow CDN for Swagger
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net", # Allow CDN for Swagger styles
             "img-src 'self' data: https:",
             "font-src 'self' data:",
             "connect-src 'self'",

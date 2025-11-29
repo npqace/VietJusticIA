@@ -127,7 +127,7 @@ class AuthRateLimitMiddleware(BaseHTTPMiddleware):
     # Rate limit rules: endpoint -> (max_attempts, window_minutes)
     RATE_LIMITS = {
         "/api/v1/auth/login": (5, 15),
-        "/api/v1/auth/signup": (3, 60),
+        "/api/v1/auth/signup": (3, 10),
         "/api/v1/auth/verify-otp": (5, 15),
         "/api/v1/auth/resend-otp": (3, 15),
         "/api/v1/auth/forgot-password": (3, 60),

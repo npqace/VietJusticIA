@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../api';
+import { getFullAvatarUrl } from '../../utils/avatarHelper';
 
 const { width } = Dimensions.get('window');
 
@@ -159,7 +160,11 @@ const MenuScreen = ({ navigation }: { navigation: any }) => {
           <View style={styles.profileContainer}>
             <View style={styles.profileImageContainer}>
               <Image
-                source={user?.avatar_url ? { uri: user.avatar_url } : LOGO_PATH}
+                source={
+                  getFullAvatarUrl(user?.avatar_url)
+                    ? { uri: getFullAvatarUrl(user?.avatar_url)! }
+                    : LOGO_PATH
+                }
                 style={styles.profileImage}
                 resizeMode="cover"
               />
