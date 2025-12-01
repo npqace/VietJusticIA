@@ -61,3 +61,16 @@ class LawyerDetail(LawyerInList):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class LawyerSearchParams(BaseModel):
+    """Schema for lawyer search/filter parameters."""
+    search: Optional[str] = None
+    specialization: Optional[str] = None
+    city: Optional[str] = None
+    province: Optional[str] = None
+    min_rating: Optional[Decimal] = None
+    is_available: Optional[bool] = None
+    admin_view: bool = False
+    skip: int = Field(0, ge=0)
+    limit: int = Field(20, ge=1, le=100)

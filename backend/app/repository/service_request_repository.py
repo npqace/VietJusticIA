@@ -4,7 +4,7 @@ from typing import List, Optional, Dict, Any, Literal
 import logging
 
 from ..database.models import ServiceRequest, Lawyer
-from ..schemas.service_request import ServiceRequestCreate, ServiceRequestUpdate, ServiceRequestFilterParams
+from ..schemas.service_request import ServiceRequestCreate, ServiceRequestUpdate
 from ..schemas.common import PaginationParams
 
 logger = logging.getLogger(__name__)

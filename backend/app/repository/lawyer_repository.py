@@ -7,7 +7,7 @@ import logging
 
 from ..database.models import Lawyer, ServiceRequest, User
 from ..schemas.lawyer import LawyerCreate, LawyerUpdate, LawyerSearchParams
-from ..schemas.service_request import ServiceRequestCreate, ServiceRequestUpdate, ServiceRequestFilterParams
+from ..schemas.service_request import ServiceRequestCreate, ServiceRequestUpdate, ServiceRequestFilterParams, ServiceRequestFilterParams
 from ..schemas.common import PaginationParams
 from ..database.database import get_db
 

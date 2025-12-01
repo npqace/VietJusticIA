@@ -4,7 +4,7 @@ Admin-only endpoints for managing users, lawyers, and viewing statistics.
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, case
-from typing import List
+from typing import List, Optional
 import logging
 
 from ..database.database import get_db

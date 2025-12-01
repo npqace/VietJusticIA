@@ -1,20 +1,18 @@
-from fastapi import APIRouter, Query, HTTPException
-from pymongo import MongoClient
+from fastapi import APIRouter, Query, HTTPException, Depends, status
+from pymongo.database import Database
+from pymongo.errors import PyMongoError
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
-import os
-import math
+import logging
+
+from ..database.database import get_mongo_db
+from ..repository import document_repository
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
-# --- MongoDB Connection ---
-MONGO_URL = os.getenv("MONGO_URL", "mongodb://mongodb:27017/")
-MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "vietjusticia")
-MONGO_COLLECTION_NAME = "legal_documents"
-
-client = MongoClient(MONGO_URL)
-db = client[MONGO_DB_NAME]
-collection = db[MONGO_COLLECTION_NAME]
+# Constants
+ALL_FILTER_VALUE = "Tất cả"  # Vietnamese for "All" - bypasses filter
 
 # --- Pydantic Models ---
 
@@ -72,75 +70,37 @@ async def get_documents(
     category: Optional[str] = Query(None, description="Filter by legal field/category"),
     issuer: Optional[str] = Query(None, description="Filter by issuer"),
     start_date: Optional[str] = Query(None, description="Filter by start date (dd/mm/yyyy)"),
-    end_date: Optional[str] = Query(None, description="Filter by end date (dd/mm/yyyy)")
+    end_date: Optional[str] = Query(None, description="Filter by end date (dd/mm/yyyy)"),
+    mongo_db: Database = Depends(get_mongo_db)
 ):
     """
     Fetches a paginated list of legal documents from MongoDB, with optional search and filters.
     """
-    query = {}
-
-    # Search by title
-    if search:
-        query["title"] = {"$regex": search, "$options": "i"}
-
-    # Filter by status - match partial string (e.g., "Còn hiệu lực" matches "Còn hiệu lực đến: 01/01/2025")
-    if status and status != "Tất cả":
-        query["status"] = {"$regex": status, "$options": "i"}
-
-    # Filter by document type
-    if document_type and document_type != "Tất cả":
-        query["document_type"] = {"$regex": document_type, "$options": "i"}
-
-    # Filter by category/field - match if category contains the selected value
-    # Handles comma-separated values like "Bộ máy hành chính, Giáo dục"
-    if category and category != "Tất cả":
-        query["category"] = {"$regex": category, "$options": "i"}
-
-    # Filter by issuer - match if issuer contains the selected value
-    # Handles comma-separated values like "Chính phủ..., Chính phủ..."
-    if issuer and issuer != "Tất cả":
-        query["issuer"] = {"$regex": issuer, "$options": "i"}
-
-    # Filter by date range
-    # MongoDB now stores dates in ISO format (yyyy-mm-dd) for efficient querying
-    if start_date or end_date:
-        date_query = {}
-        if start_date:
-            # Convert dd/mm/yyyy to yyyy-mm-dd for comparison
-            try:
-                day, month, year = start_date.split('/')
-                iso_start = f"{year}-{month.zfill(2)}-{day.zfill(2)}"
-                date_query["$gte"] = iso_start
-            except:
-                pass  # Ignore invalid date format
-        if end_date:
-            try:
-                day, month, year = end_date.split('/')
-                iso_end = f"{year}-{month.zfill(2)}-{day.zfill(2)}"
-                date_query["$lte"] = iso_end
-            except:
-                pass  # Ignore invalid date format
-        if date_query:
-            query["issue_date"] = date_query
-
     try:
-        total_docs = collection.count_documents(query)
-        if total_docs == 0:
-            return {
-                "total_pages": 0,
-                "current_page": page,
-                "page_size": page_size,
-                "total_docs": 0,
-                "documents": []
-            }
-
-        total_pages = math.ceil(total_docs / page_size)
-        skip_amount = (page - 1) * page_size
-
-        documents_cursor = collection.find(query).skip(skip_amount).limit(page_size)
+        logger.info(
+            f"Fetching documents: search={search}, page={page}, page_size={page_size}, "
+            f"status={status}, type={document_type}"
+        )
         
-        documents_list = list(documents_cursor)
-
+        documents_list, total_docs, total_pages = document_repository.find_documents(
+            mongo_db=mongo_db,
+            search=search,
+            page=page,
+            page_size=page_size,
+            status=status,
+            document_type=document_type,
+            category=category,
+            issuer=issuer,
+            start_date=start_date,
+            end_date=end_date,
+            all_filter_value=ALL_FILTER_VALUE
+        )
+        
+        logger.info(
+            f"Retrieved {len(documents_list)} documents "
+            f"(page {page}/{total_pages}, total={total_docs})"
+        )
+        
         return {
             "total_pages": total_pages,
             "current_page": page,
@@ -148,70 +108,85 @@ async def get_documents(
             "total_docs": total_docs,
             "documents": documents_list
         }
+        
+    except PyMongoError as e:
+        logger.error(f"Database error fetching documents: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve documents from database"
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Unexpected error fetching documents: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred"
+        )
 
 @router.get("/documents/filters/options")
-async def get_filter_options():
+async def get_filter_options(mongo_db: Database = Depends(get_mongo_db)):
     """
     Returns available filter options from the database for dropdowns.
     """
     try:
-        # Get distinct values for each filter field
-        statuses_raw = collection.distinct("status")
-        document_types = collection.distinct("document_type")
-        categories_raw = collection.distinct("category")
-        issuers_raw = collection.distinct("issuer")
-
-        # Normalize statuses - extract only "Còn hiệu lực" or "Hết hiệu lực"
-        statuses_set = set()
-        for status in statuses_raw:
-            if status:
-                if "Còn hiệu lực" in status:
-                    statuses_set.add("Còn hiệu lực")
-                elif "Hết hiệu lực" in status:
-                    statuses_set.add("Hết hiệu lực")
-        statuses = sorted(list(statuses_set))
-
-        # Split comma-separated categories into individual categories
-        categories_set = set()
-        for category in categories_raw:
-            if category:
-                # Split by comma and trim whitespace
-                parts = [c.strip() for c in category.split(',')]
-                categories_set.update(parts)
-        categories = sorted([c for c in categories_set if c])
-
-        # Split comma-separated issuers into individual issuers
-        issuers_set = set()
-        for issuer in issuers_raw:
-            if issuer:
-                # Split by comma and trim whitespace
-                parts = [i.strip() for i in issuer.split(',')]
-                issuers_set.update(parts)
-        issuers = sorted([i for i in issuers_set if i])
-
-        # Filter out None/null values for document types
-        document_types = sorted([d for d in document_types if d])
-
-        return {
-            "statuses": statuses,
-            "document_types": document_types,
-            "categories": categories,
-            "issuers": issuers
-        }
+        logger.info("Fetching filter options")
+        
+        options = document_repository.get_filter_options(mongo_db)
+        
+        logger.info(
+            f"Retrieved filter options: {len(options['statuses'])} statuses, "
+            f"{len(options['document_types'])} types, {len(options['categories'])} categories, "
+            f"{len(options['issuers'])} issuers"
+        )
+        
+        return options
+        
+    except PyMongoError as e:
+        logger.error(f"Database error fetching filter options: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve filter options"
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Unexpected error fetching filter options: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred"
+        )
 
 @router.get("/documents/{document_id}", response_model=DocumentDetailResponse)
-async def get_document_by_id(document_id: str):
+async def get_document_by_id(
+    document_id: str,
+    mongo_db: Database = Depends(get_mongo_db)
+):
     """
     Fetches a single legal document by its ID.
     """
     try:
-        document = collection.find_one({"_id": document_id})
+        logger.info(f"Fetching document by ID: {document_id}")
+        
+        document = document_repository.get_document_by_id(mongo_db, document_id)
+        
         if document:
+            logger.info(f"Document {document_id} retrieved successfully")
             return document
-        raise HTTPException(status_code=404, detail=f"Document with ID '{document_id}' not found")
+            
+        logger.warning(f"Document {document_id} not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document with ID '{document_id}' not found"
+        )
+        
+    except HTTPException:
+        raise
+    except PyMongoError as e:
+        logger.error(f"Database error fetching document {document_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve document"
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Unexpected error fetching document {document_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred"
+        )

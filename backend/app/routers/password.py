@@ -6,6 +6,15 @@ from ..schemas.auth import ForgotPasswordRequest, ResetPasswordRequest, VerifyRe
 from ..services.auth import AuthService
 from ..database.database import get_db
 
+# Response models
+class MessageResponse(BaseModel):
+    message: str
+
+class VerifyOTPResponse(BaseModel):
+    reset_token: str
+    message: str
+
+
 router = APIRouter()
 
 @router.post("/forgot-password", status_code=status.HTTP_200_OK)
