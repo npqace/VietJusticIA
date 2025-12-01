@@ -144,7 +144,7 @@ class ConsultationRequest(Base):
         REJECTED = "rejected"
 
     status = Column(SqlEnum(ConsultationStatus, native_enum=False, values_callable=lambda x: [e.value for e in x]),
-                    nullable=False, default=ConsultationStatus.PENDING.value, index=True)
+                    nullable=False, default=ConsultationStatus.PENDING, index=True)
 
     # Priority for Admin
     class Priority(enum.Enum):
@@ -153,7 +153,7 @@ class ConsultationRequest(Base):
         HIGH = "high"
 
     priority = Column(SqlEnum(Priority, native_enum=False, values_callable=lambda x: [e.value for e in x]),
-                     nullable=False, default=Priority.MEDIUM.value)
+                     nullable=False, default=Priority.MEDIUM)
 
     # Admin Management
     admin_notes = Column(Text, nullable=True)

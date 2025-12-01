@@ -22,7 +22,7 @@ import { useAuth } from '../../context/AuthContext';
 import ForgotPasswordModal from '../../components/Auth/ForgotPasswordModal';
 import OtpVerificationModal from '../../components/Auth/OtpVerificationModal';
 import ResetPasswordModal from '../../components/Auth/ResetPasswordModal';
-import { verifyResetOTP, resendOTP } from '../../services/authService';
+import { verifyResetOTP, resendPasswordResetOTP } from '../../services/authService';
 
 const { width } = Dimensions.get('window');
 
@@ -176,7 +176,7 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
         email={emailForReset}
         onClose={() => setOtpModalVisible(false)}
         onVerify={(otp) => verifyResetOTP(emailForReset, otp)}
-        onResend={() => resendOTP(emailForReset)} // Assuming resendOTP for password reset is the same
+        onResend={() => resendPasswordResetOTP(emailForReset)}
         onSuccess={handleOtpSuccess}
         title="Đặt lại mật khẩu"
         subtitle="Một mã OTP đã được gửi đến email của bạn để đặt lại mật khẩu."

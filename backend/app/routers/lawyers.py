@@ -18,6 +18,7 @@ from ..schemas.lawyer import (
     LawyerDetail,
 )
 from ..repository import lawyer_repository
+from ..core.rbac import verify_admin
 
 logger = logging.getLogger(__name__)
 
@@ -322,9 +323,7 @@ async def get_my_service_requests(
                     "lawyer_id": req.lawyer_id,
                     "title": req.title,
                     "description": req.description,
-                    "category": "General",  # ServiceRequest doesn't have category, using default
                     "status": req.status.value,
-                    "urgency": "medium",  # ServiceRequest doesn't have urgency, using default
                     "lawyer_response": req.lawyer_response,  # Include lawyer response
                     "rejected_reason": req.rejected_reason,  # Include rejection reason
                     "created_at": req.created_at,

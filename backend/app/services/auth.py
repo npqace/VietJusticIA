@@ -1,5 +1,5 @@
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
@@ -22,14 +22,15 @@ from app.database.database import get_db
 # Get a logger instance
 logger = logging.getLogger(__name__)
 
-# OAuth2 scheme to get the token from the Authorization header
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+# HTTPBearer scheme to get the token from the Authorization header
+# More standard for JWT authentication than OAuth2PasswordBearer
+http_bearer_auth = HTTPBearer()
 
 class AuthService:
     def __init__(self, db: Session):
         self.db = db
 
-    def forgot_password(self, email: str) -> bool:
+    async def forgot_password(self, email: str) -> bool:
         user = user_repository.get_user_by_email(self.db, email)
         if not user:
             logger.warning(f"Password reset requested for non-existent email: {email}")
@@ -37,7 +38,7 @@ class AuthService:
 
         try:
             # Send the password reset OTP
-            send_password_reset_otp(self.db, user)
+            await send_password_reset_otp(self.db, user)
             logger.info(f"Password reset OTP sent to {email}")
             return True
         except Exception as e:
@@ -107,7 +108,7 @@ class AuthService:
 
 
 # --- Core User Dependency ---
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(http_bearer_auth), db: Session = Depends(get_db)) -> User:
     """
     Dependency to get the current user from a JWT token.
     This function will be used to protect endpoints.
@@ -118,6 +119,9 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+    # Extract token from credentials
+    token = credentials.credentials
 
     try:
         logger.info("Decoding JWT token...")

@@ -20,6 +20,7 @@ import { API_URL } from '@env';
 import ChangePasswordModal from '../../components/Profile/ChangePasswordModal';
 import DeleteAccountModal from '../../components/Profile/DeleteAccountModal';
 import { changePassword, forgotPassword, deactivateAccount, deleteAccount } from '../../services/authService';
+import { getFullAvatarUrl } from '../../utils/avatarHelper';
 
 const ProfileScreen = ({ navigation }: { navigation: any }) => {
   const { user, refreshUserData, logout } = useAuth();
@@ -160,20 +161,8 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
     }
   };
 
-  // Construct full URL for avatar (handles both absolute URLs and relative paths)
-  const getAvatarUrl = () => {
-    if (!user?.avatar_url) {
-      return 'https://www.gravatar.com/avatar/?d=mp';
-    }
-    // If avatar_url is a relative path (starts with /), prepend API_URL
-    if (user.avatar_url.startsWith('/')) {
-      return `${API_URL}${user.avatar_url}`;
-    }
-    // Otherwise, it's an absolute URL (legacy gravatar or other external URLs)
-    return user.avatar_url;
-  };
-
-  const profileImageUrl = getAvatarUrl();
+  // Get avatar URL using shared helper, with Gravatar fallback
+  const profileImageUrl = getFullAvatarUrl(user?.avatar_url) || 'https://www.gravatar.com/avatar/?d=mp';
 
   if (!user) {
     return <View style={styles.center}><ActivityIndicator size="large" color={COLORS.primary} /></View>;

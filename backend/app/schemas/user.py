@@ -68,3 +68,10 @@ class AdminCreateUserResponse(BaseModel):
     """Response schema after creating user - includes generated password."""
     user: UserProfile
     generated_password: str  # Return password only once for admin to give to user
+
+class UserListResponse(BaseModel):
+    """Schema for paginated list of users."""
+    users: list[UserProfile]
+    total: int
+    skip: int
+    limit: int
