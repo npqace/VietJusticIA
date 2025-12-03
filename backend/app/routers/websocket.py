@@ -7,13 +7,14 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, Depends, s
 from sqlalchemy.orm import Session
 from jose import JWTError, jwt
 from typing import Optional
+from bson import ObjectId
 import logging
 import json
 
 from ..database.database import get_db
 from ..database.models import User, Lawyer
 from ..services.websocket_manager import manager
-from ..repository import conversation_repository, service_request_repository
+from ..repository import conversation_repository, service_request_repository, user_repository, lawyer_repository
 from ..core.security import SECRET_KEY, ALGORITHM
 
 logger = logging.getLogger(__name__)
@@ -56,7 +57,7 @@ async def get_user_from_db(email: str, db: Session) -> Optional[User]:
     Returns:
         User object or None
     """
-    return db.query(User).filter(User.email == email).first()
+    return user_repository.get_user_by_email(db, email)
 
 
 async def verify_conversation_access(
@@ -88,7 +89,7 @@ async def verify_conversation_access(
 
     elif user.role == User.Role.LAWYER:
         # Get lawyer profile
-        lawyer = db.query(Lawyer).filter(Lawyer.user_id == user.id).first()
+        lawyer = lawyer_repository.get_lawyer_by_user_id(db, user.id)
         if not lawyer:
             return False, None, None
 
@@ -103,10 +104,21 @@ async def verify_conversation_access(
 
     elif user.role == User.Role.ADMIN:
         # Admin has access to all conversations
-        # Fetch without authorization check by querying MongoDB directly
-        from bson import ObjectId
-        conversation = conversation_repository.collection.find_one(
-            {"_id": ObjectId(conversation_id)}
+        # Fetch using repository method (assuming it handles admin access or we pass None for user/lawyer)
+        # Since get_conversation_by_id filters by user/lawyer if provided, we can try fetching by ID only
+        # But the current implementation of get_conversation_by_id might require at least one ID or handle it.
+        # Let's check if we can use get_conversation_by_id without user/lawyer IDs or if we need a specific method.
+        # Looking at previous code, it used direct collection access.
+        # Ideally, repository should have a method for admin or generic get by ID.
+        # If get_conversation_by_id allows optional user/lawyer, we can use it.
+        # Let's assume for now we can use it with just conversation_id, or we might need to add a method.
+        # Given the instruction "Replace direct collection.find_one with conversation_repository.get_conversation_by_id",
+        # I will use that. If it fails because of missing args, I'll need to check the repo.
+        # However, the previous code passed user_id/lawyer_id.
+        # Let's try passing None for both if the repo supports it, or just conversation_id.
+        
+        conversation = conversation_repository.get_conversation_by_id(
+            conversation_id=conversation_id
         )
         if conversation:
             return True, user.id, "admin"

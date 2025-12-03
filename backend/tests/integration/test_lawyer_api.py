@@ -10,47 +10,16 @@ Tests cover:
 """
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from app.main import app
-from app.database.models import Base, User, Lawyer, ServiceRequest
-from app.database.database import get_db
+from app.database.models import User, Lawyer, ServiceRequest
 from app.core.security import get_password_hash, create_access_token
 
-# Test database setup
-SQLALCHEMY_TEST_DATABASE_URL = "sqlite:///./test_lawyer.db"
-engine = create_engine(SQLALCHEMY_TEST_DATABASE_URL, connect_args={"check_same_thread": False})
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-
-def override_get_db():
-    """Override database dependency for testing."""
-    try:
-        db = TestingSessionLocal()
-        yield db
-    finally:
-        db.close()
-
-
-app.dependency_overrides[get_db] = override_get_db
-client = TestClient(app)
-
-
-@pytest.fixture(scope="function", autouse=True)
-def setup_database():
-    """Create fresh database for each test."""
-    Base.metadata.create_all(bind=engine)
-    yield
-    Base.metadata.drop_all(bind=engine)
+# Test database setup and client are handled by conftest.py fixtures
 
 
 @pytest.fixture
-def test_user():
+def test_user(db_session):
     """Create a regular test user."""
-    db = TestingSessionLocal()
     user = User(
-        
         email="user@example.com",
         hashed_password=get_password_hash("password123"),
         full_name="Test User",
@@ -59,19 +28,16 @@ def test_user():
         is_verified=True,
         is_active=True
     )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    db.close()
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
     return user
 
 
 @pytest.fixture
-def test_lawyer_user():
+def test_lawyer_user(db_session):
     """Create a lawyer user."""
-    db = TestingSessionLocal()
     user = User(
-        
         email="lawyer@example.com",
         hashed_password=get_password_hash("password123"),
         full_name="Lawyer User",
@@ -80,17 +46,15 @@ def test_lawyer_user():
         is_verified=True,
         is_active=True
     )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    db.close()
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
     return user
 
 
 @pytest.fixture
-def approved_lawyer(test_lawyer_user):
+def approved_lawyer(db_session, test_lawyer_user):
     """Create an approved lawyer profile."""
-    db = TestingSessionLocal()
     lawyer = Lawyer(
         user_id=test_lawyer_user.id,
         specialization="Family Law",
@@ -106,21 +70,17 @@ def approved_lawyer(test_lawyer_user):
         total_reviews=20,
         languages="Vietnamese, English"
     )
-    db.add(lawyer)
-    db.commit()
-    db.refresh(lawyer)
-    db.close()
+    db_session.add(lawyer)
+    db_session.commit()
+    db_session.refresh(lawyer)
     return lawyer
 
 
 @pytest.fixture
-def pending_lawyer(test_lawyer_user):
+def pending_lawyer(db_session, test_lawyer_user):
     """Create a pending lawyer profile."""
-    db = TestingSessionLocal()
-
     # Create a different user for pending lawyer
     pending_user = User(
-        
         email="pending@example.com",
         hashed_password=get_password_hash("password123"),
         full_name="Pending Lawyer",
@@ -129,9 +89,9 @@ def pending_lawyer(test_lawyer_user):
         is_verified=True,
         is_active=True
     )
-    db.add(pending_user)
-    db.commit()
-    db.refresh(pending_user)
+    db_session.add(pending_user)
+    db_session.commit()
+    db_session.refresh(pending_user)
 
     lawyer = Lawyer(
         user_id=pending_user.id,
@@ -145,19 +105,16 @@ def pending_lawyer(test_lawyer_user):
         is_available=True,
         verification_status=Lawyer.VerificationStatus.PENDING
     )
-    db.add(lawyer)
-    db.commit()
-    db.refresh(lawyer)
-    db.close()
+    db_session.add(lawyer)
+    db_session.commit()
+    db_session.refresh(lawyer)
     return lawyer
 
 
 @pytest.fixture
-def admin_user():
+def admin_user(db_session):
     """Create an admin user."""
-    db = TestingSessionLocal()
     user = User(
-        
         email="admin@example.com",
         hashed_password=get_password_hash("admin123"),
         full_name="Admin User",
@@ -165,10 +122,9 @@ def admin_user():
         is_verified=True,
         is_active=True
     )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    db.close()
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
     return user
 
 
@@ -196,7 +152,7 @@ def admin_auth_headers(admin_user):
 class TestLawyerListing:
     """Test lawyer listing and filtering."""
 
-    def test_get_lawyers_returns_approved_lawyers_only(self, approved_lawyer, pending_lawyer):
+    def test_get_lawyers_returns_approved_lawyers_only(self, client, approved_lawyer, pending_lawyer):
         """Test that public endpoint only returns approved lawyers."""
         response = client.get("/api/v1/lawyers")
 
@@ -206,7 +162,7 @@ class TestLawyerListing:
         assert len(lawyers) == 1  # Only approved lawyer
         assert lawyers[0]["specialization"] == "Family Law"
 
-    def test_get_lawyers_with_specialization_filter(self, approved_lawyer):
+    def test_get_lawyers_with_specialization_filter(self, client, approved_lawyer):
         """Test filtering lawyers by specialization."""
         response = client.get("/api/v1/lawyers?specialization=Family Law")
 
@@ -215,7 +171,7 @@ class TestLawyerListing:
         assert len(lawyers) >= 1
         assert all(lawyer["specialization"] == "Family Law" for lawyer in lawyers)
 
-    def test_get_lawyers_with_city_filter(self, approved_lawyer):
+    def test_get_lawyers_with_city_filter(self, client, approved_lawyer):
         """Test filtering lawyers by city."""
         response = client.get("/api/v1/lawyers?city=Ho Chi Minh City")
 
@@ -224,7 +180,7 @@ class TestLawyerListing:
         assert len(lawyers) >= 1
         assert all(lawyer["city"] == "Ho Chi Minh City" for lawyer in lawyers)
 
-    def test_get_lawyers_with_min_rating_filter(self, approved_lawyer):
+    def test_get_lawyers_with_min_rating_filter(self, client, approved_lawyer):
         """Test filtering lawyers by minimum rating."""
         response = client.get("/api/v1/lawyers?min_rating=4.0")
 
@@ -232,7 +188,7 @@ class TestLawyerListing:
         lawyers = response.json()
         assert all(lawyer["rating"] >= 4.0 for lawyer in lawyers)
 
-    def test_get_lawyers_with_pagination(self, approved_lawyer):
+    def test_get_lawyers_with_pagination(self, client, approved_lawyer):
         """Test lawyer listing pagination."""
         response = client.get("/api/v1/lawyers?skip=0&limit=10")
 
@@ -240,7 +196,7 @@ class TestLawyerListing:
         lawyers = response.json()
         assert len(lawyers) <= 10
 
-    def test_admin_can_see_all_lawyers(self, approved_lawyer, pending_lawyer, admin_auth_headers):
+    def test_admin_can_see_all_lawyers(self, client, approved_lawyer, pending_lawyer, admin_auth_headers):
         """Test that admin can see all lawyers including pending."""
         response = client.get("/api/v1/lawyers", headers=admin_auth_headers)
 
@@ -248,7 +204,7 @@ class TestLawyerListing:
         lawyers = response.json()
         assert len(lawyers) >= 2  # Both approved and pending
 
-    def test_get_filter_options_returns_available_filters(self, approved_lawyer):
+    def test_get_filter_options_returns_available_filters(self, client, approved_lawyer):
         """Test getting available filter options."""
         response = client.get("/api/v1/lawyers/filters/options")
 
@@ -262,7 +218,7 @@ class TestLawyerListing:
 class TestLawyerDetail:
     """Test lawyer detail retrieval."""
 
-    def test_get_lawyer_detail_succeeds(self, approved_lawyer):
+    def test_get_lawyer_detail_succeeds(self, client, approved_lawyer):
         """Test getting detailed lawyer information."""
         response = client.get(f"/api/v1/lawyers/{approved_lawyer.id}")
 
@@ -273,14 +229,14 @@ class TestLawyerDetail:
         assert "full_name" in data
         assert "bio" in data
 
-    def test_get_pending_lawyer_detail_returns_404(self, pending_lawyer):
+    def test_get_pending_lawyer_detail_returns_404(self, client, pending_lawyer):
         """Test that pending lawyer details are not accessible."""
         response = client.get(f"/api/v1/lawyers/{pending_lawyer.id}")
 
         assert response.status_code == 404
         assert "not available" in response.json()["detail"].lower()
 
-    def test_get_nonexistent_lawyer_returns_404(self):
+    def test_get_nonexistent_lawyer_returns_404(self, client):
         """Test that nonexistent lawyer returns 404."""
         response = client.get("/api/v1/lawyers/99999")
 
@@ -290,7 +246,7 @@ class TestLawyerDetail:
 class TestServiceRequestCreation:
     """Test service request creation."""
 
-    def test_create_service_request_succeeds(self, approved_lawyer, user_auth_headers):
+    def test_create_service_request_succeeds(self, client, approved_lawyer, user_auth_headers):
         """Test creating a service request to a lawyer."""
         request_data = {
             "lawyer_id": approved_lawyer.id,
@@ -306,7 +262,7 @@ class TestServiceRequestCreation:
         assert data["title"] == "Need legal consultation"
         assert data["status"] == "PENDING"
 
-    def test_create_request_to_nonexistent_lawyer_returns_404(self, user_auth_headers):
+    def test_create_request_to_nonexistent_lawyer_returns_404(self, client, user_auth_headers):
         """Test creating request to non-existent lawyer."""
         request_data = {
             "lawyer_id": 99999,
@@ -319,14 +275,12 @@ class TestServiceRequestCreation:
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
 
-    def test_create_request_to_unavailable_lawyer_returns_400(self, approved_lawyer, user_auth_headers):
+    def test_create_request_to_unavailable_lawyer_returns_400(self, client, db_session, approved_lawyer, user_auth_headers):
         """Test creating request to unavailable lawyer."""
         # Make lawyer unavailable
-        db = TestingSessionLocal()
-        lawyer = db.query(Lawyer).filter(Lawyer.id == approved_lawyer.id).first()
+        lawyer = db_session.query(Lawyer).filter(Lawyer.id == approved_lawyer.id).first()
         lawyer.is_available = False
-        db.commit()
-        db.close()
+        db_session.commit()
 
         request_data = {
             "lawyer_id": approved_lawyer.id,
@@ -339,7 +293,7 @@ class TestServiceRequestCreation:
         assert response.status_code == 400
         assert "not currently accepting" in response.json()["detail"].lower()
 
-    def test_create_request_without_auth_returns_401(self, approved_lawyer):
+    def test_create_request_without_auth_returns_401(self, client, approved_lawyer):
         """Test that unauthenticated request creation is rejected."""
         request_data = {
             "lawyer_id": approved_lawyer.id,
@@ -355,10 +309,9 @@ class TestServiceRequestCreation:
 class TestServiceRequestManagement:
     """Test service request management."""
 
-    def test_get_my_service_requests_as_user(self, approved_lawyer, user_auth_headers, test_user):
+    def test_get_my_service_requests_as_user(self, client, db_session, approved_lawyer, user_auth_headers, test_user):
         """Test getting service requests as a user."""
         # Create a service request first
-        db = TestingSessionLocal()
         request = ServiceRequest(
             user_id=test_user.id,
             lawyer_id=approved_lawyer.id,
@@ -366,9 +319,8 @@ class TestServiceRequestManagement:
             description="Test Description",
             status=ServiceRequest.RequestStatus.PENDING
         )
-        db.add(request)
-        db.commit()
-        db.close()
+        db_session.add(request)
+        db_session.commit()
 
         response = client.get("/api/v1/lawyers/requests/my-requests", headers=user_auth_headers)
 
@@ -378,10 +330,9 @@ class TestServiceRequestManagement:
         assert len(requests) >= 1
         assert requests[0]["title"] == "Test Request"
 
-    def test_get_my_service_requests_as_lawyer(self, approved_lawyer, lawyer_auth_headers, test_user):
+    def test_get_my_service_requests_as_lawyer(self, client, db_session, approved_lawyer, lawyer_auth_headers, test_user):
         """Test getting service requests as a lawyer."""
         # Create a service request to this lawyer
-        db = TestingSessionLocal()
         request = ServiceRequest(
             user_id=test_user.id,
             lawyer_id=approved_lawyer.id,
@@ -389,9 +340,8 @@ class TestServiceRequestManagement:
             description="Test Description",
             status=ServiceRequest.RequestStatus.PENDING
         )
-        db.add(request)
-        db.commit()
-        db.close()
+        db_session.add(request)
+        db_session.commit()
 
         response = client.get("/api/v1/lawyers/requests/my-requests", headers=lawyer_auth_headers)
 
@@ -400,10 +350,9 @@ class TestServiceRequestManagement:
         assert isinstance(requests, list)
         # Should see requests assigned to this lawyer
 
-    def test_get_service_request_detail_succeeds(self, approved_lawyer, user_auth_headers, test_user):
+    def test_get_service_request_detail_succeeds(self, client, db_session, approved_lawyer, user_auth_headers, test_user):
         """Test getting service request details."""
         # Create a service request
-        db = TestingSessionLocal()
         request = ServiceRequest(
             user_id=test_user.id,
             lawyer_id=approved_lawyer.id,
@@ -411,23 +360,21 @@ class TestServiceRequestManagement:
             description="Test Description",
             status=ServiceRequest.RequestStatus.PENDING
         )
-        db.add(request)
-        db.commit()
-        db.refresh(request)
+        db_session.add(request)
+        db_session.commit()
+        db_session.refresh(request)
         request_id = request.id
-        db.close()
 
-        response = client.get(f"/api/v1/lawyers/requests/{request_id}", headers=user_auth_headers)
+        response = client.get(f"/api/v1/service-requests/{request_id}", headers=user_auth_headers)
 
         assert response.status_code == 200
         data = response.json()
         assert data["id"] == request_id
         assert data["title"] == "Detail Test"
 
-    def test_cancel_service_request_succeeds(self, approved_lawyer, user_auth_headers, test_user):
+    def test_cancel_service_request_succeeds(self, client, db_session, approved_lawyer, user_auth_headers, test_user):
         """Test canceling a pending service request."""
         # Create a pending request
-        db = TestingSessionLocal()
         request = ServiceRequest(
             user_id=test_user.id,
             lawyer_id=approved_lawyer.id,
@@ -435,11 +382,10 @@ class TestServiceRequestManagement:
             description="Test Description",
             status=ServiceRequest.RequestStatus.PENDING
         )
-        db.add(request)
-        db.commit()
-        db.refresh(request)
+        db_session.add(request)
+        db_session.commit()
+        db_session.refresh(request)
         request_id = request.id
-        db.close()
 
         response = client.delete(f"/api/v1/lawyers/requests/{request_id}", headers=user_auth_headers)
 
@@ -449,42 +395,38 @@ class TestServiceRequestManagement:
 class TestAdminLawyerManagement:
     """Test admin lawyer approval/rejection."""
 
-    def test_admin_approve_lawyer_succeeds(self, pending_lawyer, admin_auth_headers):
+    def test_admin_approve_lawyer_succeeds(self, client, db_session, pending_lawyer, admin_auth_headers):
         """Test admin approving a pending lawyer."""
-        response = client.patch(f"/api/v1/lawyers/{pending_lawyer.id}/approve", headers=admin_auth_headers)
+        response = client.patch(f"/api/v1/lawyers/{pending_lawyer.id}/approve", headers=admin_auth_headers, json={})
 
         assert response.status_code == 200
         assert "approved" in response.json()["message"].lower()
 
         # Verify lawyer is approved
-        db = TestingSessionLocal()
-        lawyer = db.query(Lawyer).filter(Lawyer.id == pending_lawyer.id).first()
+        lawyer = db_session.query(Lawyer).filter(Lawyer.id == pending_lawyer.id).first()
         assert lawyer.verification_status == Lawyer.VerificationStatus.APPROVED
-        db.close()
 
-    def test_admin_reject_lawyer_succeeds(self, pending_lawyer, admin_auth_headers):
+    def test_admin_reject_lawyer_succeeds(self, client, db_session, pending_lawyer, admin_auth_headers):
         """Test admin rejecting a pending lawyer."""
-        response = client.patch(f"/api/v1/lawyers/{pending_lawyer.id}/reject", headers=admin_auth_headers)
+        response = client.patch(f"/api/v1/lawyers/{pending_lawyer.id}/reject", headers=admin_auth_headers, json={})
 
         assert response.status_code == 200
         assert "rejected" in response.json()["message"].lower()
 
         # Verify lawyer is rejected
-        db = TestingSessionLocal()
-        lawyer = db.query(Lawyer).filter(Lawyer.id == pending_lawyer.id).first()
+        lawyer = db_session.query(Lawyer).filter(Lawyer.id == pending_lawyer.id).first()
         assert lawyer.verification_status == Lawyer.VerificationStatus.REJECTED
-        db.close()
 
-    def test_non_admin_cannot_approve_lawyer(self, pending_lawyer, user_auth_headers):
+    def test_non_admin_cannot_approve_lawyer(self, client, pending_lawyer, user_auth_headers):
         """Test that non-admin cannot approve lawyers."""
-        response = client.patch(f"/api/v1/lawyers/{pending_lawyer.id}/approve", headers=user_auth_headers)
+        response = client.patch(f"/api/v1/lawyers/{pending_lawyer.id}/approve", headers=user_auth_headers, json={})
 
         assert response.status_code == 403
         assert "admin" in response.json()["detail"].lower()
 
-    def test_approve_nonexistent_lawyer_returns_404(self, admin_auth_headers):
+    def test_approve_nonexistent_lawyer_returns_404(self, client, admin_auth_headers):
         """Test approving non-existent lawyer."""
-        response = client.patch("/api/v1/lawyers/99999/approve", headers=admin_auth_headers)
+        response = client.patch("/api/v1/lawyers/99999/approve", headers=admin_auth_headers, json={})
 
         assert response.status_code == 404
 

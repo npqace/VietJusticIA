@@ -31,6 +31,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         
     async def dispatch(self, request: Request, call_next) -> Response:
         """Add security headers to response."""
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"SecurityHeadersMiddleware dispatching: {request.method} {request.url.path}")
         response = await call_next(request)
         
         # Prevent MIME-sniffing attacks

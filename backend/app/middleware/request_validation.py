@@ -66,6 +66,7 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
     
     async def dispatch(self, request: Request, call_next) -> Response:
         """Validate request before processing."""
+        logger.info(f"RequestValidationMiddleware dispatching: {request.method} {request.url.path}")
         
         # Check request size
         content_length_header = request.headers.get("content-length")
@@ -91,6 +92,7 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
                 )
         
         # Validate Content-Type for POST/PUT/PATCH requests
+        logger.info(f"Middleware processing: method={request.method}, path={request.url.path}")
         if request.method in ["POST", "PUT", "PATCH"]:
             content_type = request.headers.get("content-type", "")
             

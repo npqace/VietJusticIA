@@ -60,12 +60,12 @@ class DocumentDetailResponse(BaseModel):
 
 # --- Endpoints ---
 
-@router.get("/documents", response_model=DocumentListResponse)
+@router.get("/documents", response_model=DocumentListResponse, response_model_by_alias=False)
 async def get_documents(
     search: str = Query(None, description="Search term for document titles"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Number of documents per page"),
-    status: Optional[str] = Query(None, description="Filter by document status"),
+    doc_status: Optional[str] = Query(None, alias="status", description="Filter by document status"),
     document_type: Optional[str] = Query(None, description="Filter by document type"),
     category: Optional[str] = Query(None, description="Filter by legal field/category"),
     issuer: Optional[str] = Query(None, description="Filter by issuer"),
@@ -79,7 +79,7 @@ async def get_documents(
     try:
         logger.info(
             f"Fetching documents: search={search}, page={page}, page_size={page_size}, "
-            f"status={status}, type={document_type}"
+            f"status={doc_status}, type={document_type}"
         )
         
         documents_list, total_docs, total_pages = document_repository.find_documents(
@@ -87,7 +87,7 @@ async def get_documents(
             search=search,
             page=page,
             page_size=page_size,
-            status=status,
+            status=doc_status,
             document_type=document_type,
             category=category,
             issuer=issuer,
@@ -153,7 +153,7 @@ async def get_filter_options(mongo_db: Database = Depends(get_mongo_db)):
             detail="An unexpected error occurred"
         )
 
-@router.get("/documents/{document_id}", response_model=DocumentDetailResponse)
+@router.get("/documents/{document_id}", response_model=DocumentDetailResponse, response_model_by_alias=False)
 async def get_document_by_id(
     document_id: str,
     mongo_db: Database = Depends(get_mongo_db)

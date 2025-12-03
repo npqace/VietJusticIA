@@ -29,11 +29,10 @@ def test_create_user_case_insensitive_email_check():
     query_mock.filter.return_value = filter_mock
     filter_mock.first.return_value = existing_user # Return existing user
     
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(ValueError) as exc:
         user_repository.create_user(db, user_input)
         
-    assert exc.value.status_code == 400
-    assert exc.value.detail == "Email already registered"
+    assert str(exc.value) == "Email already registered"
 
 def test_authenticate_user_case_insensitive():
     db = Mock(spec=Session)

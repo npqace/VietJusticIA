@@ -23,7 +23,13 @@ async def signup(signup_request: SignUpModel, db: Session = Depends(get_db)):
             detail="Passwords do not match"
         )
     
-    user = user_repository.create_user(db, signup_request)
+    try:
+        user = user_repository.create_user(db, signup_request)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
 
     otp = otp_service.generate_otp()
     user.otp = otp
@@ -57,7 +63,13 @@ class VerifyOTPRequest(BaseModel):
 
 @router.post("/verify-otp", response_model=dict)
 async def verify_otp(request: VerifyOTPRequest, db: Session = Depends(get_db)):
-    user = user_repository.verify_signup_otp(db, email=request.email, otp=request.otp)
+    user, error = user_repository.verify_signup_otp(db, email=request.email, otp=request.otp)
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error or "Invalid OTP or email"
+        )
     
     token_claims = {"sub": user.email, "role": user.role.value}
     access_token = create_access_token(data=token_claims)
@@ -114,7 +126,8 @@ async def reset_password(request: ResetPasswordRequest, db: Session = Depends(ge
             detail="Invalid OTP or email.",
         )
 
-    if not user_repository.verify_otp(db, user, request.otp):
+    success, _ = user_repository.verify_otp(db, user, request.otp)
+    if not success:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired OTP.",

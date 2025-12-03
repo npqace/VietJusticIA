@@ -401,8 +401,11 @@ def update_user(
     try:
         logger.info(f"Updating user profile: user_id={user.id}")
 
-        # Handle both dict and Pydantic model (legacy support removed, enforced Pydantic)
-        update_data = user_update.model_dump(exclude_unset=True)
+        # Handle both dict and Pydantic model
+        if isinstance(user_update, dict):
+            update_data = user_update
+        else:
+            update_data = user_update.model_dump(exclude_unset=True)
 
         for key, value in update_data.items():
             setattr(user, key, value)
@@ -518,4 +521,38 @@ def update_user_status(db: Session, user_id: int, is_active: bool) -> Optional[m
     except SQLAlchemyError as e:
         db.rollback()
         logger.error(f"Database error updating user status: {e}")
+        raise RuntimeError("Database error occurred")
+
+
+def delete_user_permanently(db: Session, user_id: int) -> bool:
+    """
+    Permanently delete a user from the database.
+    
+    Args:
+        db: Database session
+        user_id: ID of the user to delete
+        
+    Returns:
+        bool: True if deleted, False if user not found
+        
+    Raises:
+        RuntimeError: Database error
+    """
+    try:
+        logger.info(f"Permanently deleting user: {user_id}")
+        
+        user = get_user_by_id(db, user_id)
+        if not user:
+            logger.warning(f"User {user_id} not found for deletion")
+            return False
+            
+        db.delete(user)
+        db.commit()
+        
+        logger.info(f"User {user_id} permanently deleted")
+        return True
+        
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Database error deleting user {user_id}: {e}")
         raise RuntimeError("Database error occurred")

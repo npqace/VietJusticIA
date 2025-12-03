@@ -3,6 +3,8 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from app.middleware.rate_limit_auth import rate_limit_store
 from app.main import app
+from unittest.mock import patch
+import os
 
 # --- Fixtures ---
 
@@ -34,22 +36,24 @@ async def test_forgot_password_rate_limit(client):
     endpoint = "/api/v1/password/forgot-password"
     payload = {"email": "test@example.com"}
     
-    # Attempt 1: Should succeed
-    response = client.post(endpoint, json=payload)
-    assert response.status_code == status.HTTP_200_OK
-    
-    # Attempt 2: Should succeed
-    response = client.post(endpoint, json=payload)
-    assert response.status_code == status.HTTP_200_OK
-    
-    # Attempt 3: Should succeed
-    response = client.post(endpoint, json=payload)
-    assert response.status_code == status.HTTP_200_OK
-    
-    # Attempt 4: Should fail (Rate limit exceeded)
-    response = client.post(endpoint, json=payload)
-    assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
-    assert "Too many requests" in response.json()["detail"]["error"]
+    # Temporarily enable rate limiting by changing environment
+    with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
+        # Attempt 1: Should succeed
+        response = client.post(endpoint, json=payload)
+        assert response.status_code == status.HTTP_200_OK
+        
+        # Attempt 2: Should succeed
+        response = client.post(endpoint, json=payload)
+        assert response.status_code == status.HTTP_200_OK
+        
+        # Attempt 3: Should succeed
+        response = client.post(endpoint, json=payload)
+        assert response.status_code == status.HTTP_200_OK
+        
+        # Attempt 4: Should fail (Rate limit exceeded)
+        response = client.post(endpoint, json=payload)
+        assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+        assert "Too many requests" in response.json()["detail"]["error"]
 
 @pytest.mark.asyncio
 async def test_verify_otp_rate_limit(client):
@@ -60,15 +64,16 @@ async def test_verify_otp_rate_limit(client):
     endpoint = "/api/v1/password/verify-reset-otp"
     payload = {"email": "test@example.com", "otp": "123456"}
     
-    # 5 allowed attempts
-    for _ in range(5):
+    with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
+        # 5 allowed attempts
+        for _ in range(5):
+            response = client.post(endpoint, json=payload)
+            # It might return 400 or 404 depending on logic, but NOT 429 yet
+            assert response.status_code != status.HTTP_429_TOO_MANY_REQUESTS
+            
+        # 6th attempt: Should fail with 429
         response = client.post(endpoint, json=payload)
-        # It might return 400 or 404 depending on logic, but NOT 429 yet
-        assert response.status_code != status.HTTP_429_TOO_MANY_REQUESTS
-        
-    # 6th attempt: Should fail with 429
-    response = client.post(endpoint, json=payload)
-    assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+        assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
 
 @pytest.mark.asyncio
 async def test_reset_password_rate_limit(client):
@@ -79,14 +84,15 @@ async def test_reset_password_rate_limit(client):
     endpoint = "/api/v1/password/reset-password"
     payload = {"token": "fake-token", "new_password": "StrongPassword1!"}
     
-    # 3 allowed attempts
-    for _ in range(3):
+    with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
+        # 3 allowed attempts
+        for _ in range(3):
+            response = client.post(endpoint, json=payload)
+            assert response.status_code != status.HTTP_429_TOO_MANY_REQUESTS
+            
+        # 4th attempt: Should fail with 429
         response = client.post(endpoint, json=payload)
-        assert response.status_code != status.HTTP_429_TOO_MANY_REQUESTS
-        
-    # 4th attempt: Should fail with 429
-    response = client.post(endpoint, json=payload)
-    assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+        assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
 
 
 # --- Password Validation Tests ---

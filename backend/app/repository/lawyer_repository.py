@@ -265,6 +265,39 @@ def update_lawyer_rating(
         raise RuntimeError(f"Database error updating lawyer rating")
 
 
+def update_verification_status(
+    db: Session, 
+    lawyer_id: int, 
+    status: Lawyer.VerificationStatus
+) -> Optional[Lawyer]:
+    """
+    Update lawyer's verification status.
+    
+    Args:
+        db: Database session
+        lawyer_id: ID of the lawyer
+        status: New verification status
+        
+    Returns:
+        Updated Lawyer object or None if not found
+    """
+    try:
+        db_lawyer = db.query(Lawyer).filter(Lawyer.id == lawyer_id).first()
+        if not db_lawyer:
+            logger.warning(f"Lawyer {lawyer_id} not found for status update")
+            return None
+            
+        db_lawyer.verification_status = status
+        db.commit()
+        db.refresh(db_lawyer)
+        logger.info(f"Updated verification status for lawyer {lawyer_id} to {status}")
+        return db_lawyer
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Failed to update status for lawyer {lawyer_id}: {e}")
+        raise RuntimeError(f"Database error updating lawyer status")
+
+
 # ServiceRequest operations
 
 def create_service_request(

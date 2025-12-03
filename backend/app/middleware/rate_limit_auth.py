@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List
 import asyncio
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -166,6 +167,11 @@ class AuthRateLimitMiddleware(BaseHTTPMiddleware):
     
     async def dispatch(self, request: Request, call_next) -> Response:
         """Check rate limit before processing request."""
+        # Skip rate limiting in test environment
+        if os.getenv("ENVIRONMENT") == "test":
+            return await call_next(request)
+
+        logger.info(f"AuthRateLimitMiddleware dispatching: {request.method} {request.url.path}")
         
         # Only check POST requests to auth endpoints
         if request.method != "POST":
