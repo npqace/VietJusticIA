@@ -9,6 +9,7 @@ import {
   Dimensions,
   ActivityIndicator,
   Alert,
+  DeviceEventEmitter,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -104,6 +105,8 @@ const MenuScreen = ({ navigation }: { navigation: any }) => {
               await api.delete(`/api/v1/chat/sessions/${sessionId}`);
               setChatSessions(chatSessions.filter(s => s.session_id !== sessionId));
               console.log(`Deleted session ${sessionId}`);
+              // Notify ChatScreen that a session was deleted
+              DeviceEventEmitter.emit('chatSessionDeleted', { sessionId });
             } catch (error) {
               console.error('Failed to delete session:', error);
               Alert.alert('Lỗi', 'Không thể xóa cuộc trò chuyện. Vui lòng thử lại.');
@@ -151,7 +154,7 @@ const MenuScreen = ({ navigation }: { navigation: any }) => {
           <Ionicons name="close" size={30} color={COLORS.gray} />
         </TouchableOpacity>
       </View>
-      
+
       <ScrollView style={styles.content}>
         {/* User Profile */}
         <TouchableOpacity
@@ -181,7 +184,7 @@ const MenuScreen = ({ navigation }: { navigation: any }) => {
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
-        
+
         {/* Menu Options */}
         <View style={styles.menuContainer}>
           {menuOptions.map((option) => (
@@ -195,7 +198,7 @@ const MenuScreen = ({ navigation }: { navigation: any }) => {
             </TouchableOpacity>
           ))}
         </View>
-        
+
         {/* Chat History */}
         <View style={styles.chatHistoryContainer}>
           <Text style={styles.chatHistoryTitle}>Lịch sử trò chuyện</Text>
@@ -267,7 +270,7 @@ const styles = StyleSheet.create({
   },
   logo: {
     width: width * 0.15,
-    height: width * 0.15,    
+    height: width * 0.15,
   },
   closeButton: {
     padding: 8,

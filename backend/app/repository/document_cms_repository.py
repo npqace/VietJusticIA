@@ -3,7 +3,7 @@ Repository for Document CMS operations on MongoDB.
 Handles CRUD operations for legal_documents collection.
 """
 from pymongo import MongoClient, ASCENDING, DESCENDING
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime, timezone
 from bson import ObjectId
 import os
@@ -16,9 +16,20 @@ MONGO_URL = os.getenv("MONGO_URL", "mongodb://mongodb:27017/")
 MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "vietjusticia")
 LEGAL_DOCUMENTS_COLLECTION = "legal_documents"
 
-client = MongoClient(MONGO_URL)
-db = client[MONGO_DB_NAME]
-legal_docs_collection = db[LEGAL_DOCUMENTS_COLLECTION]
+_client = None
+_db = None
+_legal_docs_collection = None
+
+def get_collection():
+    """Get or create MongoDB collection (lazy initialization)."""
+    global _client, _db, _legal_docs_collection
+
+    if _legal_docs_collection is None:
+        _client = MongoClient(MONGO_URL)
+        _db = _client[MONGO_DB_NAME]
+        _legal_docs_collection = _db[LEGAL_DOCUMENTS_COLLECTION]
+
+    return _legal_docs_collection
 
 
 def create_document_record(document_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -41,7 +52,8 @@ def create_document_record(document_data: Dict[str, Any]) -> Dict[str, Any]:
         document_data.setdefault("document_status", "processing")
 
         # Insert document
-        result = legal_docs_collection.insert_one(document_data)
+        collection = get_collection()
+        result = collection.insert_one(document_data)
         document_data["_id"] = str(result.inserted_id) if isinstance(result.inserted_id, ObjectId) else result.inserted_id
 
         logger.info(f"Document created: {document_data['_id']}")
@@ -63,7 +75,8 @@ def get_document_by_id(document_id: str) -> Optional[Dict[str, Any]]:
         Document data or None if not found
     """
     try:
-        document = legal_docs_collection.find_one({"_id": document_id})
+        collection = get_collection()
+        document = collection.find_one({"_id": document_id})
         return document
     except Exception as e:
         logger.error(f"Failed to get document {document_id}: {e}")
@@ -78,7 +91,7 @@ def list_documents(
     search: Optional[str] = None,
     sort_by: str = "created_at",
     sort_order: str = "desc"
-) -> tuple[List[Dict[str, Any]], int]:
+) -> Tuple[List[Dict[str, Any]], int]:
     """
     List documents with filtering and pagination.
 
@@ -95,6 +108,8 @@ def list_documents(
         Tuple of (documents list, total count)
     """
     try:
+        collection = get_collection()
+        
         # Build filter query
         filter_query = {}
 
@@ -115,7 +130,7 @@ def list_documents(
             ]
 
         # Get total count
-        total = legal_docs_collection.count_documents(filter_query)
+        total = collection.count_documents(filter_query)
 
         # Calculate pagination
         skip = (page - 1) * limit
@@ -125,7 +140,7 @@ def list_documents(
 
         # Query documents
         documents = list(
-            legal_docs_collection
+            collection
             .find(filter_query)
             .sort(sort_by, sort_direction)
             .skip(skip)
@@ -152,10 +167,12 @@ def update_document(document_id: str, update_data: Dict[str, Any]) -> bool:
         True if updated successfully
     """
     try:
+        collection = get_collection()
+        
         # Add updated timestamp
         update_data["updated_at"] = datetime.now(timezone.utc)
 
-        result = legal_docs_collection.update_one(
+        result = collection.update_one(
             {"_id": document_id},
             {"$set": update_data}
         )
@@ -183,7 +200,8 @@ def delete_document(document_id: str) -> bool:
         True if deleted successfully
     """
     try:
-        result = legal_docs_collection.delete_one({"_id": document_id})
+        collection = get_collection()
+        result = collection.delete_one({"_id": document_id})
 
         if result.deleted_count > 0:
             logger.info(f"Document {document_id} deleted from MongoDB")
@@ -208,7 +226,8 @@ def document_exists(document_id: str) -> bool:
         True if document exists
     """
     try:
-        count = legal_docs_collection.count_documents({"_id": document_id})
+        collection = get_collection()
+        count = collection.count_documents({"_id": document_id})
         return count > 0
     except Exception as e:
         logger.error(f"Failed to check document existence: {e}")
@@ -226,7 +245,8 @@ def get_documents_by_ids(document_ids: List[str]) -> List[Dict[str, Any]]:
         List of documents
     """
     try:
-        documents = list(legal_docs_collection.find({"_id": {"$in": document_ids}}))
+        collection = get_collection()
+        documents = list(collection.find({"_id": {"$in": document_ids}}))
         logger.info(f"Retrieved {len(documents)} documents")
         return documents
     except Exception as e:
@@ -234,41 +254,30 @@ def get_documents_by_ids(document_ids: List[str]) -> List[Dict[str, Any]]:
         raise
 
 
-def get_categories() -> List[str]:
-    """
-    Get list of unique categories.
-
-    Returns:
-        List of category names
-    """
-    try:
-        categories = legal_docs_collection.distinct("category")
-        return [cat for cat in categories if cat]  # Filter out None/empty
-    except Exception as e:
-        logger.error(f"Failed to get categories: {e}")
-        raise
-
-
-def get_document_statistics() -> Dict[str, Any]:
+def get_document_statistics(top_categories_limit: int = 10) -> Dict[str, Any]:
     """
     Get overall document statistics.
+
+    Args:
+        top_categories_limit: Number of top categories to return (default: 10)
 
     Returns:
         Dictionary with statistics
     """
     try:
-        total_docs = legal_docs_collection.count_documents({})
+        collection = get_collection()
+        total_docs = collection.count_documents({})
 
         # Count by status
-        completed = legal_docs_collection.count_documents({"document_status": "completed"})
-        processing = legal_docs_collection.count_documents({"document_status": "processing"})
-        failed = legal_docs_collection.count_documents({"document_status": "failed"})
+        completed = collection.count_documents({"document_status": "completed"})
+        processing = collection.count_documents({"document_status": "processing"})
+        failed = collection.count_documents({"document_status": "failed"})
 
         # Count by category
-        categories = legal_docs_collection.aggregate([
+        categories = collection.aggregate([
             {"$group": {"_id": "$category", "count": {"$sum": 1}}},
             {"$sort": {"count": -1}},
-            {"$limit": 10}
+            {"$limit": top_categories_limit}
         ])
 
         return {
@@ -291,7 +300,8 @@ def get_unique_categories() -> List[str]:
         List of unique category names
     """
     try:
-        categories = legal_docs_collection.distinct("category")
+        collection = get_collection()
+        categories = collection.distinct("category")
         # Filter out None/empty and return sorted list
         unique_categories = sorted([cat for cat in categories if cat])
         logger.info(f"Found {len(unique_categories)} unique categories")
@@ -299,6 +309,21 @@ def get_unique_categories() -> List[str]:
     except Exception as e:
         logger.error(f"Failed to get unique categories: {e}")
         raise
+
+
+def get_total_documents_count() -> int:
+    """
+    Get total count of documents.
+
+    Returns:
+        Total number of documents
+    """
+    try:
+        collection = get_collection()
+        return collection.count_documents({})
+    except Exception as e:
+        logger.error(f"Failed to count documents: {e}")
+        return 0
 
 
 def get_unique_statuses() -> List[str]:
@@ -309,7 +334,8 @@ def get_unique_statuses() -> List[str]:
         List of unique status values
     """
     try:
-        statuses = legal_docs_collection.distinct("status")
+        collection = get_collection()
+        statuses = collection.distinct("status")
         # Filter out None/empty and return sorted list
         unique_statuses = sorted([status for status in statuses if status])
         logger.info(f"Found {len(unique_statuses)} unique statuses")

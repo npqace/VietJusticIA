@@ -17,7 +17,6 @@ import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SIZES } from '../../constants/styles';
-import CustomButton from '../CustomButton';
 
 const { height: screenHeight } = Dimensions.get('window');
 
@@ -260,6 +259,8 @@ const FilterModal: React.FC<FilterModalProps> = ({
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                 onChange={(e, d) => onStartDateChange(e, d, `${field.key}Start`)}
                 maximumDate={endDateObj || new Date()}
+                themeVariant="light"
+                textColor="black"
               />
             )}
             {showEndDatePicker && (
@@ -270,6 +271,8 @@ const FilterModal: React.FC<FilterModalProps> = ({
                 onChange={(e, d) => onEndDateChange(e, d, `${field.key}End`)}
                 minimumDate={startDateObj}
                 maximumDate={new Date()}
+                themeVariant="light"
+                textColor="black"
               />
             )}
           </View>
@@ -341,7 +344,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
     >
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.modalBackdrop}>
-          <TouchableWithoutFeedback onPress={() => {}}>
+          <TouchableWithoutFeedback onPress={() => { }}>
             <PanGestureHandler
               onGestureEvent={onGestureEvent}
               onHandlerStateChange={onHandlerStateChange}

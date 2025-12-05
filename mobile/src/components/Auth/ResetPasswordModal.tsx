@@ -15,14 +15,40 @@ import { COLORS, SIZES, FONTS } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
 import { resetPassword } from '../../services/authService';
 import PasswordRequirements from '../PasswordRequirements';
+import { AxiosError } from 'axios';
 
+interface ApiErrorResponse {
+  detail?: string;
+  message?: string;
+}
+
+/**
+ * Props for ResetPasswordModal component
+ */
 interface ResetPasswordModalProps {
+  /** Whether modal is visible */
   visible: boolean;
+  /** Callback to close modal */
   onClose: () => void;
+  /** Callback invoked on successful password reset */
   onSuccess: () => void;
+  /** OTP reset token from password reset flow (null if not set) */
   token: string | null;
 }
 
+/**
+ * Validates password against security requirements
+ *
+ * @param {string} password - Password to validate
+ * @returns {string} Error message if invalid, empty string if valid
+ *
+ * Requirements:
+ * - Min 8 characters
+ * - At least 1 uppercase letter
+ * - At least 1 lowercase letter
+ * - At least 1 digit
+ * - At least 1 special character
+ */
 const validatePassword = (password: string): string => {
   if (password.length < 8) return 'Mật khẩu phải có ít nhất 8 ký tự.';
   if (!/[A-Z]/.test(password)) return 'Mật khẩu phải chứa ít nhất 1 chữ hoa.';
@@ -32,12 +58,36 @@ const validatePassword = (password: string): string => {
   return '';
 };
 
+/**
+ * ResetPasswordModal Component
+ *
+ * Modal for resetting password with OTP token.
+ * Integrates with PasswordRequirements component for real-time validation feedback.
+ *
+ * User Flow:
+ * 1. User enters new password → PasswordRequirements shows validation status
+ * 2. User enters confirm password
+ * 3. Validates passwords match
+ * 4. Calls resetPassword API with token
+ * 5. Calls onSuccess on successful reset
+ *
+ * @component
+ */
 const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ visible, onClose, onSuccess, token }) => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [newPasswordFocused, setNewPasswordFocused] = useState(false);
 
+  /**
+   * Resets password using OTP token
+   *
+   * Validates:
+   * - Token exists
+   * - Both password fields filled
+   * - Password meets requirements
+   * - Passwords match
+   */
   const handleResetPassword = async () => {
     Keyboard.dismiss();
     if (!token) {
@@ -48,14 +98,14 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ visible, onClos
       Alert.alert('Lỗi', 'Vui lòng điền đầy đủ tất cả các trường.');
       return;
     }
-    
+
     // Validate new password
     const passwordError = validatePassword(newPassword);
     if (passwordError) {
       Alert.alert('Lỗi', passwordError);
       return;
     }
-    
+
     if (newPassword !== confirmPassword) {
       Alert.alert('Lỗi', 'Mật khẩu mới không khớp.');
       return;
@@ -64,8 +114,14 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ visible, onClos
     try {
       await resetPassword({ token, new_password: newPassword });
       onSuccess();
-    } catch (err: any) {
-      Alert.alert('Lỗi', err.response?.data?.detail || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
+    } catch (err) {
+      const axiosError = err as AxiosError<ApiErrorResponse>;
+      const errorMessage =
+        axiosError.response?.data?.detail ||
+        axiosError.response?.data?.message ||
+        'Đã có lỗi xảy ra. Vui lòng thử lại.';
+
+      Alert.alert('Lỗi', errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -89,7 +145,7 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ visible, onClos
               <Text style={styles.subtitle}>
                 Nhập mật khẩu mới của bạn.
               </Text>
-              
+
               <View style={styles.inputOuterContainer}>
                 <Ionicons name="lock-closed-outline" size={22} color={COLORS.gray} style={styles.inputIcon} />
                 <TextInput
@@ -106,7 +162,7 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ visible, onClos
 
               {/* Password Requirements Component */}
               {(newPasswordFocused || newPassword.length > 0) && (
-                <View style={{ width: '100%', marginBottom: 10 }}>
+                <View style={styles.requirementsContainer}>
                   <PasswordRequirements password={newPassword} showRequirements={true} />
                 </View>
               )}
@@ -141,13 +197,13 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ visible, onClos
 const styles = StyleSheet.create({
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: COLORS.modalBackdrop || 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContainer: {
     width: '90%',
-    backgroundColor: 'white',
+    backgroundColor: COLORS.white,
     borderRadius: 20,
     padding: 25,
     alignItems: 'center',
@@ -190,6 +246,10 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.regular,
     fontSize: SIZES.body,
     color: COLORS.black,
+  },
+  requirementsContainer: {
+    width: '100%',
+    marginBottom: 10,
   },
   submitButton: {
     backgroundColor: COLORS.primary,

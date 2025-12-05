@@ -79,10 +79,10 @@ async def create_chat_session(
         return complete_session
 
     except Exception as e:
-        logger.error(f"Failed to create chat session: {e}")
+        logger.error(f"Failed to create chat session: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create chat session"
+            detail=f"Failed to create chat session: {str(e)}"
         )
 
 
@@ -117,7 +117,7 @@ async def get_user_chat_sessions(
         return sessions
 
     except Exception as e:
-        logger.error(f"Failed to fetch chat sessions: {e}")
+        logger.error(f"Failed to fetch chat sessions: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve chat sessions"
@@ -159,7 +159,7 @@ async def get_chat_session(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to fetch chat session {session_id}: {e}")
+        logger.error(f"Failed to fetch chat session {session_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve chat session"
@@ -185,6 +185,12 @@ async def add_message_to_session(
         Bot response with sources
     """
     try:
+        if not message_data.message.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Message cannot be empty"
+            )
+
         logger.info(f"Adding message to session {session_id} for user {current_user.email}")
 
         # Verify session exists and belongs to user
@@ -224,10 +230,10 @@ async def add_message_to_session(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to add message to session {session_id}: {e}")
+        logger.error(f"Failed to add message to session {session_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to add message to session"
+            detail=f"Failed to add message to session: {str(e)}"
         )
 
 

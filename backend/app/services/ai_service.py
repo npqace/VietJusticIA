@@ -1,9 +1,7 @@
 import os
 import json
-import sys
 import asyncio
 import re
-import json
 import logging
 from typing import List, Dict, Any, Optional
 
@@ -13,22 +11,24 @@ from langchain_core.documents import Document
 from langchain_community.embeddings import SentenceTransformerEmbeddings
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import RunnablePassthrough
+from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.retrievers import EnsembleRetriever
 from langchain.storage import InMemoryStore
 from langchain_community.retrievers import BM25Retriever
 from pyvi import ViTokenizer
 
-from langchain_core.runnables import RunnableLambda, RunnablePassthrough
-
 from .document_processor import document_processor
 from ..utils.rate_limiter import gemini_rate_limiter
 from ..utils.response_cache import rag_response_cache
 
-# Add the parent directory to the path to allow imports
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# Configuration Constants
+MAX_QUERY_LENGTH = 2000
+DEFAULT_MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+RETRIEVER_K = int(os.getenv("RETRIEVER_K", "15"))
+ENSEMBLE_WEIGHTS = [0.6, 0.4]
+MAX_RETRIES = 3
+BASE_DELAY = 1.0
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -116,7 +116,7 @@ class RAGService:
     def _initialize_models(self):
         """Initializes the language model and the embedding model."""
         logger.info("[INIT] Initializing AI models")
-        self.llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
+        self.llm = ChatGoogleGenerativeAI(model=DEFAULT_MODEL_NAME, temperature=0)
         self.embeddings = SentenceTransformerEmbeddings(
             model_name='sentence-transformers/paraphrase-multilingual-mpnet-base-v2'
         )
@@ -146,18 +146,18 @@ class RAGService:
             collection_name=COLLECTION_NAME,
             embeddings=self.embeddings,
         )
-        qdrant_retriever = vector_store.as_retriever(search_kwargs={'k': 15})
+        qdrant_retriever = vector_store.as_retriever(search_kwargs={'k': RETRIEVER_K})
         logger.info("[INIT] Connected to Qdrant collection")
 
         # 3. Create Ensemble Retriever
         ensemble_retriever = EnsembleRetriever(
             retrievers=[bm25_retriever, qdrant_retriever],
-            weights=[0.6, 0.4]
+            weights=ENSEMBLE_WEIGHTS
         )
         logger.info("[INIT] Ensemble retriever created")
 
         # 4. Setup Parent Document Retrieval Chain
-        def _get_parent_docs(input_dict: dict) -> list[Document]:
+        def _get_parent_docs(input_dict: dict) -> List[Document]:
             child_docs = input_dict["child_docs"]
             parent_ids = []
             for doc in child_docs:
@@ -211,6 +211,13 @@ class RAGService:
         if not self.rag_chain:
             return {"response": "RAG chain is not available. Initialization may have failed.", "sources": []}
 
+        # Input validation
+        if len(query) > MAX_QUERY_LENGTH:
+            return {
+                "response": f"Your query is too long ({len(query)} characters). Please limit it to {MAX_QUERY_LENGTH} characters.",
+                "sources": []
+            }
+
         # Check cache first
         cached_response = await rag_response_cache.get(query)
         if cached_response:
@@ -222,8 +229,8 @@ class RAGService:
         logger.info("[CACHE] Cache miss - processing new query")
 
         # Retry logic with exponential backoff
-        max_retries = 3
-        base_delay = 1.0  # seconds
+        max_retries = MAX_RETRIES
+        base_delay = BASE_DELAY  # seconds
 
         for attempt in range(max_retries):
             try:

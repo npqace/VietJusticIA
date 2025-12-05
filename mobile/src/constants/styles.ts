@@ -23,7 +23,7 @@ export const COLORS = {
   red: '#DC3545',
   error: '#DC3545',  // Alias for red
 
-  
+
   // Gradient colors
   gradientStart: 'rgba(255, 255, 255, 1)',
   gradientMiddle1: 'rgba(174, 197, 220, 0.9)',
@@ -34,10 +34,16 @@ export const COLORS = {
   profileGradientStart: '#FFFFFF',
   profileGradientMid: '#E6F0F9',
   profileGradientEnd: '#B0CBE2',
-  
+
   // Button colors
   buttonLight: '#FFFFFF',
   buttonDark: '#3B5998',
+
+  // UI Elements
+  inputBackground: '#F9F9F9',
+  divider: '#F0F0F0',
+  disabled: '#CCCCCC',
+  modalBackdrop: 'rgba(0, 0, 0, 0.5)',
 };
 
 // Font sizes

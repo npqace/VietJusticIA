@@ -58,3 +58,9 @@ backend/coverage.xml
 backend/.tox/
 backend/.mypy_cache/
 backend/.ruff_cache/
+.coverage
+coverage.xml
+*_results.txt
+*.log
+logs.txt
+temp_logs.txt

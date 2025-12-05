@@ -16,7 +16,36 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
 import { VIETNAM_PROVINCES, Province, District } from '../../constants/vietnamLocations';
+import { AxiosError } from 'axios';
 
+interface ApiErrorResponse {
+  detail?: string;
+  message?: string;
+}
+
+/**
+ * LegalConsultantTab Component
+ *
+ * Form for users to submit legal consultation requests.
+ * Auto-populates user info if logged in (full name, email, phone).
+ * Includes comprehensive validation and modal-based location selection.
+ *
+ * Features:
+ * - Auto-fill user info from AuthContext
+ * - Real-time validation with error display
+ * - Province/District cascading selection
+ * - Form reset after successful submission
+ * - Loading state during API call
+ *
+ * Validation Rules:
+ * - Full name: min 2 characters
+ * - Email: valid email regex
+ * - Phone: min 10 characters, digits only
+ * - Province/District: required
+ * - Content: min 10 characters
+ *
+ * @component
+ */
 const LegalConsultantTab = () => {
   const { user } = useAuth();
 
@@ -47,7 +76,12 @@ const LegalConsultantTab = () => {
     }
   }, [user]);
 
-  // Handle province selection
+  /**
+   * Handles province selection from modal
+   * Resets district when province changes
+   *
+   * @param {Province} province - Selected province with districts
+   */
   const handleProvinceSelect = (province: Province) => {
     setSelectedProvince(province);
     setConsultationForm({ ...consultationForm, province: province.label, district: '' });
@@ -55,14 +89,22 @@ const LegalConsultantTab = () => {
     setErrors({ ...errors, province: '', district: '' });
   };
 
-  // Handle district selection
+  /**
+   * Handles district selection from modal
+   *
+   * @param {District} district - Selected district
+   */
   const handleDistrictSelect = (district: District) => {
     setConsultationForm({ ...consultationForm, district: district.label });
     setDistrictModalVisible(false);
     setErrors({ ...errors, district: '' });
   };
 
-  // Form validation
+  /**
+   * Validates all form fields
+   *
+   * @returns {boolean} True if form is valid, false otherwise
+   */
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
@@ -75,8 +117,12 @@ const LegalConsultantTab = () => {
       newErrors.email = 'Vui lòng nhập email hợp lệ';
     }
 
-    if (!consultationForm.phoneNumber.trim() || consultationForm.phoneNumber.length < 10) {
-      newErrors.phoneNumber = 'Vui lòng nhập số điện thoại hợp lệ (tối thiểu 10 số)';
+    // Strip spaces/dashes before validation
+    const cleanPhone = consultationForm.phoneNumber.replace(/[\s-]/g, '');
+    const phoneRegex = /^\d{10,11}$/;  // Vietnamese phones: 10-11 digits
+
+    if (!cleanPhone || !phoneRegex.test(cleanPhone)) {
+      newErrors.phoneNumber = 'Vui lòng nhập số điện thoại hợp lệ (10-11 số)';
     }
 
     if (!consultationForm.province.trim()) {
@@ -95,6 +141,12 @@ const LegalConsultantTab = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  /**
+   * Submits consultation request to backend
+   * Validates form, shows loading state, resets on success
+   *
+   * @async
+   */
   const handleSubmitConsultation = async () => {
     if (!validateForm()) {
       Alert.alert('Lỗi', 'Vui lòng kiểm tra lại thông tin');
@@ -104,10 +156,13 @@ const LegalConsultantTab = () => {
     setLoading(true);
 
     try {
-      const response = await api.post('/api/v1/consultations', {
+      // Use clean phone number for submission
+      const cleanPhone = consultationForm.phoneNumber.replace(/[\s-]/g, '');
+
+      await api.post('/api/v1/consultations', {
         full_name: consultationForm.fullName,
         email: consultationForm.email,
-        phone: consultationForm.phoneNumber,
+        phone: cleanPhone,
         province: consultationForm.province,
         district: consultationForm.district,
         content: consultationForm.content
@@ -129,11 +184,13 @@ const LegalConsultantTab = () => {
         'Cảm ơn bạn đã gửi thông tin! Chúng tôi sẽ liên hệ lại trong thời gian sớm nhất.',
         [{ text: 'OK' }]
       );
-    } catch (error: any) {
-      console.error('Failed to submit consultation:', error);
+    } catch (error) {
+      const axiosError = error as AxiosError<ApiErrorResponse>;
       Alert.alert(
         'Lỗi',
-        error.response?.data?.detail || 'Không thể gửi yêu cầu. Vui lòng thử lại sau.'
+        axiosError.response?.data?.detail ||
+        axiosError.response?.data?.message ||
+        'Không thể gửi yêu cầu. Vui lòng thử lại sau.'
       );
     } finally {
       setLoading(false);
@@ -149,7 +206,7 @@ const LegalConsultantTab = () => {
       {/* Full Name */}
       <View style={styles.inputContainer}>
         <TextInput
-          style={[styles.input, errors.fullName && styles.inputError]}
+          style={[styles.input, errors.fullName ? styles.inputError : null]}
           placeholder="Họ và Tên *"
           value={consultationForm.fullName}
           onChangeText={(text) => {
@@ -157,13 +214,13 @@ const LegalConsultantTab = () => {
             setErrors({ ...errors, fullName: '' });
           }}
         />
-        {errors.fullName && <Text style={styles.errorText}>{errors.fullName}</Text>}
+        {errors.fullName ? <Text style={styles.errorText}>{errors.fullName}</Text> : null}
       </View>
 
       {/* Email */}
       <View style={styles.inputContainer}>
         <TextInput
-          style={[styles.input, errors.email && styles.inputError]}
+          style={[styles.input, errors.email ? styles.inputError : null]}
           placeholder="Email *"
           keyboardType="email-address"
           autoCapitalize="none"
@@ -173,13 +230,13 @@ const LegalConsultantTab = () => {
             setErrors({ ...errors, email: '' });
           }}
         />
-        {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+        {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
       </View>
 
       {/* Phone Number */}
       <View style={styles.inputContainer}>
         <TextInput
-          style={[styles.input, errors.phoneNumber && styles.inputError]}
+          style={[styles.input, errors.phoneNumber ? styles.inputError : null]}
           placeholder="Số điện thoại *"
           keyboardType="phone-pad"
           value={consultationForm.phoneNumber}
@@ -188,7 +245,7 @@ const LegalConsultantTab = () => {
             setErrors({ ...errors, phoneNumber: '' });
           }}
         />
-        {errors.phoneNumber && <Text style={styles.errorText}>{errors.phoneNumber}</Text>}
+        {errors.phoneNumber ? <Text style={styles.errorText}>{errors.phoneNumber}</Text> : null}
       </View>
 
       {/* Province and District Row */}
@@ -196,7 +253,7 @@ const LegalConsultantTab = () => {
         {/* Province */}
         <View style={[styles.inputContainer, styles.dropdownContainer]}>
           <TouchableOpacity
-            style={[styles.dropdown, errors.province && styles.inputError]}
+            style={[styles.dropdown, errors.province ? styles.inputError : null]}
             onPress={() => setProvinceModalVisible(true)}
           >
             <Text style={[styles.dropdownText, !consultationForm.province && styles.placeholderText]}>
@@ -204,13 +261,13 @@ const LegalConsultantTab = () => {
             </Text>
             <Ionicons name="chevron-down" size={20} color={COLORS.gray} />
           </TouchableOpacity>
-          {errors.province && <Text style={styles.errorText}>{errors.province}</Text>}
+          {errors.province ? <Text style={styles.errorText}>{errors.province}</Text> : null}
         </View>
 
         {/* District */}
         <View style={[styles.inputContainer, styles.dropdownContainer]}>
           <TouchableOpacity
-            style={[styles.dropdown, errors.district && styles.inputError]}
+            style={[styles.dropdown, errors.district ? styles.inputError : null]}
             onPress={() => {
               if (selectedProvince) {
                 setDistrictModalVisible(true);
@@ -223,16 +280,16 @@ const LegalConsultantTab = () => {
             <Text style={[styles.dropdownText, !consultationForm.district && styles.placeholderText]}>
               {consultationForm.district || 'Quận/Huyện *'}
             </Text>
-            <Ionicons name="chevron-down" size={20} color={selectedProvince ? COLORS.gray : '#ccc'} />
+            <Ionicons name="chevron-down" size={20} color={selectedProvince ? COLORS.gray : COLORS.disabled} />
           </TouchableOpacity>
-          {errors.district && <Text style={styles.errorText}>{errors.district}</Text>}
+          {errors.district ? <Text style={styles.errorText}>{errors.district}</Text> : null}
         </View>
       </View>
 
       {/* Content */}
       <View style={styles.inputContainer}>
         <TextInput
-          style={[styles.contentInput, errors.content && styles.inputError]}
+          style={[styles.contentInput, errors.content ? styles.inputError : null]}
           placeholder="Nội dung *"
           multiline={true}
           numberOfLines={8}
@@ -243,7 +300,7 @@ const LegalConsultantTab = () => {
             setErrors({ ...errors, content: '' });
           }}
         />
-        {errors.content && <Text style={styles.errorText}>{errors.content}</Text>}
+        {errors.content ? <Text style={styles.errorText}>{errors.content}</Text> : null}
       </View>
 
       {/* Submit Button */}
@@ -349,11 +406,11 @@ const styles = StyleSheet.create({
   input: {
     height: 50,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: COLORS.border,
     borderRadius: 8,
     paddingHorizontal: 16,
     fontFamily: FONTS.regular,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: COLORS.inputBackground,
     fontSize: SIZES.body,
   },
   inputError: {
@@ -377,10 +434,10 @@ const styles = StyleSheet.create({
   dropdown: {
     height: 50,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: COLORS.border,
     borderRadius: 8,
     paddingHorizontal: 16,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: COLORS.inputBackground,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -396,13 +453,13 @@ const styles = StyleSheet.create({
   contentInput: {
     height: 200,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: COLORS.border,
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 16,
     fontFamily: FONTS.regular,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: COLORS.inputBackground,
     textAlignVertical: 'top',
     fontSize: SIZES.body,
   },
@@ -423,7 +480,7 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: COLORS.modalBackdrop,
     justifyContent: 'flex-end',
   },
   modalContent: {
@@ -439,7 +496,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: COLORS.divider,
   },
   modalTitle: {
     fontFamily: FONTS.semiBold,
@@ -453,7 +510,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: COLORS.divider,
   },
   modalItemText: {
     fontFamily: FONTS.regular,

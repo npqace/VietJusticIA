@@ -45,7 +45,7 @@ export interface FilterState {
 
 // Define the structure of a document based on the new API response
 interface Document {
-  _id: string;
+  id: string;
   title: string;
   issue_date: string;
   status: string;
@@ -101,7 +101,7 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
           end_date: filtersToUse.endDate || undefined,
         }
       });
-      
+
       const { documents: newDocs, total_pages } = response.data as { documents: Document[], total_pages: number };
 
       // Sort the new documents by title alphabetically (handles Vietnamese characters)
@@ -123,7 +123,12 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
   const fetchFilterOptions = async () => {
     try {
       const response = await api.get('/api/v1/documents/filters/options');
-      const { statuses, document_types, categories, issuers } = response.data;
+      const { statuses, document_types, categories, issuers } = response.data as {
+        statuses: string[];
+        document_types: string[];
+        categories: string[];
+        issuers: string[];
+      };
 
       setFilterOptions({
         statuses: [
@@ -175,18 +180,17 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
     }
   };
 
-  const handleApplyFilter = (newFilters: Record<string, any>) => {
-    const filters: FilterState = {
-      startDate: newFilters.dateStart || '',
-      endDate: newFilters.dateEnd || '',
-      status: newFilters.status || 'Tất cả',
-      documentType: newFilters.documentType || 'Tất cả',
-      field: newFilters.field || 'Tất cả',
-      location: newFilters.location || 'Tất cả',
+  const handleApplyFilter = (filters: any) => {
+    const newFilters: FilterState = {
+      startDate: filters.dateStart || '',
+      endDate: filters.dateEnd || '',
+      status: filters.status || 'Tất cả',
+      documentType: filters.documentType || 'Tất cả',
+      field: filters.field || 'Tất cả',
+      location: filters.location || 'Tất cả',
     };
-
-    setActiveFilters(filters);
-    fetchDocuments(searchQuery, 1, true, filters);
+    setActiveFilters(newFilters);
+    fetchDocuments(searchQuery, 1, true, newFilters);
   };
 
   const handleResetFilter = () => {
@@ -202,7 +206,6 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
     fetchDocuments(searchQuery, 1, true, resetFilters);
   };
 
-  // Define filter fields configuration
   const filterFields: FilterField[] = [
     {
       key: 'date',
@@ -211,7 +214,7 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
     },
     {
       key: 'status',
-      label: 'Tình trạng',
+      label: 'Tình trạng hiệu lực',
       type: 'dropdown',
       options: filterOptions.statuses,
     },
@@ -250,9 +253,9 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
 
   const renderItem = ({ item }: { item: Document }) => (
     <TouchableOpacity
-      key={item._id}
+      key={item.id}
       style={styles.documentItem}
-      onPress={() => navigation.navigate('DocumentDetail', { documentId: item._id })}
+      onPress={() => navigation.navigate('DocumentDetail', { documentId: item.id })}
     >
       <View style={styles.documentContent}>
         <Text style={styles.documentTitle}>{item.title}</Text>
@@ -273,59 +276,59 @@ const DocumentLookupScreen = ({ navigation }: { navigation: any }) => {
     >
       <Header title="Tra cứu văn bản" showAddChat={true} />
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <View style={styles.contentContainer}>
+        <View style={styles.contentContainer}>
 
-        <View style={styles.searchContainer}>
-          <View style={styles.searchBar}>
-            <Ionicons name="search" size={20} color={COLORS.gray} style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Tìm tiêu đề, số hiệu"
-              placeholderTextColor={COLORS.gray}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-            <TouchableOpacity 
-              onPress={() => setFilterVisible(true)} 
-              style={styles.filterButton}
-            >  
-              <Ionicons name="filter" size={20} color={COLORS.gray} />
-            </TouchableOpacity>
+          <View style={styles.searchContainer}>
+            <View style={styles.searchBar}>
+              <Ionicons name="search" size={20} color={COLORS.gray} style={styles.searchIcon} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Tìm tiêu đề, số hiệu"
+                placeholderTextColor={COLORS.gray}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              <TouchableOpacity
+                onPress={() => setFilterVisible(true)}
+                style={styles.filterButton}
+              >
+                <Ionicons name="filter" size={20} color={COLORS.gray} />
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
 
-        {loading && documents.length === 0 ? (
-          <LoadingIndicator />
-        ) : (
-          <FlatList
-            data={documents}
-            renderItem={renderItem}
-            keyExtractor={(item) => item._id}
-            contentContainerStyle={styles.scrollContent}
-            onEndReached={handleLoadMore}
-            onEndReachedThreshold={0.5}
-            ListFooterComponent={renderFooter}
-            showsVerticalScrollIndicator={false}
+          {loading && documents.length === 0 ? (
+            <LoadingIndicator />
+          ) : (
+            <FlatList
+              data={documents}
+              renderItem={renderItem}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.scrollContent}
+              onEndReached={handleLoadMore}
+              onEndReachedThreshold={0.5}
+              ListFooterComponent={renderFooter}
+              showsVerticalScrollIndicator={false}
+            />
+          )}
+
+          <FilterModal
+            visible={filterVisible}
+            onClose={() => setFilterVisible(false)}
+            onApply={handleApplyFilter}
+            onReset={handleResetFilter}
+            title="Lọc văn bản theo:"
+            fields={filterFields}
+            initialValues={{
+              dateStart: activeFilters.startDate,
+              dateEnd: activeFilters.endDate,
+              status: activeFilters.status,
+              documentType: activeFilters.documentType,
+              field: activeFilters.field,
+              location: activeFilters.location,
+            }}
           />
-        )}
-
-        <FilterModal
-          visible={filterVisible}
-          onClose={() => setFilterVisible(false)}
-          onApply={handleApplyFilter}
-          onReset={handleResetFilter}
-          title="Lọc văn bản theo:"
-          fields={filterFields}
-          initialValues={{
-            dateStart: activeFilters.startDate,
-            dateEnd: activeFilters.endDate,
-            status: activeFilters.status,
-            documentType: activeFilters.documentType,
-            field: activeFilters.field,
-            location: activeFilters.location,
-          }}
-        />
-      </View>
+        </View>
       </TouchableWithoutFeedback>
     </LinearGradient>
   );

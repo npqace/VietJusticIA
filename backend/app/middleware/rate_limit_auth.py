@@ -6,6 +6,7 @@ Uses in-memory storage with automatic cleanup.
 """
 
 from fastapi import Request, Response, HTTPException, status
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 from collections import defaultdict
@@ -13,6 +14,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List
 import asyncio
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -126,13 +128,15 @@ class AuthRateLimitMiddleware(BaseHTTPMiddleware):
     
     # Rate limit rules: endpoint -> (max_attempts, window_minutes)
     RATE_LIMITS = {
-        "/api/v1/auth/login": (5, 15),
+        "/api/v1/auth/login": (5, 5),
         "/api/v1/auth/signup": (3, 10),
         "/api/v1/auth/verify-otp": (5, 15),
         "/api/v1/auth/resend-otp": (3, 15),
-        "/api/v1/auth/forgot-password": (3, 60),
-        "/api/v1/auth/reset-password": (5, 15),
         "/api/v1/password/change-password": (5, 15),
+        # Password Reset Endpoints
+        "/api/v1/password/forgot-password": (3, 60),      # Limit initialization attempts
+        "/api/v1/password/verify-reset-otp": (5, 15),    # Limit OTP guessing
+        "/api/v1/password/reset-password": (3, 15),      # Limit actual reset attempts
     }
     
     def __init__(self, app: ASGIApp):
@@ -161,8 +165,13 @@ class AuthRateLimitMiddleware(BaseHTTPMiddleware):
         
         return "unknown"
     
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next) -> Response:
         """Check rate limit before processing request."""
+        # Skip rate limiting in test environment
+        if os.getenv("ENVIRONMENT") == "test":
+            return await call_next(request)
+
+        logger.info(f"AuthRateLimitMiddleware dispatching: {request.method} {request.url.path}")
         
         # Only check POST requests to auth endpoints
         if request.method != "POST":
@@ -187,12 +196,14 @@ class AuthRateLimitMiddleware(BaseHTTPMiddleware):
                 f"Rate limit exceeded: ip={client_ip}, endpoint={endpoint}, "
                 f"count={request_count}/{max_attempts}"
             )
-            raise HTTPException(
+            return JSONResponse(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail={
-                    "error": "Too many requests",
-                    "message": f"Maximum {max_attempts} attempts allowed per {window_minutes} minutes. Please try again later.",
-                    "retry_after_minutes": window_minutes
+                content={
+                    "detail": {
+                        "error": "Too many requests",
+                        "message": f"Maximum {max_attempts} attempts allowed per {window_minutes} minutes. Please try again later.",
+                        "retry_after_minutes": window_minutes
+                    }
                 }
             )
         

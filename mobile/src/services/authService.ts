@@ -1,5 +1,5 @@
 import api from '../api';
-import * as SecureStore from 'expo-secure-store';
+import { storage, STORAGE_KEYS } from '../utils/storage';
 import axios from 'axios';
 
 // --- Reusable Interfaces for API Responses ---
@@ -20,6 +20,7 @@ interface ResetTokenResponse {
 
 interface ContactUpdateResponse {
   access_token?: string;
+  refresh_token?: string;
   message: string;
 }
 
@@ -42,8 +43,21 @@ interface SignupData {
 
 const handleError = (err: unknown): never => {
   if (axios.isAxiosError(err) && err.response) {
-    // Use the detailed error message from the backend if available
-    throw new Error(err.response.data.detail || 'Đã có lỗi xảy ra.');
+    const detail = err.response.data.detail;
+    let errorMessage = 'Đã có lỗi xảy ra.';
+
+    if (typeof detail === 'string') {
+      errorMessage = detail;
+    } else if (typeof detail === 'object' && detail !== null) {
+      // Handle 429 rate limit object or other structured errors
+      if ('message' in detail) {
+        errorMessage = (detail as any).message;
+      } else {
+        errorMessage = JSON.stringify(detail);
+      }
+    }
+
+    throw new Error(errorMessage);
   }
   // Fallback for non-API errors
   throw err;
@@ -66,9 +80,9 @@ export const login = async (credentials: LoginCredentials) => {
     const response = await api.post<AuthResponse>('/api/v1/auth/login', credentials);
     const { access_token, refresh_token } = response.data;
 
-    await SecureStore.setItemAsync('access_token', access_token);
+    await storage.setSecureItem(STORAGE_KEYS.ACCESS_TOKEN, access_token);
     if (refresh_token) {
-      await SecureStore.setItemAsync('refresh_token', refresh_token);
+      await storage.setSecureItem(STORAGE_KEYS.REFRESH_TOKEN, refresh_token);
     }
     return response.data;
   } catch (err) {
@@ -77,33 +91,32 @@ export const login = async (credentials: LoginCredentials) => {
 };
 
 export const verifyOTP = async (email: string, otp: string) => {
-    try {
-        const response = await api.post<AuthResponse>('/api/v1/auth/verify-otp', { email, otp });
-        const { access_token, refresh_token } = response.data;
+  try {
+    const response = await api.post<AuthResponse>('/api/v1/auth/verify-otp', { email, otp });
+    const { access_token, refresh_token } = response.data;
 
-        await SecureStore.setItemAsync('access_token', access_token);
-        if (refresh_token) {
-            await SecureStore.setItemAsync('refresh_token', refresh_token);
-        }
-        return response.data;
-    } catch (err) {
-        handleError(err);
+    await storage.setSecureItem(STORAGE_KEYS.ACCESS_TOKEN, access_token);
+    if (refresh_token) {
+      await storage.setSecureItem(STORAGE_KEYS.REFRESH_TOKEN, refresh_token);
     }
+    return response.data;
+  } catch (err) {
+    handleError(err);
+  }
 };
 
 export const resendOTP = async (email: string) => {
-    try {
-        const response = await api.post<MessageResponse>('/api/v1/auth/resend-otp', { email });
-        return response.data;
-    } catch (err) {
-        handleError(err);
-    }
+  try {
+    const response = await api.post<MessageResponse>('/api/v1/auth/resend-otp', { email });
+    return response.data;
+  } catch (err) {
+    handleError(err);
+  }
 };
 
 export const logout = async () => {
   try {
-    await SecureStore.deleteItemAsync('access_token');
-    await SecureStore.deleteItemAsync('refresh_token');
+    await storage.clearAuth();
   } catch (err) {
     console.error("Could not clear auth tokens", err);
     throw err;
@@ -112,7 +125,7 @@ export const logout = async () => {
 
 export const getAccessToken = async () => {
   try {
-    return await SecureStore.getItemAsync('access_token');
+    return await storage.getSecureItem(STORAGE_KEYS.ACCESS_TOKEN);
   } catch (err) {
     console.error("Could not get access token", err);
     return null;
@@ -132,7 +145,10 @@ export const verifyContactUpdate = async (data: { otp: string; email?: string; p
   try {
     const response = await api.post<ContactUpdateResponse>('/api/v1/users/me/verify-contact-update', data);
     if (response.data.access_token) {
-      await SecureStore.setItemAsync('access_token', response.data.access_token);
+      await storage.setSecureItem(STORAGE_KEYS.ACCESS_TOKEN, response.data.access_token);
+    }
+    if (response.data.refresh_token) {
+      await storage.setSecureItem(STORAGE_KEYS.REFRESH_TOKEN, response.data.refresh_token);
     }
     return response.data;
   } catch (err) {

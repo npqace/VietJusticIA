@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import logging
@@ -6,6 +7,7 @@ import logging
 from ..database.database import get_db
 from ..database.models import User, Lawyer, ServiceRequest
 from ..services.auth import get_current_user, get_current_user_optional
+from ..services.audit_service import audit_service
 from ..schemas.service_request import (
     ServiceRequestCreate,
     ServiceRequestRead,
@@ -15,8 +17,10 @@ from ..schemas.service_request import (
 from ..schemas.lawyer import (
     LawyerInList,
     LawyerDetail,
+    LawyerSearchParams,
 )
 from ..repository import lawyer_repository
+from ..core.rbac import verify_admin
 
 logger = logging.getLogger(__name__)
 
@@ -57,25 +61,32 @@ async def get_lawyers(
     Returns approved lawyers for public, all lawyers for admins.
     """
     try:
-        is_admin = current_user and current_user.role == User.Role.ADMIN
+        is_admin = False
+        if current_user and current_user.role == User.Role.ADMIN:
+            is_admin = True
         logger.info(f"Fetching lawyers (admin={is_admin}): search={search}, specialization={specialization}")
 
-        lawyers = lawyer_repository.get_lawyers(
-            db=db,
-            skip=skip,
-            limit=limit,
+        params = LawyerSearchParams(
             search=search,
             specialization=specialization,
             city=city,
             province=province,
             min_rating=min_rating,
             is_available=is_available,
-            admin_view=is_admin
+            admin_view=is_admin,
+            skip=skip,
+            limit=limit
         )
+
+        lawyers = lawyer_repository.get_lawyers(db=db, params=params)
 
         # Transform to response format with user data
         lawyer_list = []
         for lawyer in lawyers:
+            if not lawyer.user:
+                logger.warning(f"Skipping lawyer {lawyer.id} due to missing user relationship")
+                continue
+
             if is_admin:
                 # Admin view - include all details
                 lawyer_dict = {
@@ -102,7 +113,8 @@ async def get_lawyers(
                     "user": {
                         "full_name": lawyer.user.full_name,
                         "email": lawyer.user.email,
-                        "phone": lawyer.user.phone
+                        "phone": lawyer.user.phone,
+                        "is_active": lawyer.user.is_active
                     }
                 }
             else:
@@ -125,6 +137,12 @@ async def get_lawyers(
         logger.info(f"Retrieved {len(lawyer_list)} lawyers")
         return lawyer_list
 
+    except ValidationError as e:
+        logger.error(f"Validation error creating params: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid parameters: {e}"
+        )
     except Exception as e:
         logger.error(f"Failed to fetch lawyers: {e}")
         raise HTTPException(
@@ -193,6 +211,10 @@ async def get_lawyer_detail(
 
 # Service Request endpoints
 
+from sqlalchemy.exc import SQLAlchemyError
+
+# ... (imports remain the same)
+
 @router.post("/requests", response_model=ServiceRequestRead, status_code=status.HTTP_201_CREATED)
 async def create_service_request(
     request_data: ServiceRequestCreate,
@@ -230,6 +252,12 @@ async def create_service_request(
         # Fetch full request with relationships
         full_request = lawyer_repository.get_service_request_by_id(db, service_request.id)
 
+        # Validate relationships before transformation
+        if not full_request or not full_request.user or not full_request.lawyer or not full_request.lawyer.user:
+            db.rollback()
+            logger.error(f"Service request {service_request.id} created but relationships missing")
+            raise HTTPException(status_code=500, detail="Data integrity error")
+
         # Transform to response
         request_response = {
             "id": full_request.id,
@@ -250,98 +278,90 @@ async def create_service_request(
         return request_response
 
     except HTTPException:
+        db.rollback()
         raise
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Database error creating service request: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Database error")
     except Exception as e:
-        logger.error(f"Failed to create service request: {e}")
+        db.rollback()
+        logger.error(f"Failed to create service request: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create service request"
         )
 
 
-@router.get("/requests/my-requests")
+
+@router.get("/requests/my-requests", response_model=List[ServiceRequestListItem])
 async def get_my_service_requests(
     skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=100),
+    status: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Get all service requests made by the current user (if user).
-    Get all service requests assigned to the current lawyer (if lawyer).
-    Requires authentication.
-
-    Returns different data structures based on user role:
-    - Lawyer: Returns full request details with user information
-    - User: Returns list with lawyer information
+    Get service requests for the current user.
+    - If user is a LAWYER: returns requests assigned to them
+    - If user is a USER: returns requests they created
     """
     try:
-        logger.info(f"Fetching service requests for {current_user.role.value} {current_user.email}")
+        logger.info(f"Fetching service requests for user {current_user.email} (role={current_user.role})")
 
-        # If lawyer, get requests assigned to them
         if current_user.role == User.Role.LAWYER:
             # Get lawyer profile
-            lawyer = db.query(Lawyer).filter(Lawyer.user_id == current_user.id).first()
+            lawyer = lawyer_repository.get_lawyer_by_user_id(db, current_user.id)
             if not lawyer:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Lawyer profile not found"
                 )
+            
+            # Use filter params for lawyer
+            from ..schemas.service_request import ServiceRequestFilterParams
+            from ..database.models import ServiceRequest
+            
+            # Convert status string to enum if provided
+            status_enum = None
+            if status:
+                try:
+                    status_enum = ServiceRequest.RequestStatus(status)
+                except ValueError:
+                    pass # Ignore invalid status or handle error
 
-            # Get requests assigned to this lawyer
-            requests = db.query(ServiceRequest).filter(
-                ServiceRequest.lawyer_id == lawyer.id
-            ).order_by(ServiceRequest.created_at.desc()).offset(skip).limit(limit).all()
-
-            # Transform to list format (full details for lawyer view)
-            request_list = []
-            for req in requests:
-                request_item = {
-                    "id": req.id,
-                    "user_id": req.user_id,
-                    "lawyer_id": req.lawyer_id,
-                    "title": req.title,
-                    "description": req.description,
-                    "category": "General",  # ServiceRequest doesn't have category, using default
-                    "status": req.status.value,
-                    "urgency": "medium",  # ServiceRequest doesn't have urgency, using default
-                    "lawyer_response": req.lawyer_response,  # Include lawyer response
-                    "rejected_reason": req.rejected_reason,  # Include rejection reason
-                    "created_at": req.created_at,
-                    "updated_at": req.updated_at,
-                    "user": {
-                        "full_name": req.user.full_name,
-                        "email": req.user.email,
-                        "phone": req.user.phone
-                    }
-                }
-                request_list.append(request_item)
-
-        else:
-            # Regular user - get their own requests
-            requests = lawyer_repository.get_user_service_requests(
-                db=db,
-                user_id=current_user.id,
+            params = ServiceRequestFilterParams(
+                status=status_enum,
                 skip=skip,
                 limit=limit
             )
+            requests = lawyer_repository.get_lawyer_service_requests(db, lawyer.id, params)
+            
+        else:
+            # Regular user
+            from ..schemas.common import PaginationParams
+            params = PaginationParams(skip=skip, limit=limit)
+            requests = lawyer_repository.get_user_service_requests(db, current_user.id, params)
 
-            # Transform to list format
-            request_list = []
-            for req in requests:
-                request_item = {
-                    "id": req.id,
-                    "lawyer_id": req.lawyer_id,
-                    "lawyer_name": req.lawyer.user.full_name,
-                    "lawyer_avatar": req.lawyer.user.avatar_url,
-                    "title": req.title,
-                    "status": req.status.value,
-                    "created_at": req.created_at
-                }
-                request_list.append(request_item)
+        # Transform to response format
+        response_list = []
+        for req in requests:
+            item = {
+                "id": req.id,
+                "user_id": req.user_id,
+                "lawyer_id": req.lawyer_id,
+                "title": req.title,
+                "status": req.status,
+                "created_at": req.created_at,
+                "updated_at": req.updated_at,
+                "user_name": req.user.full_name if req.user else "Unknown",
+                "lawyer_name": req.lawyer.user.full_name if req.lawyer and req.lawyer.user else "Unknown"
+            }
+            response_list.append(item)
 
-        logger.info(f"Retrieved {len(request_list)} service requests")
-        return request_list
+        logger.info(f"Retrieved {len(response_list)} service requests")
+        return response_list
 
     except HTTPException:
         raise
@@ -350,61 +370,6 @@ async def get_my_service_requests(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve service requests"
-        )
-
-
-@router.get("/requests/{request_id}", response_model=ServiceRequestRead)
-async def get_service_request_detail(
-    request_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Get details of a specific service request.
-    User can only view their own requests.
-    """
-    try:
-        logger.info(f"Fetching service request {request_id} for user {current_user.email}")
-
-        request = lawyer_repository.get_service_request_by_id(db, request_id)
-        if not request:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Service request not found"
-            )
-
-        # Verify ownership
-        if request.user_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to view this request"
-            )
-
-        # Transform to response
-        request_response = {
-            "id": request.id,
-            "user_id": request.user_id,
-            "lawyer_id": request.lawyer_id,
-            "title": request.title,
-            "description": request.description,
-            "status": request.status.value,
-            "lawyer_response": request.lawyer_response,
-            "rejected_reason": request.rejected_reason,
-            "created_at": request.created_at,
-            "updated_at": request.updated_at,
-            "user_name": request.user.full_name,
-            "lawyer_name": request.lawyer.user.full_name
-        }
-
-        return request_response
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to fetch service request: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve service request"
         )
 
 
@@ -428,6 +393,7 @@ async def cancel_service_request(
         )
 
         if not cancelled:
+            db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot cancel this request (not found, not yours, or not in pending status)"
@@ -437,36 +403,37 @@ async def cancel_service_request(
         return None
 
     except HTTPException:
+        db.rollback()
         raise
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Database error cancelling service request: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Database error")
     except Exception as e:
-        logger.error(f"Failed to cancel service request: {e}")
+        db.rollback()
+        logger.error(f"Failed to cancel service request: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to cancel service request"
         )
 
 
-# Admin endpoints for lawyer management
-
-def verify_admin(current_user: User = Depends(get_current_user)):
-    """Dependency to verify user is admin."""
-    if current_user.role != User.Role.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required"
-        )
-    return current_user
-
-
 @router.patch("/{lawyer_id}/approve")
 async def approve_lawyer(
     lawyer_id: int,
-    current_user: User = Depends(verify_admin),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Approve a lawyer application (admin only)."""
+    """
+    Approve a lawyer's account.
+    Admin only.
+    """
     try:
-        logger.info(f"Admin {current_user.email} approving lawyer {lawyer_id}")
+        if current_user.role != User.Role.ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only admins can approve lawyers"
+            )
 
         lawyer = lawyer_repository.get_lawyer_by_id(db, lawyer_id)
         if not lawyer:
@@ -475,17 +442,15 @@ async def approve_lawyer(
                 detail="Lawyer not found"
             )
 
-        lawyer.verification_status = Lawyer.VerificationStatus.APPROVED
-        db.commit()
-
-        logger.info(f"Lawyer {lawyer_id} approved successfully")
+        updated_lawyer = lawyer_repository.update_verification_status(db, lawyer_id, Lawyer.VerificationStatus.APPROVED)
+        
+        logger.info(f"Lawyer {lawyer_id} approved by admin {current_user.email}")
         return {"message": "Lawyer approved successfully"}
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Failed to approve lawyer: {e}")
-        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to approve lawyer"
@@ -495,12 +460,19 @@ async def approve_lawyer(
 @router.patch("/{lawyer_id}/reject")
 async def reject_lawyer(
     lawyer_id: int,
-    current_user: User = Depends(verify_admin),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Reject a lawyer application (admin only)."""
+    """
+    Reject a lawyer's account.
+    Admin only.
+    """
     try:
-        logger.info(f"Admin {current_user.email} rejecting lawyer {lawyer_id}")
+        if current_user.role != User.Role.ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only admins can reject lawyers"
+            )
 
         lawyer = lawyer_repository.get_lawyer_by_id(db, lawyer_id)
         if not lawyer:
@@ -509,17 +481,15 @@ async def reject_lawyer(
                 detail="Lawyer not found"
             )
 
-        lawyer.verification_status = Lawyer.VerificationStatus.REJECTED
-        db.commit()
-
-        logger.info(f"Lawyer {lawyer_id} rejected successfully")
+        updated_lawyer = lawyer_repository.update_verification_status(db, lawyer_id, Lawyer.VerificationStatus.REJECTED)
+        
+        logger.info(f"Lawyer {lawyer_id} rejected by admin {current_user.email}")
         return {"message": "Lawyer rejected successfully"}
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Failed to reject lawyer: {e}")
-        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to reject lawyer"

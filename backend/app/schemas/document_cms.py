@@ -215,3 +215,11 @@ class TestQueryResponse(BaseModel):
     response: str
     sources: List[SourceDocument] = Field(default_factory=list)
     processing_time_ms: float
+
+
+class DocumentProcessingStatusResponse(BaseModel):
+    """Response for document processing status polling."""
+    document_id: str
+    status: str
+    indexing_status: IndexingStatus
+    chunk_count: int

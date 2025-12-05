@@ -1,34 +1,27 @@
 """
 Admin-only endpoints for managing users, lawyers, and viewing statistics.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from sqlalchemy import func
-from typing import List
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func, case
+from typing import List, Optional
 import logging
 
 from ..database.database import get_db
-from ..database.models import User, Lawyer, ServiceRequest
+from ..database.models import User, Lawyer, ServiceRequest, ConsultationRequest, HelpRequest
 from ..services.auth import get_current_user
-from ..schemas.user import UserProfile, AdminCreateUser, AdminCreateUserResponse
-from ..repository import lawyer_repository, user_repository
+from ..services.audit_service import audit_service
+from ..schemas.user import UserProfile, AdminCreateUser, AdminCreateUserResponse, UserListResponse
+from ..repository import lawyer_repository, user_repository, document_cms_repository
 from ..core.security import get_password_hash
-import secrets
-import string
+from ..utils.security_utils import generate_secure_password
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/admin", tags=["Admin"])
 
 
-def verify_admin(current_user: User = Depends(get_current_user)):
-    """Dependency to verify user is admin."""
-    if current_user.role != User.Role.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required"
-        )
-    return current_user
+from ..core.rbac import verify_admin
 
 
 @router.get("/stats")
@@ -40,31 +33,30 @@ async def get_dashboard_stats(
     try:
         logger.info(f"Admin {current_user.email} fetching dashboard stats")
 
-        # Count total users
-        total_users = db.query(func.count(User.id)).filter(
-            User.role == User.Role.USER
-        ).scalar()
-
-        # Count total lawyers
+        # Execute separate queries to avoid Cartesian product
+        total_users = db.query(func.count(User.id)).filter(User.role == User.Role.USER).scalar()
+        total_admins = db.query(func.count(User.id)).filter(User.role == User.Role.ADMIN).scalar()
         total_lawyers = db.query(func.count(Lawyer.id)).scalar()
+        
+        # Calculate total requests from all types
+        service_requests_count = db.query(func.count(ServiceRequest.id)).scalar() or 0
+        consultation_requests_count = db.query(func.count(ConsultationRequest.id)).scalar() or 0
+        help_requests_count = db.query(func.count(HelpRequest.id)).scalar() or 0
+        
+        total_requests = service_requests_count + consultation_requests_count + help_requests_count
 
-        # Count total admins
-        total_admins = db.query(func.count(User.id)).filter(
-            User.role == User.Role.ADMIN
-        ).scalar()
+        total_documents = document_cms_repository.get_total_documents_count()
 
-        # Count total service requests
-        total_requests = db.query(func.count(ServiceRequest.id)).scalar()
-
-        stats = {
+        result = {
             "total_users": total_users,
             "total_lawyers": total_lawyers,
             "total_admins": total_admins,
-            "total_requests": total_requests
+            "total_requests": total_requests,
+            "total_documents": total_documents
         }
 
-        logger.info(f"Dashboard stats retrieved: {stats}")
-        return stats
+        logger.info(f"Dashboard stats retrieved: {result}")
+        return result
 
     except Exception as e:
         logger.error(f"Failed to fetch dashboard stats: {e}")
@@ -74,19 +66,48 @@ async def get_dashboard_stats(
         )
 
 
-@router.get("/users", response_model=List[UserProfile])
+@router.get("/users", response_model=UserListResponse)
 async def get_all_users(
+    skip: int = 0,
+    limit: int = 100,
+    search: Optional[str] = None,
+    role: Optional[str] = None,
     current_user: User = Depends(verify_admin),
     db: Session = Depends(get_db)
 ):
-    """Get all users (admin only)."""
+    """Get all users (admin only) with pagination and filtering."""
     try:
-        logger.info(f"Admin {current_user.email} fetching all users")
+        logger.info(f"Admin {current_user.email} fetching users (skip={skip}, limit={limit}, search={search}, role={role})")
 
-        users = user_repository.get_all_users(db)
-        logger.info(f"Retrieved {len(users)} users")
+        users = user_repository.get_all_users(db, skip=skip, limit=limit, search=search, role=role)
+        
+        # Calculate total for pagination
+        query = db.query(func.count(User.id))
+        if role and role.lower() != 'all':
+            try:
+                role_enum = User.Role(role.lower())
+                query = query.filter(User.role == role_enum)
+            except ValueError:
+                pass
+        
+        if search:
+            search_lower = f"%{search.lower()}%"
+            query = query.filter(
+                (func.lower(User.full_name).like(search_lower)) |
+                (func.lower(User.email).like(search_lower)) |
+                (User.phone.like(search_lower))
+            )
+            
+        total = query.scalar()
+        
+        logger.info(f"Retrieved {len(users)} users (total: {total})")
 
-        return users
+        return {
+            "users": users, 
+            "total": total, 
+            "skip": skip, 
+            "limit": limit
+        }
 
     except Exception as e:
         logger.error(f"Failed to fetch users: {e}")
@@ -100,6 +121,7 @@ async def get_all_users(
 async def update_user_status(
     user_id: int,
     is_active: bool,
+    request: Request,
     current_user: User = Depends(verify_admin),
     db: Session = Depends(get_db)
 ):
@@ -107,6 +129,7 @@ async def update_user_status(
     try:
         logger.info(f"Admin {current_user.email} updating status for user {user_id} to {is_active}")
 
+        # Check if user exists
         user = user_repository.get_user_by_id(db, user_id)
         if not user:
             raise HTTPException(
@@ -121,8 +144,19 @@ async def update_user_status(
                 detail="Cannot deactivate your own account"
             )
 
-        user.is_active = is_active
-        db.commit()
+        # Update status via repository
+        updated_user = user_repository.update_user_status(db, user_id, is_active)
+        
+        # Audit Log
+        audit_service.log_action(
+            db=db,
+            admin_id=current_user.id,
+            action="UPDATE_USER_STATUS",
+            target_type="USER",
+            target_id=str(user_id),
+            details=f"Status changed to {'Active' if is_active else 'Inactive'}",
+            request=request
+        )
 
         logger.info(f"User {user_id} status updated successfully")
         return {"message": "User status updated successfully"}
@@ -139,6 +173,8 @@ async def update_user_status(
 
 @router.get("/requests")
 async def get_all_service_requests(
+    skip: int = 0,
+    limit: int = 100,
     current_user: User = Depends(verify_admin),
     db: Session = Depends(get_db)
 ):
@@ -147,9 +183,12 @@ async def get_all_service_requests(
         logger.info(f"Admin {current_user.email} fetching all service requests")
 
         # Get all service requests with user and lawyer info
-        requests = db.query(ServiceRequest).order_by(
+        requests = db.query(ServiceRequest).options(
+            joinedload(ServiceRequest.user),
+            joinedload(ServiceRequest.lawyer).joinedload(Lawyer.user)
+        ).order_by(
             ServiceRequest.created_at.desc()
-        ).all()
+        ).offset(skip).limit(limit).all()
 
         # Transform to response format
         request_list = []
@@ -157,9 +196,9 @@ async def get_all_service_requests(
             request_item = {
                 "id": req.id,
                 "user_id": req.user_id,
-                "user_name": req.user.full_name,
+                "user_name": req.user.full_name if req.user else "Unknown User",
                 "lawyer_id": req.lawyer_id,
-                "lawyer_name": req.lawyer.user.full_name if req.lawyer else None,
+                "lawyer_name": req.lawyer.user.full_name if req.lawyer and req.lawyer.user else None,
                 "title": req.title,
                 "description": req.description,
                 "status": req.status.value,
@@ -179,16 +218,72 @@ async def get_all_service_requests(
         )
 
 
-def generate_secure_password(length: int = 12) -> str:
-    """Generate a secure random password."""
-    alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
-    password = ''.join(secrets.choice(alphabet) for _ in range(length))
-    return password
+from ..schemas.lawyer import AdminUpdateLawyer
+
+@router.put("/lawyers/{lawyer_id}")
+async def update_lawyer_details(
+    lawyer_id: int,
+    lawyer_data: AdminUpdateLawyer,
+    request: Request,
+    current_user: User = Depends(verify_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Update lawyer details (admin only).
+    Can update both lawyer profile and associated user fields.
+    """
+    try:
+        logger.info(f"Admin {current_user.email} updating lawyer {lawyer_id}")
+        logger.info(f"Received update data: {lawyer_data}")
+
+        lawyer = lawyer_repository.get_lawyer_by_id(db, lawyer_id)
+        if not lawyer:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Lawyer not found"
+            )
+
+        # Update user fields if provided
+        user_updates = {}
+        if lawyer_data.full_name is not None:
+            user_updates["full_name"] = lawyer_data.full_name
+        if lawyer_data.phone is not None:
+            user_updates["phone"] = lawyer_data.phone
+        
+        if user_updates:
+            user_repository.update_user(db, lawyer.user, user_updates)
+            logger.info(f"Updated user fields for lawyer {lawyer_id}: {user_updates}")
+
+        # Update lawyer fields
+        updated_lawyer = lawyer_repository.update_lawyer(db, lawyer_id, lawyer_data)
+        
+        # Audit Log
+        audit_service.log_action(
+            db=db,
+            admin_id=current_user.id,
+            action="UPDATE_LAWYER",
+            target_type="LAWYER",
+            target_id=str(lawyer_id),
+            details=f"Updated lawyer details: {lawyer_data.model_dump(exclude_unset=True)}",
+            request=request
+        )
+
+        return {"message": "Lawyer updated successfully", "lawyer": updated_lawyer}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update lawyer: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update lawyer"
+        )
 
 
 @router.post("/users/create", response_model=AdminCreateUserResponse)
 async def create_user_account(
     user_data: AdminCreateUser,
+    request: Request,
     current_user: User = Depends(verify_admin),
     db: Session = Depends(get_db)
 ):
@@ -197,7 +292,7 @@ async def create_user_account(
         logger.info(f"Admin {current_user.email} creating new {user_data.role} account: {user_data.email}")
 
         # Validate role - only lawyer and admin allowed
-        valid_roles = ['lawyer', 'admin']
+        valid_roles = [User.Role.LAWYER.value, User.Role.ADMIN.value]
         if user_data.role not in valid_roles:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -205,7 +300,7 @@ async def create_user_account(
             )
 
         # If role is lawyer, lawyer_profile is required
-        if user_data.role == 'lawyer' and not user_data.lawyer_profile:
+        if user_data.role == User.Role.LAWYER.value and not user_data.lawyer_profile:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Lawyer profile data is required when creating a lawyer account"
@@ -228,7 +323,7 @@ async def create_user_account(
             )
 
         # If lawyer, check if bar license number already exists
-        if user_data.role == 'lawyer':
+        if user_data.role == User.Role.LAWYER.value:
             existing_lawyer = db.query(Lawyer).filter(
                 Lawyer.bar_license_number == user_data.lawyer_profile.bar_license_number
             ).first()
@@ -242,13 +337,21 @@ async def create_user_account(
         generated_password = generate_secure_password()
 
         # Create user account
+        try:
+            role_enum = User.Role(user_data.role)
+        except ValueError:
+             raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid role provided"
+            )
+
         hashed_password = get_password_hash(generated_password)
         new_user = User(
             full_name=user_data.full_name,
             email=user_data.email,
             phone=user_data.phone,
             hashed_password=hashed_password,
-            role=User.Role[user_data.role.upper()],
+            role=role_enum,
             is_verified=True,  # Admin-created accounts are pre-verified
             is_active=True
         )
@@ -258,7 +361,7 @@ async def create_user_account(
         db.refresh(new_user)
 
         # If lawyer, create lawyer profile
-        if user_data.role == 'lawyer':
+        if user_data.role == User.Role.LAWYER.value:
             lawyer_profile = Lawyer(
                 user_id=new_user.id,
                 specialization=user_data.lawyer_profile.specialization,
@@ -277,6 +380,17 @@ async def create_user_account(
             db.refresh(lawyer_profile)
             logger.info(f"Lawyer profile created for user {new_user.id}")
 
+        # Audit Log
+        audit_service.log_action(
+            db=db,
+            admin_id=current_user.id,
+            action="CREATE_USER",
+            target_type="USER",
+            target_id=str(new_user.id),
+            details=f"Created {user_data.role} account: {user_data.email}",
+            request=request
+        )
+
         logger.info(f"User account created successfully: {new_user.id} ({user_data.role})")
 
         # Return user info with generated password
@@ -294,3 +408,6 @@ async def create_user_account(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create user account"
         )
+
+
+

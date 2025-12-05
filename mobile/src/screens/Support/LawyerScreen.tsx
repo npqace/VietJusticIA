@@ -5,28 +5,49 @@ import {
   View,
   ScrollView,
   TouchableOpacity,
-  Image,
   Dimensions
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SIZES, FONTS,  LOGO_PATH } from '../../constants/styles';
+import { useNavigation } from '@react-navigation/native';
+import { COLORS, FONTS } from '../../constants/styles';
 import { LinearGradient } from 'expo-linear-gradient';
-import Ionicons from '@expo/vector-icons/Ionicons';
 import LegalConsultantTab from '../../components/Legal/LegalConsultantTab';
 import LawyerListTab from '../../components/Legal/LawyerListTab';
 import Header from '../../components/Header';
+import { LawyerScreenNavigationProp } from '../../types/navigation';
 
 const { width } = Dimensions.get('window');
 
+/**
+ * Tab definitions for lawyer contact screen.
+ * - consultant: Legal consultation request form
+ * - find-lawyer: Browse and search lawyers
+ */
 const tabs = [
-  {id: 'consultant', name: 'Nhận tư vấn pháp lý'},
-  {id: 'find-lawyer', name: 'Tìm luật sư'}
+  { id: 'consultant', name: 'Nhận tư vấn pháp lý' },
+  { id: 'find-lawyer', name: 'Tìm luật sư' }
 ];
 
-const LawyerScreen = ({ navigation }: { navigation: any }) => {
+/**
+ * Lawyer contact screen with two tabs:
+ * 1. Legal Consultant: Submit general legal consultation requests
+ * 2. Find Lawyer: Browse lawyer profiles and send service requests
+ *
+ * The consultant tab is wrapped in ScrollView for form scrolling,
+ * while find-lawyer tab uses FlatList internally (no wrapper needed).
+ *
+ * @component
+ */
+const LawyerScreen = () => {
+  const navigation = useNavigation<LawyerScreenNavigationProp>();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState('consultant');
 
+  /**
+   * Renders the active tab's content component.
+   * Consultant tab: LegalConsultantTab (form)
+   * Find-lawyer tab: LawyerListTab (FlatList)
+   */
   const renderTabContent = () => {
     switch (activeTab) {
       case 'consultant': return <LegalConsultantTab />;
@@ -82,32 +103,6 @@ const LawyerScreen = ({ navigation }: { navigation: any }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    marginBottom: 16,
-    height: 'auto',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 4,
-    zIndex: 10,
-  },
-  logo: {
-    width: width * 0.15,
-    height: width * 0.15,
-  },
-  headerIcons: {
-    flexDirection: 'row',
-  },
-  iconButton: {
-    padding: 8,
-    marginLeft: 8,
   },
   tabsContainer: {
     flexDirection: 'row',

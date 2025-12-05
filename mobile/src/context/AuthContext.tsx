@@ -69,7 +69,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (e: any) {
       // Silent logout - don't show error to user
-      console.log('[AUTH] Auth check failed, redirecting to welcome screen');
+      // console.log('[AUTH] Auth check failed, redirecting to welcome screen');
       setIsAuthenticated(false);
       setIsVerified(false);
       setUser(null);
@@ -87,7 +87,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const response = await api.get('/api/v1/users/me');
       setUser(response.data);
     } catch (error: any) {
-      console.log('[AUTH] Failed to refresh user data, re-checking auth status');
+      // console.log('[AUTH] Failed to refresh user data, re-checking auth status');
       // If refreshing fails, it might mean the token is invalid, so we trigger a full re-check
       // This will silently log out if needed
       await checkAuthStatus();
@@ -107,7 +107,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       await authService.logout();
     } catch (error) {
-      console.error('Logout error:', error);
+      // console.error('Logout error:', error);
     } finally {
       setUser(null);
       setIsAuthenticated(false);

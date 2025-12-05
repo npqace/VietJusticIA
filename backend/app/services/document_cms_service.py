@@ -7,7 +7,7 @@ import json
 import time
 import logging
 import uuid
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime, timezone
 from pathlib import Path
 import tempfile
@@ -28,6 +28,13 @@ QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 QDRANT_COLLECTION_NAME = "vietjusticia_legal_docs"
 
+# Processing Configuration
+CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "1000"))
+CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "200"))
+MAX_DIAGRAM_CHARS = int(os.getenv("MAX_DIAGRAM_CHARS", "20000"))
+EMBEDDING_DEVICE = os.getenv("EMBEDDING_DEVICE", "cpu")
+QDRANT_SCROLL_LIMIT = int(os.getenv("QDRANT_SCROLL_LIMIT", "10000"))
+
 
 class DocumentProcessingService:
     """Service for processing document uploads."""
@@ -39,7 +46,26 @@ class DocumentProcessingService:
         self.initialized = False
 
     def initialize(self):
-        """Initialize Qdrant client and embedding model."""
+        """
+        Initialize Qdrant client, embedding model, and LLM.
+
+        This method is idempotent - calling multiple times is safe.
+
+        Environment Variables:
+            QDRANT_URL: Qdrant server URL (default: http://localhost:6333)
+            QDRANT_API_KEY: Optional API key for Qdrant Cloud
+            GOOGLE_API_KEY_CMS: CMS-specific Gemini API key (required)
+            GOOGLE_API_KEY_CMS_1, _2, etc.: Multiple keys for rotation
+            CHUNK_SIZE: Text chunk size (default: 1000)
+            CHUNK_OVERLAP: Chunk overlap (default: 200)
+            MAX_DIAGRAM_CHARS: Max chars for diagrams (default: 20000)
+            EMBEDDING_DEVICE: cpu/cuda (default: cpu)
+            QDRANT_SCROLL_LIMIT: Max Qdrant results (default: 10000)
+
+        Raises:
+            ValueError: If no CMS API keys found in environment
+            ConnectionError: If Qdrant connection fails
+        """
         if self.initialized:
             return
 
@@ -60,7 +86,7 @@ class DocumentProcessingService:
             logger.info("Initializing embedding model")
             self.embeddings_model = SentenceTransformerEmbeddings(
                 model_name='sentence-transformers/paraphrase-multilingual-mpnet-base-v2',
-                model_kwargs={'device': 'cpu'}  # Use CPU for now
+                model_kwargs={'device': EMBEDDING_DEVICE}
             )
 
             # Initialize LLM for diagram generation
@@ -134,7 +160,7 @@ class DocumentProcessingService:
         else:
             logger.warning("Only one CMS API key available, cannot rotate")
 
-    def validate_folder_structure(self, files: List[tuple]) -> tuple[Optional[str], Optional[str]]:
+    def validate_folder_structure(self, files: List[tuple]) -> Tuple[Optional[str], Optional[str]]:
         """
         Validate that uploaded folder contains required files.
 
@@ -197,12 +223,15 @@ class DocumentProcessingService:
 
         Returns:
             ASCII diagram string
+
+        Raises:
+            Exception: If diagram generation fails
         """
         if not self.initialized:
             self.initialize()
 
         try:
-            max_chars = 20000
+            max_chars = MAX_DIAGRAM_CHARS
             truncated_text = text[:max_chars]
 
             prompt = f"""
@@ -274,15 +303,15 @@ Here is the document text:
                             continue
                         else:
                             logger.error(f"All {max_retries} CMS API keys exhausted")
-                            return f"Error: All CMS API keys have exceeded quota. Please wait or add more keys."
+                            raise Exception("All CMS API keys have exceeded quota")
                     else:
                         # Non-quota error, don't retry
                         logger.error(f"Failed to generate ASCII diagram: {e}")
-                        return f"Error generating diagram: {error_msg}"
+                        raise
 
         except Exception as e:
             logger.error(f"Failed to generate ASCII diagram: {e}")
-            return f"Error generating diagram: {str(e)}"
+            raise
 
     def chunk_and_embed_document(
         self,
@@ -311,8 +340,8 @@ Here is the document text:
 
             # Create chunks
             text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=1000,
-                chunk_overlap=200
+                chunk_size=CHUNK_SIZE,
+                chunk_overlap=CHUNK_OVERLAP
             )
 
             page_content = f"Tiêu đề: {title}\n\nToàn văn: {content}"
@@ -395,7 +424,7 @@ Here is the document text:
                         )
                     ]
                 ),
-                limit=10000
+                limit=QDRANT_SCROLL_LIMIT
             )
 
             points = scroll_result[0]
@@ -459,7 +488,7 @@ Here is the document text:
                     "content": point.payload.get("page_content", ""),
                     "character_count": len(point.payload.get("page_content", "")),
                     "indexed_in_qdrant": True,
-                    "indexed_in_bm25": True,  # Assume true if in Qdrant
+                    "indexed_in_bm25": False,  # TODO: Query BM25 docstore for actual status
                     "parent_document_id": point.payload.get("_id", ""),
                     "metadata": {
                         "title": point.payload.get("title", ""),
@@ -618,9 +647,15 @@ Here is the document text:
             diagram_time = 0
             if options.get("generate_diagram", True):
                 diagram_start = time.time()
-                ascii_diagram = self.generate_ascii_diagram(content)
-                diagram_time = time.time() - diagram_start
-                logger.info(f"Diagram generated in {diagram_time:.2f}s")
+                try:
+                    ascii_diagram = self.generate_ascii_diagram(content)
+                    diagram_time = time.time() - diagram_start
+                    logger.info(f"Diagram generated in {diagram_time:.2f}s")
+                except Exception as e:
+                    logger.error(f"Failed to generate diagram: {e}")
+                    ascii_diagram = f"Error generating diagram: {str(e)}"
+                    # Don't fail the whole process, just log and continue
+
 
             # Update MongoDB with full document data
             document_update = {
@@ -706,4 +741,13 @@ Here is the document text:
 
 
 # Global service instance
-document_processing_service = DocumentProcessingService()
+_service_instance = None
+
+def get_document_processing_service() -> DocumentProcessingService:
+    """Get or create the global document processing service instance."""
+    global _service_instance
+    if _service_instance is None:
+        _service_instance = DocumentProcessingService()
+    return _service_instance
+
+document_processing_service = get_document_processing_service()

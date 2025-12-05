@@ -290,8 +290,11 @@ class TestErrorHandling:
         with patch('app.services.ai_service.rag_response_cache.get', return_value=None):
             with patch('app.services.ai_service.gemini_rate_limiter.wait_if_needed', return_value=True):
                 # Should not crash, should handle gracefully
-                with pytest.raises(Exception):
-                    await service.invoke_chain("test query")
+                result = await service.invoke_chain("test query")
+                
+                assert "error occurred" in result["response"].lower()
+                assert "Unexpected error" in result["response"]
+                assert result["sources"] == []
 
 
 # Summary comment for coverage
