@@ -10,26 +10,21 @@ import {
   ScrollView,
   Image,
   Dimensions,
-  ActivityIndicator,
   Keyboard,
-  TouchableWithoutFeedback,
   Animated
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SIZES, FONTS, LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../api';
 import Markdown from 'react-native-markdown-display';
-
-// --- Type Definitions ---
-interface Source {
-  document_id?: string;  // Optional for backward compatibility
-  title: string;
-  document_number: string;
-  source_url: string;
-  page_content_preview: string;
-}
+import { ChatScreenNavigationProp, ChatScreenRouteProp } from '../../types/navigation';
+import { SessionMessage, Source, ChatMessageResponse, ChatSessionResponse } from '../../types/api';
+import logger from '../../utils/logger';
+import { getChatErrorMessage } from '../../utils/errorMessages';
+import { SCREEN_NAMES } from '../../constants/screens';
 
 interface ChatMessage {
   id: number;
@@ -39,8 +34,11 @@ interface ChatMessage {
 }
 
 const { width } = Dimensions.get('window');
-const height = Dimensions.get('window').height;
 
+/**
+ * Animated typing indicator for bot messages.
+ * Displays three dots that animate in sequence to indicate bot is typing.
+ */
 const TypingIndicator = () => {
   const dot1 = useRef(new Animated.Value(0)).current;
   const dot2 = useRef(new Animated.Value(0)).current;
@@ -96,7 +94,20 @@ const typingIndicatorStyles = StyleSheet.create({
   },
 });
 
-const ChatScreen = ({ navigation, route }: { navigation: any; route: any }) => {
+/**
+ * Main chat interface for VietJusticia AI legal assistant.
+ *
+ * Features:
+ * - Real-time chat with AI chatbot
+ * - Chat session persistence (messages saved to backend)
+ * - Source document linking
+ * - Markdown rendering for bot responses
+ * - Auto-scroll to latest message
+ * - Typing indicator
+ */
+const ChatScreen = () => {
+  const navigation = useNavigation<ChatScreenNavigationProp>();
+  const route = useRoute<ChatScreenRouteProp>();
   const insets = useSafeAreaInsets();
   const [message, setMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
@@ -135,19 +146,17 @@ const ChatScreen = ({ navigation, route }: { navigation: any; route: any }) => {
   }, []);
 
   useEffect(() => {
-    setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-    }, 100);
+    // Use onContentSizeChange instead of setTimeout for better reliability
   }, [chatHistory, isTyping, isKeyboardVisible]);
 
   const loadSession = async (sessionId: string) => {
     try {
-      console.log("Loading session:", sessionId);
-      const response = await api.get(`/api/v1/chat/sessions/${sessionId}`);
+      logger.debug("Loading session:", sessionId);
+      const response = await api.get<ChatSessionResponse>(`/api/v1/chat/sessions/${sessionId}`);
       const sessionData = response.data;
 
       // Convert messages to ChatMessage format
-      const messages: ChatMessage[] = sessionData.messages.map((msg: any, index: number) => ({
+      const messages: ChatMessage[] = sessionData.messages.map((msg, index) => ({
         id: index + 1,
         text: msg.text,
         sender: msg.sender,
@@ -156,9 +165,15 @@ const ChatScreen = ({ navigation, route }: { navigation: any; route: any }) => {
 
       setChatHistory(messages);
       setCurrentSessionId(sessionId);
-      console.log("Session loaded successfully");
+      logger.debug("Session loaded successfully");
     } catch (error) {
-      console.error("Failed to load session:", error);
+      logger.error("Failed to load session:", error);
+      setChatHistory([{
+        id: 1,
+        text: getChatErrorMessage(error),
+        sender: 'bot'
+      }]);
+      setCurrentSessionId(null);
     }
   };
 
@@ -170,17 +185,17 @@ const ChatScreen = ({ navigation, route }: { navigation: any; route: any }) => {
 
   const handleSourcePress = (source: Source) => {
     if (!source.document_id) {
-      console.log("Source has no document_id (legacy source):", source.title);
+      logger.debug("Source has no document_id (legacy source):", source.title);
       return;
     }
-    console.log("Navigating to document:", source.document_id, source.title);
-    navigation.navigate('DocumentDetail', { documentId: source.document_id });
+    logger.debug("Navigating to document:", source.document_id, source.title);
+    navigation.navigate(SCREEN_NAMES.DOCUMENT_DETAIL, { documentId: source.document_id });
   };
 
   const sendMessage = async () => {
     if (message.trim() === '') return;
     const userMessage = message;
-    console.log("User Query:", userMessage);
+    logger.debug("User Query:", userMessage);
 
     // Add user message to UI immediately
     setChatHistory(prev => [...prev, { id: prev.length + 1, text: userMessage, sender: 'user' as const }]);
@@ -190,14 +205,14 @@ const ChatScreen = ({ navigation, route }: { navigation: any; route: any }) => {
     try {
       if (!currentSessionId) {
         // First message - create new session
-        console.log("Creating new chat session");
-        const response = await api.post('/api/v1/chat/sessions', {
+        logger.debug("Creating new chat session");
+        const response = await api.post<ChatSessionResponse>('/api/v1/chat/sessions', {
           first_message: userMessage
         });
         const sessionData = response.data;
 
         // Convert messages to ChatMessage format
-        const messages: ChatMessage[] = sessionData.messages.map((msg: any, index: number) => ({
+        const messages: ChatMessage[] = sessionData.messages.map((msg, index) => ({
           id: index + 1,
           text: msg.text,
           sender: msg.sender,
@@ -206,15 +221,15 @@ const ChatScreen = ({ navigation, route }: { navigation: any; route: any }) => {
 
         setChatHistory(messages);
         setCurrentSessionId(sessionData.session_id);
-        console.log("New session created:", sessionData.session_id);
+        logger.debug("New session created:", sessionData.session_id);
       } else {
         // Subsequent messages - add to existing session
-        console.log("Adding message to session:", currentSessionId);
-        const response = await api.post(`/api/v1/chat/sessions/${currentSessionId}/messages`, {
+        logger.debug("Adding message to session:", currentSessionId);
+        const response = await api.post<ChatMessageResponse>(`/api/v1/chat/sessions/${currentSessionId}/messages`, {
           message: userMessage
         });
         const botResponseData = response.data;
-        console.log("Bot Response:", JSON.stringify(botResponseData, null, 2));
+        logger.debug("Bot Response:", JSON.stringify(botResponseData, null, 2));
 
         setChatHistory(prev => [...prev, {
           id: prev.length + 1,
@@ -224,10 +239,10 @@ const ChatScreen = ({ navigation, route }: { navigation: any; route: any }) => {
         }]);
       }
     } catch (error) {
-      console.error("Failed to send message:", error);
+      logger.error("Failed to send message:", error);
       setChatHistory(prev => [...prev, {
         id: prev.length + 1,
-        text: 'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại.',
+        text: getChatErrorMessage(error),
         sender: 'bot' as const
       }]);
     } finally {
@@ -241,7 +256,7 @@ const ChatScreen = ({ navigation, route }: { navigation: any; route: any }) => {
       locations={[0, 0.44, 0.67, 1]}
       style={styles.container}
     >
-      <View 
+      <View
         style={[styles.header, { paddingTop: insets.top }]}
       >
         <Image
@@ -253,7 +268,7 @@ const ChatScreen = ({ navigation, route }: { navigation: any; route: any }) => {
           <TouchableOpacity style={styles.iconButton} onPress={startNewChat}>
             <Ionicons name="add-circle-outline" size={30} color={COLORS.gray} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Menu')}>
+          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate(SCREEN_NAMES.MENU)}>
             <Ionicons name="menu" size={30} color={COLORS.gray} />
           </TouchableOpacity>
         </View>
@@ -265,6 +280,9 @@ const ChatScreen = ({ navigation, route }: { navigation: any; route: any }) => {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           onScrollBeginDrag={Keyboard.dismiss}
+          onContentSizeChange={() => {
+            scrollViewRef.current?.scrollToEnd({ animated: true });
+          }}
         >
           {chatHistory.map((chat) => {
             const markdownStyle = {
@@ -288,10 +306,10 @@ const ChatScreen = ({ navigation, route }: { navigation: any; route: any }) => {
 
             return (
               <View key={chat.id}>
-                <View 
+                <View
                   style={[
-                    styles.messageContainer, 
-                    { 
+                    styles.messageContainer,
+                    {
                       alignSelf: chat.sender === 'user' ? 'flex-end' : 'flex-start',
                       backgroundColor: chat.sender === 'user' ? COLORS.primary : COLORS.buttonLight,
                     }
@@ -349,10 +367,10 @@ const ChatScreen = ({ navigation, route }: { navigation: any; route: any }) => {
               onChangeText={setMessage}
               multiline
             />
-            <TouchableOpacity 
-                style={styles.sendButton} 
-                onPress={sendMessage} 
-                disabled={message.trim() === '' || isTyping}
+            <TouchableOpacity
+              style={styles.sendButton}
+              onPress={sendMessage}
+              disabled={message.trim() === '' || isTyping}
             >
               <Ionicons name="send" size={24} color={COLORS.primary} />
             </TouchableOpacity>
@@ -363,7 +381,6 @@ const ChatScreen = ({ navigation, route }: { navigation: any; route: any }) => {
   );
 };
 
-// Styles remain the same
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -393,9 +410,6 @@ const styles = StyleSheet.create({
   iconButton: {
     padding: 8,
     marginLeft: 8,
-  },
-  keyboardAvoidView: {
-      flex: 1,
   },
   flexGrowContainer: {
     flex: 1,

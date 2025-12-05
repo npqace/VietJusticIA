@@ -6,6 +6,7 @@ import { COLORS, FONTS, SIZES } from '../../constants/styles';
 import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import { requestContactUpdate, verifyContactUpdate } from '../../services/authService';
+import { getErrorMessage, isNetworkError } from '../../utils/errorMessages';
 
 interface EditProfileModalProps {
   visible: boolean;
@@ -18,6 +19,19 @@ interface EditProfileModalProps {
   setPhoneNumber: (text: string) => void;
 }
 
+/**
+ * EditProfileModal Component
+ *
+ * Modal for editing user profile information (full name, email, phone).
+ * Integrates with OTP verification for email/phone changes.
+ *
+ * User Flows:
+ * 1. Name only changed → Direct API call → Success
+ * 2. Email/Phone changed → Request OTP → Show OTP modal → Verify → Success
+ * 3. No changes → Alert "Không có thay đổi"
+ *
+ * @component
+ */
 const EditProfileModal: React.FC<EditProfileModalProps> = ({
   visible,
   onClose,
@@ -37,44 +51,90 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
     Alert.alert('Thành công', 'Thông tin của bạn đã được cập nhật.');
   };
 
+  const updateFullNameOnly = async (name: string) => {
+    const payload = { full_name: name };
+    const response = await api.patch('/api/v1/users/me', payload);
+    updateUser(response.data);
+    onClose();
+    Alert.alert('Thành công', 'Thông tin của bạn đã được cập nhật.');
+  };
+
+  const updateContactInfo = async (payload: { email?: string; phone?: string }) => {
+    await requestContactUpdate(payload);
+    onClose(); // Close edit modal
+
+    // Show OTP modal
+    const emailChanged = !!payload.email;
+    showOtpModal(
+      emailChanged ? payload.email! : user.email,
+      (otp) => verifyContactUpdate({ ...payload, otp }),
+      () => requestContactUpdate(payload),
+      handleUpdateSuccess
+    );
+  };
+
   const handleSaveChanges = async () => {
+    Keyboard.dismiss();
+
+    const name = fullName.trim();
+    const mail = email.trim();
+    const phone = phoneNumber.replace(/[\s-]/g, '');
+
+    // Validate full name
+    if (!name) {
+      Alert.alert('Lỗi', 'Vui lòng nhập họ và tên.');
+      return;
+    }
+
+    if (name.length < 2) {
+      Alert.alert('Lỗi', 'Họ và tên phải có ít nhất 2 ký tự.');
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(mail)) {
+      Alert.alert('Lỗi', 'Email không hợp lệ. Vui lòng kiểm tra lại.');
+      return;
+    }
+
+    // Validate phone format (10-11 digits)
+    const phoneRegex = /^\d{10,11}$/;
+    if (!phoneRegex.test(phone)) {
+      Alert.alert('Lỗi', 'Số điện thoại không hợp lệ (10-11 số).');
+      return;
+    }
+
+    const emailChanged = mail !== user.email;
+    const phoneChanged = phone !== user.phone;
+    const nameChanged = name !== user.full_name;
+
+    if (!emailChanged && !phoneChanged && !nameChanged) {
+      onClose();
+      Alert.alert('Thông báo', 'Không có thay đổi nào để lưu.');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const emailChanged = email !== user.email;
-      const phoneChanged = phoneNumber !== user.phone;
-
       if (emailChanged || phoneChanged) {
+        // Contact info changed → OTP flow
         const payload: { email?: string; phone?: string } = {};
-        if (emailChanged) payload.email = email;
-        if (phoneChanged) payload.phone = phoneNumber;
-
-        await requestContactUpdate(payload);
-        onClose(); // Close the edit modal first
-
-        showOtpModal(
-          emailChanged ? email : user.email,
-          (otp) => verifyContactUpdate({ ...payload, otp }),
-          () => requestContactUpdate(payload), // Resend by calling update-contact again
-          handleUpdateSuccess
-        );
-
-      } else {
-        // Update full name if changed
-        if (fullName !== user.full_name) {
-          const payload = {
-            full_name: fullName,
-          };
-          const response = await api.patch('/api/v1/users/me', payload);
-          updateUser(response.data);
-          onClose();
-          Alert.alert('Thành công', 'Thông tin của bạn đã được cập nhật.');
-        } else {
-          onClose();
-          Alert.alert('Thông báo', 'Không có thay đổi nào để lưu.');
-        }
+        if (emailChanged) payload.email = mail;
+        if (phoneChanged) payload.phone = phone;
+        await updateContactInfo(payload);
+      } else if (nameChanged) {
+        // Only name changed → direct update
+        await updateFullNameOnly(name);
       }
     } catch (error: any) {
-      Alert.alert('Lỗi', error.response?.data?.detail || 'Không thể cập nhật thông tin.');
+      if (isNetworkError(error)) {
+        Alert.alert('Lỗi Kết Nối', 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.');
+        return;
+      }
+
+      const errorMessage = getErrorMessage(error, 'Không thể cập nhật thông tin.');
+      Alert.alert('Lỗi', errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -155,13 +215,13 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
 const styles = StyleSheet.create({
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: COLORS.modalBackdrop || 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalView: {
     width: '90%',
-    backgroundColor: 'white',
+    backgroundColor: COLORS.white,
     borderRadius: 20,
     padding: 25,
     alignItems: 'center',
@@ -212,7 +272,7 @@ const styles = StyleSheet.create({
     color: COLORS.black,
   },
   saveButton: {
-    backgroundColor: '#3b5998',
+    backgroundColor: COLORS.primary,
     height: 55,
     width: '100%',
     marginTop: 10,

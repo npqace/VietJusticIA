@@ -148,7 +148,7 @@ def get_lawyers(db: Session, params: LawyerSearchParams) -> List[Lawyer]:
         # Filter by verification status only if not admin view
         if not params.admin_view:
             query = query.filter(
-                Lawyer.verification_status == Lawyer.VerificationStatus.APPROVED
+                Lawyer.verification_status == Lawyer.VerificationStatus.APPROVED, Lawyer.user.has(is_active=True)
             )
 
         # Search by name (join with User table)
@@ -529,7 +529,7 @@ def get_filter_options(db: Session) -> dict:
         specialization_rows = db.query(
             distinct(Lawyer.specialization)
         ).filter(
-            Lawyer.verification_status == Lawyer.VerificationStatus.APPROVED,
+            Lawyer.verification_status == Lawyer.VerificationStatus.APPROVED, Lawyer.user.has(is_active=True),
             Lawyer.specialization.isnot(None),
             Lawyer.specialization != ''
         ).all()
@@ -545,7 +545,7 @@ def get_filter_options(db: Session) -> dict:
         city_rows = db.query(
             distinct(Lawyer.city)
         ).filter(
-            Lawyer.verification_status == Lawyer.VerificationStatus.APPROVED,
+            Lawyer.verification_status == Lawyer.VerificationStatus.APPROVED, Lawyer.user.has(is_active=True),
             Lawyer.city.isnot(None),
             Lawyer.city != ''
         ).all()

@@ -20,6 +20,7 @@ interface ResetTokenResponse {
 
 interface ContactUpdateResponse {
   access_token?: string;
+  refresh_token?: string;
   message: string;
 }
 
@@ -132,6 +133,9 @@ export const verifyContactUpdate = async (data: { otp: string; email?: string; p
     const response = await api.post<ContactUpdateResponse>('/api/v1/users/me/verify-contact-update', data);
     if (response.data.access_token) {
       await storage.setSecureItem(STORAGE_KEYS.ACCESS_TOKEN, response.data.access_token);
+    }
+    if (response.data.refresh_token) {
+      await storage.setSecureItem(STORAGE_KEYS.REFRESH_TOKEN, response.data.refresh_token);
     }
     return response.data;
   } catch (err) {

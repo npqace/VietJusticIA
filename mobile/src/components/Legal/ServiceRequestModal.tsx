@@ -15,15 +15,41 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, FONTS } from '../../constants/styles';
 import api from '../../api';
+import { AxiosError } from 'axios';
 
+interface ApiErrorResponse {
+  detail?: string;
+  message?: string;
+}
+
+/**
+ * Props for ServiceRequestModal component
+ */
 interface ServiceRequestModalProps {
+  /** Whether modal is visible */
   visible: boolean;
+  /** Callback to close modal */
   onClose: () => void;
+  /** ID of lawyer to send request to */
   lawyerId: number;
+  /** Name of lawyer (displayed in info card) */
   lawyerName: string;
+  /** Callback invoked on successful submission */
   onSuccess: () => void;
 }
 
+/**
+ * ServiceRequestModal Component
+ *
+ * Modal for users to submit service requests to specific lawyers.
+ * Includes form validation, character counters, and error handling.
+ *
+ * Validation Rules:
+ * - Title: 5-255 characters
+ * - Description: min 10 characters
+ *
+ * @component
+ */
 const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
   visible,
   onClose,
@@ -39,6 +65,10 @@ const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
     description: ''
   });
 
+  /**
+   * Validates title and description fields
+   * Shows Alert with bullet points if validation fails
+   */
   const validateForm = () => {
     let isValid = true;
     const newErrors = { title: '', description: '' };
@@ -80,6 +110,10 @@ const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
     return isValid;
   };
 
+  /**
+   * Submits service request to backend
+   * Validates form, shows loading state, resets on success
+   */
   const handleSubmit = async () => {
     if (!validateForm()) {
       return;
@@ -97,15 +131,22 @@ const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
       setDescription('');
       setErrors({ title: '', description: '' });
       onSuccess();
-    } catch (error: any) {
-      console.error('Failed to create service request:', error);
-      const errorMessage = error.response?.data?.detail || 'Không thể gửi yêu cầu. Vui lòng thử lại.';
+    } catch (error) {
+      const axiosError = error as AxiosError<ApiErrorResponse>;
+      const errorMessage =
+        axiosError.response?.data?.detail ||
+        axiosError.response?.data?.message ||
+        'Không thể gửi yêu cầu. Vui lòng thử lại.';
       Alert.alert('Lỗi', errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
+  /**
+   * Handles modal close
+   * Resets form state if not currently loading
+   */
   const handleClose = () => {
     if (!loading) {
       setTitle('');
@@ -242,7 +283,7 @@ const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: COLORS.modalBackdrop || 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   modalContent: {
@@ -274,7 +315,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   lawyerInfo: {
-    backgroundColor: '#F0F9FF',
+    backgroundColor: COLORS.infoBg || '#F0F9FF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
@@ -305,24 +346,24 @@ const styles = StyleSheet.create({
     color: COLORS.error,
   },
   input: {
-    backgroundColor: '#F9F9F9',
+    backgroundColor: COLORS.inputBg || '#F9F9F9',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontFamily: FONTS.regular,
     fontSize: SIZES.body,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: COLORS.border || '#E0E0E0',
   },
   textArea: {
-    backgroundColor: '#F9F9F9',
+    backgroundColor: COLORS.inputBg || '#F9F9F9',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontFamily: FONTS.regular,
     fontSize: SIZES.body,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: COLORS.border || '#E0E0E0',
     minHeight: 150,
     textAlignVertical: 'top',
   },
@@ -345,7 +386,7 @@ const styles = StyleSheet.create({
   },
   infoNote: {
     flexDirection: 'row',
-    backgroundColor: '#FFFBEB',
+    backgroundColor: COLORS.warningBg || '#FFFBEB',
     borderRadius: 12,
     padding: 12,
     gap: 10,
@@ -355,7 +396,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: FONTS.regular,
     fontSize: SIZES.small,
-    color: '#92400E',
+    color: COLORS.warningText || '#92400E',
     lineHeight: 18,
   },
   actionButtons: {

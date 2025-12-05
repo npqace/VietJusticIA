@@ -198,12 +198,12 @@ const DocumentsFilterModal = ({ onApplyFilter, containerStyle, isVisible, onClos
   const onHandlerStateChange = (event: any) => {
     if (event.nativeEvent.oldState === State.ACTIVE) {
       const { translationY, velocityY } = event.nativeEvent;
-      
+
       if (translationY > 50 || velocityY > 500) {
         // Close modal if swiped down enough or with enough velocity
         onClose();
       }
-      
+
       // Reset animation
       Animated.spring(translateY, {
         toValue: 0,
@@ -221,12 +221,12 @@ const DocumentsFilterModal = ({ onApplyFilter, containerStyle, isVisible, onClos
     >
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.modalBackdrop}>
-          <TouchableWithoutFeedback onPress={() => {}}>
+          <TouchableWithoutFeedback onPress={() => { }}>
             <PanGestureHandler
               onGestureEvent={onGestureEvent}
               onHandlerStateChange={onHandlerStateChange}
             >
-              <Animated.View 
+              <Animated.View
                 style={[
                   styles.modalContainer,
                   {
@@ -294,6 +294,8 @@ const DocumentsFilterModal = ({ onApplyFilter, containerStyle, isVisible, onClos
                         display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                         onChange={onStartDateChange}
                         maximumDate={endDateObj || new Date()}
+                        themeVariant="light"
+                        textColor="black"
                       />
                     )}
                     {showEndDatePicker && (
@@ -304,14 +306,16 @@ const DocumentsFilterModal = ({ onApplyFilter, containerStyle, isVisible, onClos
                         onChange={onEndDateChange}
                         minimumDate={startDateObj}
                         maximumDate={new Date()}
+                        themeVariant="light"
+                        textColor="black"
                       />
                     )}
                   </View>
 
                   <View style={styles.filterSection}>
                     <Text style={styles.sectionTitle}>Tình trạng</Text>
-                    <TouchableOpacity 
-                      style={styles.dropdown} 
+                    <TouchableOpacity
+                      style={styles.dropdown}
                       onPress={() => openDropdown('status')}
                     >
                       <Text style={styles.dropdownText}>{filters.status}</Text>
@@ -321,8 +325,8 @@ const DocumentsFilterModal = ({ onApplyFilter, containerStyle, isVisible, onClos
 
                   <View style={styles.filterSection}>
                     <Text style={styles.sectionTitle}>Loại văn bản</Text>
-                    <TouchableOpacity 
-                      style={styles.dropdown} 
+                    <TouchableOpacity
+                      style={styles.dropdown}
                       onPress={() => openDropdown('documentType')}
                     >
                       <Text style={styles.dropdownText}>{filters.documentType}</Text>
@@ -332,8 +336,8 @@ const DocumentsFilterModal = ({ onApplyFilter, containerStyle, isVisible, onClos
 
                   <View style={styles.filterSection}>
                     <Text style={styles.sectionTitle}>Lĩnh vực, ngành</Text>
-                    <TouchableOpacity 
-                      style={styles.dropdown} 
+                    <TouchableOpacity
+                      style={styles.dropdown}
                       onPress={() => openDropdown('field')}
                     >
                       <Text style={styles.dropdownText}>{filters.field}</Text>

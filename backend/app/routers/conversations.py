@@ -60,24 +60,36 @@ def create_conversation(
                 detail="Service request not found"
             )
         
-        # Verify user is the assigned lawyer
-        if current_user.role != User.Role.LAWYER:
-            raise HTTPException(
+        # Verify user is authorized (Lawyer assigned or User owner)
+        if current_user.role == User.Role.LAWYER:
+            lawyer = lawyer_repository.get_lawyer_by_user_id(db, current_user.id)
+            if not lawyer or lawyer.id != service_request.lawyer_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You can only create conversations for requests assigned to you"
+                )
+        elif current_user.role == User.Role.USER:
+            if service_request.user_id != current_user.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You can only create conversations for your own requests"
+                )
+            # User can only create conversation if request is accepted or in progress
+            if service_request.status.value not in ["ACCEPTED", "IN_PROGRESS"]:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Conversation can only be started after the lawyer accepts the request"
+                )
+        else:
+             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only lawyers can create conversations"
-            )
-        
-        lawyer = lawyer_repository.get_lawyer_by_user_id(db, current_user.id)
-        if not lawyer or lawyer.id != service_request.lawyer_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only create conversations for requests assigned to you"
+                detail="Unauthorized to create conversation"
             )
         
         # Check if conversation already exists
         existing_conv = conversation_repository.get_conversation_by_service_request_id(
             service_request_id=conversation_data.service_request_id,
-            lawyer_id=lawyer.id
+            lawyer_id=service_request.lawyer_id
         )
         
         if existing_conv:
@@ -90,7 +102,7 @@ def create_conversation(
         conversation = conversation_repository.create_conversation(
             service_request_id=conversation_data.service_request_id,
             user_id=service_request.user_id,
-            lawyer_id=lawyer.id
+            lawyer_id=service_request.lawyer_id
         )
         
         if not conversation:
@@ -101,7 +113,7 @@ def create_conversation(
         
         logger.info(
             f"Conversation created for service request {conversation_data.service_request_id} "
-            f"by lawyer {lawyer.id}"
+            f"by {current_user.role} {current_user.id}"
         )
         
         return conversation

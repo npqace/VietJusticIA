@@ -215,7 +215,7 @@ async def update_contact(
             if user_repository.get_user_by_email(db, request.email):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Email already registered",
+                    detail="Email đã được đăng ký",
                 )
             current_user.new_email = request.email
             target_email = request.email # Send to new email
@@ -224,7 +224,7 @@ async def update_contact(
             if user_repository.get_user_by_phone(db, request.phone):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Phone number already registered",
+                    detail="Số điện thoại đã được đăng ký",
                 )
             current_user.new_phone = request.phone
 
@@ -284,14 +284,17 @@ async def verify_contact_update(
         updated_user = user_repository.update_user(db, current_user, {})
 
         access_token = None
+        refresh_token = None
         if email_changed:
             # Re-issue a token with the new email
             access_token = create_access_token(data={"sub": updated_user.email})
+            refresh_token = create_refresh_token(data={"sub": updated_user.email})
 
         return {
             "message": "Contact information updated successfully.",
             "user": updated_user,
             "access_token": access_token,
+            "refresh_token": refresh_token,
         }
     except HTTPException:
         raise

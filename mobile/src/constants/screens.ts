@@ -1,0 +1,18 @@
+export const SCREEN_NAMES = {
+    WELCOME: 'Welcome',
+    SIGNUP: 'Signup',
+    LOGIN: 'Login',
+    RESET_PASSWORD: 'ResetPassword',
+    USER_PROFILE: 'UserProfile',
+    CHAT: 'Chat',
+    MENU: 'Menu',
+    FAQS: 'FAQs',
+    LAWYER: 'Lawyer',
+    LAWYER_DETAIL: 'LawyerDetail',
+    DOCUMENT_LOOKUP: 'DocumentLookup',
+    PROCEDURE_LOOKUP: 'ProcedureLookup',
+    DOCUMENT_DETAIL: 'DocumentDetail',
+    MY_REQUESTS: 'MyRequests',
+    SERVICE_REQUEST_DETAIL: 'ServiceRequestDetail',
+    CONVERSATION: 'Conversation',
+} as const;

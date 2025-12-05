@@ -144,7 +144,7 @@ const AdminDashboard: React.FC = () => {
       <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
         <Grid container spacing={3}>
           {/* Users Card */}
-          <Grid item xs={12} md={3}>
+          <Grid size={{ xs: 12, md: 3 }}>
             <DashboardCard
               title="Tổng Người Dùng"
               value={stats.total_users}
@@ -155,7 +155,7 @@ const AdminDashboard: React.FC = () => {
           </Grid>
 
           {/* Lawyers Card */}
-          <Grid item xs={12} md={3}>
+          <Grid size={{ xs: 12, md: 3 }}>
             <DashboardCard
               title="Tổng Luật Sư"
               value={stats.total_lawyers}
@@ -166,7 +166,7 @@ const AdminDashboard: React.FC = () => {
           </Grid>
 
           {/* Admins Card */}
-          <Grid item xs={12} md={3}>
+          <Grid size={{ xs: 12, md: 3 }}>
             <DashboardCard
               title="Tổng Admin"
               value={stats.total_admins}
@@ -177,7 +177,7 @@ const AdminDashboard: React.FC = () => {
           </Grid>
 
           {/* Requests Card */}
-          <Grid item xs={12} md={3}>
+          <Grid size={{ xs: 12, md: 3 }}>
             <DashboardCard
               title="Yêu Cầu Dịch Vụ"
               value={stats.total_requests}
@@ -188,7 +188,7 @@ const AdminDashboard: React.FC = () => {
           </Grid>
 
           {/* Document CMS Card */}
-          <Grid item xs={12} md={3}>
+          <Grid size={{ xs: 12, md: 3 }}>
             <DashboardCard
               title="Quản Lý Văn Bản"
               value={stats.total_documents}
@@ -200,9 +200,9 @@ const AdminDashboard: React.FC = () => {
         </Grid>
       </Container>
 
-      <Snackbar 
-        open={!!error} 
-        autoHideDuration={6000} 
+      <Snackbar
+        open={!!error}
+        autoHideDuration={6000}
         onClose={() => setError(null)}
       >
         <Alert onClose={() => setError(null)} severity="error" sx={{ width: '100%' }}>

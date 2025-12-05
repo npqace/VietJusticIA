@@ -113,7 +113,8 @@ async def get_lawyers(
                     "user": {
                         "full_name": lawyer.user.full_name,
                         "email": lawyer.user.email,
-                        "phone": lawyer.user.phone
+                        "phone": lawyer.user.phone,
+                        "is_active": lawyer.user.is_active
                     }
                 }
             else:

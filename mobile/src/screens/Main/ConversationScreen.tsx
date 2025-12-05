@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,13 +10,18 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useConversationWebSocket } from '../../hooks/useConversationWebSocket';
 import api from '../../api';
 import { COLORS, FONTS, SIZES } from '../../constants/styles';
 import Header from '../../components/Header';
 import { useAuth } from '../../context/AuthContext';
+import { ConversationScreenNavigationProp, ConversationScreenRouteProp } from '../../types/navigation';
+import logger from '../../utils/logger';
+import { SCREEN_NAMES } from '../../constants/screens';
 
 interface Message {
   message_id: string;
@@ -28,18 +33,28 @@ interface Message {
   read_by_lawyer: boolean;
 }
 
-interface ConversationScreenProps {
-  route: {
-    params: {
-      conversationId?: string;
-      serviceRequestId: number;
-      title: string;
-    };
-  };
-  navigation: any;
-}
+const TIMING = {
+  MARK_AS_READ_DELAY: 500,
+  AUTO_SCROLL_DELAY: 100,
+  TYPING_INDICATOR_TIMEOUT: 2000,
+} as const;
 
-const ConversationScreen: React.FC<ConversationScreenProps> = ({ route, navigation }) => {
+/**
+ * Real-time lawyer-client conversation screen with WebSocket integration.
+ *
+ * Features:
+ * - Real-time messaging via WebSocket
+ * - Message history persistence
+ * - Typing indicators
+ * - Connection status indicators
+ * - Auto-scroll to latest message
+ * - Mark messages as read functionality
+ * - Message deduplication
+ * - Auto-conversation creation/retrieval
+ */
+const ConversationScreen: React.FC = () => {
+  const navigation = useNavigation<ConversationScreenNavigationProp>();
+  const route = useRoute<ConversationScreenRouteProp>();
   const { conversationId: initialConversationId, serviceRequestId, title } = route.params;
   const { user } = useAuth();
 
@@ -65,45 +80,64 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route, navigati
 
   const [allMessages, setAllMessages] = useState<Message[]>([]);
 
-  // Fetch conversation history
-  useEffect(() => {
-    if (conversationId) {
-      fetchConversationHistory();
-    } else {
-      // Try to get or create conversation
-      getOrCreateConversation();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationId]);
-
-  const getOrCreateConversation = async () => {
+  /**
+   * Fetches or creates conversation for the service request.
+   * Displays alert if conversation doesn't exist (lawyer hasn't accepted request yet).
+   */
+  const getOrCreateConversation = useCallback(async () => {
     try {
       setIsCreatingConversation(true);
       // Try to get existing conversation
-      const response = await api.get(`/api/v1/conversations/service-request/${serviceRequestId}`);
-
-      if (response.data && response.data.conversation_id) {
-        setConversationId(response.data.conversation_id);
+      try {
+        const response = await api.get(`/api/v1/conversations/service-request/${serviceRequestId}`);
+        if (response.data && response.data.conversation_id) {
+          setConversationId(response.data.conversation_id);
+          return;
+        }
+      } catch (getError: any) {
+        // If not found (404), try to create it
+        if (getError.response?.status === 404) {
+          logger.debug('Conversation not found, attempting to create...');
+          try {
+            const createResponse = await api.post('/api/v1/conversations/', {
+              service_request_id: serviceRequestId
+            });
+            if (createResponse.data && createResponse.data.conversation_id) {
+              setConversationId(createResponse.data.conversation_id);
+              return;
+            }
+          } catch (createError: any) {
+            logger.error('Failed to create conversation:', createError);
+            // If creation fails (e.g. status not accepted), show error
+            if (createError.response?.status === 400) {
+              Alert.alert(
+                'Chưa thể bắt đầu',
+                'Luật sư cần chấp nhận yêu cầu của bạn trước khi bắt đầu cuộc trò chuyện.',
+                [{ text: 'OK', onPress: () => navigation.goBack() }]
+              );
+            } else {
+              Alert.alert('Lỗi', 'Không thể tạo cuộc trò chuyện. Vui lòng thử lại sau.');
+            }
+            return;
+          }
+        } else {
+          throw getError;
+        }
       }
     } catch (error: any) {
-      // Conversation doesn't exist yet
-      if (error.response?.status === 404) {
-        Alert.alert(
-          'No Conversation',
-          'The lawyer needs to accept your request before starting a conversation.',
-          [{ text: 'OK', onPress: () => navigation.goBack() }]
-        );
-      } else {
-        console.error('Failed to get conversation:', error);
-        Alert.alert('Error', 'Failed to load conversation');
-      }
+      logger.error('Failed to get conversation:', error);
+      Alert.alert('Lỗi', 'Không thể tải cuộc trò chuyện');
     } finally {
       setIsCreatingConversation(false);
       setIsLoadingHistory(false);
     }
-  };
+  }, [serviceRequestId, navigation]);
 
-  const fetchConversationHistory = async () => {
+  /**
+   * Fetches message history for the conversation from backend API.
+   * Marks messages as read if WebSocket is connected.
+   */
+  const fetchConversationHistory = useCallback(async () => {
     if (!conversationId) return;
 
     try {
@@ -118,11 +152,21 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route, navigati
         }
       }
     } catch (error) {
-      console.error('Failed to fetch conversation history:', error);
+      logger.error('Failed to fetch conversation history:', error);
     } finally {
       setIsLoadingHistory(false);
     }
-  };
+  }, [conversationId, isConnected, markAsRead]);
+
+  // Fetch conversation history
+  useEffect(() => {
+    if (conversationId) {
+      fetchConversationHistory();
+    } else {
+      // Try to get or create conversation
+      getOrCreateConversation();
+    }
+  }, [conversationId, fetchConversationHistory, getOrCreateConversation]);
 
   // Mark messages as read when WebSocket connects
   useEffect(() => {
@@ -130,10 +174,10 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route, navigati
       // Small delay to ensure WebSocket is fully ready
       const timer = setTimeout(() => {
         markAsRead();
-      }, 500);
+      }, TIMING.MARK_AS_READ_DELAY);
       return () => clearTimeout(timer);
     }
-  }, [isConnected, conversationId, allMessages.length, markAsRead]); // Only run when connection state or conversation changes
+  }, [isConnected, conversationId, allMessages.length, markAsRead]);
 
   // Merge websocket messages with history
   useEffect(() => {
@@ -152,7 +196,7 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route, navigati
     if (allMessages.length > 0) {
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      }, TIMING.AUTO_SCROLL_DELAY);
     }
   }, [allMessages]);
 
@@ -185,14 +229,15 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route, navigati
       // Stop typing after 2 seconds of inactivity
       typingTimeoutRef.current = setTimeout(() => {
         sendTypingIndicator(false);
-      }, 2000);
+      }, TIMING.TYPING_INDICATOR_TIMEOUT);
     } else {
       sendTypingIndicator(false);
     }
   };
 
   const renderMessage = ({ item }: { item: Message }) => {
-    const isMyMessage = user && item.sender_type === (user.role === 'LAWYER' ? 'lawyer' : 'user');
+    // Normalize role comparison to be case-insensitive
+    const isMyMessage = user && item.sender_type === (user.role.toLowerCase() === 'lawyer' ? 'lawyer' : 'user');
     const messageTime = new Date(item.timestamp).toLocaleTimeString([], {
       hour: '2-digit',
       minute: '2-digit',
@@ -217,12 +262,22 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route, navigati
     );
   };
 
+  const EmptyState = () => (
+    <View style={styles.emptyContainer}>
+      <Ionicons name="chatbubbles-outline" size={64} color={COLORS.gray} />
+      <Text style={styles.emptyTitle}>Chưa có tin nhắn nào</Text>
+      <Text style={styles.emptyDescription}>
+        Bắt đầu cuộc trò chuyện bằng cách gửi tin nhắn đầu tiên
+      </Text>
+    </View>
+  );
+
   if (isCreatingConversation || isLoadingHistory) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={COLORS.primary} />
         <Text style={styles.loadingText}>
-          {isCreatingConversation ? 'Loading conversation...' : 'Loading messages...'}
+          {isCreatingConversation ? 'Đang tải cuộc trò chuyện...' : 'Đang tải tin nhắn...'}
         </Text>
       </View>
     );
@@ -239,9 +294,9 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route, navigati
       {/* Connection Status */}
       {!isConnected && (
         <View style={styles.statusBar}>
-          <Text style={styles.statusText}>Connecting...</Text>
+          <Text style={styles.statusText}>Đang kết nối...</Text>
           <TouchableOpacity onPress={reconnect}>
-            <Text style={styles.retryText}>Retry</Text>
+            <Text style={styles.retryText}>Thử lại</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -260,12 +315,13 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route, navigati
         keyExtractor={(item) => item.message_id}
         contentContainerStyle={styles.messagesList}
         onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+        ListEmptyComponent={!isLoadingHistory ? <EmptyState /> : null}
       />
 
       {/* Typing Indicator */}
       {otherUserIsTyping && (
         <View style={styles.typingContainer}>
-          <Text style={styles.typingText}>Other person is typing...</Text>
+          <Text style={styles.typingText}>Người khác đang nhập...</Text>
         </View>
       )}
 
@@ -275,7 +331,7 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route, navigati
           style={styles.input}
           value={inputText}
           onChangeText={handleTextChange}
-          placeholder="Type a message..."
+          placeholder="Nhập tin nhắn..."
           placeholderTextColor={COLORS.gray}
           multiline
           maxLength={1000}
@@ -333,6 +389,7 @@ const styles = StyleSheet.create({
   },
   messagesList: {
     padding: SIZES.padding,
+    flexGrow: 1,
   },
   messageContainer: {
     marginBottom: 12,
@@ -420,6 +477,28 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     opacity: 0.5,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingTop: 80,
+  },
+  emptyTitle: {
+    fontSize: SIZES.h3,
+    fontFamily: FONTS.bold,
+    color: COLORS.black,
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyDescription: {
+    fontSize: SIZES.body,
+    fontFamily: FONTS.regular,
+    color: COLORS.gray,
+    textAlign: 'center',
+    lineHeight: 22,
   },
 });
 

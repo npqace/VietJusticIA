@@ -33,20 +33,19 @@ async def get_dashboard_stats(
     try:
         logger.info(f"Admin {current_user.email} fetching dashboard stats")
 
-        stats = db.query(
-            func.count(case((User.role == User.Role.USER, User.id))).label('total_users'),
-            func.count(case((User.role == User.Role.ADMIN, User.id))).label('total_admins'),
-            func.count(Lawyer.id).label('total_lawyers'),
-            func.count(ServiceRequest.id).label('total_requests')
-        ).first()
+        # Execute separate queries to avoid Cartesian product
+        total_users = db.query(func.count(User.id)).filter(User.role == User.Role.USER).scalar()
+        total_admins = db.query(func.count(User.id)).filter(User.role == User.Role.ADMIN).scalar()
+        total_lawyers = db.query(func.count(Lawyer.id)).scalar()
+        total_requests = db.query(func.count(ServiceRequest.id)).scalar()
 
         total_documents = document_cms_repository.get_total_documents_count()
 
         result = {
-            "total_users": stats.total_users,
-            "total_lawyers": stats.total_lawyers,
-            "total_admins": stats.total_admins,
-            "total_requests": stats.total_requests,
+            "total_users": total_users,
+            "total_lawyers": total_lawyers,
+            "total_admins": total_admins,
+            "total_requests": total_requests,
             "total_documents": total_documents
         }
 
@@ -210,6 +209,68 @@ async def get_all_service_requests(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve service requests"
+        )
+
+
+from ..schemas.lawyer import AdminUpdateLawyer
+
+@router.put("/lawyers/{lawyer_id}")
+async def update_lawyer_details(
+    lawyer_id: int,
+    lawyer_data: AdminUpdateLawyer,
+    request: Request,
+    current_user: User = Depends(verify_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Update lawyer details (admin only).
+    Can update both lawyer profile and associated user fields.
+    """
+    try:
+        logger.info(f"Admin {current_user.email} updating lawyer {lawyer_id}")
+        logger.info(f"Received update data: {lawyer_data}")
+
+        lawyer = lawyer_repository.get_lawyer_by_id(db, lawyer_id)
+        if not lawyer:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Lawyer not found"
+            )
+
+        # Update user fields if provided
+        user_updates = {}
+        if lawyer_data.full_name is not None:
+            user_updates["full_name"] = lawyer_data.full_name
+        if lawyer_data.phone is not None:
+            user_updates["phone"] = lawyer_data.phone
+        
+        if user_updates:
+            user_repository.update_user(db, lawyer.user, user_updates)
+            logger.info(f"Updated user fields for lawyer {lawyer_id}: {user_updates}")
+
+        # Update lawyer fields
+        updated_lawyer = lawyer_repository.update_lawyer(db, lawyer_id, lawyer_data)
+        
+        # Audit Log
+        audit_service.log_action(
+            db=db,
+            admin_id=current_user.id,
+            action="UPDATE_LAWYER",
+            target_type="LAWYER",
+            target_id=str(lawyer_id),
+            details=f"Updated lawyer details: {lawyer_data.model_dump(exclude_unset=True)}",
+            request=request
+        )
+
+        return {"message": "Lawyer updated successfully", "lawyer": updated_lawyer}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update lawyer: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update lawyer"
         )
 
 
