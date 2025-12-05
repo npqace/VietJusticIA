@@ -79,6 +79,18 @@ const MyRequestsScreen = ({ navigation }: { navigation: any }) => {
     return statusMap[status.toLowerCase()] || status;
   };
 
+  const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [detailsModalVisible, setDetailsModalVisible] = useState(false);
+
+  const openDetails = (item: any, type: string) => {
+    if (type === 'service') {
+      navigation.navigate('ServiceRequestDetail', { requestId: item.id });
+    } else {
+      setSelectedRequest({ ...item, type });
+      setDetailsModalVisible(true);
+    }
+  };
+
   const renderRequestItem = ({ item, type }: { item: any, type: string }) => (
     <View style={styles.requestItem}>
       <Text style={styles.itemTitle}>{item.title || item.subject || item.content?.substring(0, 50)}</Text>
@@ -86,13 +98,7 @@ const MyRequestsScreen = ({ navigation }: { navigation: any }) => {
       <Text style={styles.itemStatus}>{getStatusText(item.status)}</Text>
       <TouchableOpacity
         style={styles.detailsButton}
-        onPress={() => {
-          if (type === 'service') {
-            navigation.navigate('ServiceRequestDetail', { requestId: item.id });
-          } else {
-            Alert.alert('Thông báo', 'Tính năng đang phát triển');
-          }
-        }}
+        onPress={() => openDetails(item, type)}
       >
         <Text style={styles.detailsButtonText}>Xem chi tiết</Text>
       </TouchableOpacity>
@@ -171,6 +177,47 @@ const MyRequestsScreen = ({ navigation }: { navigation: any }) => {
           />
         )}
       />
+
+      {/* Details Modal */}
+      {selectedRequest && (
+        <View style={detailsModalVisible ? styles.modalOverlay : { display: 'none' }}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Chi tiết yêu cầu</Text>
+
+            <View style={styles.modalRow}>
+              <Text style={styles.modalLabel}>Trạng thái:</Text>
+              <Text style={[styles.modalValue, { color: COLORS.primary, fontFamily: FONTS.semiBold }]}>
+                {getStatusText(selectedRequest.status)}
+              </Text>
+            </View>
+
+            <View style={styles.modalRow}>
+              <Text style={styles.modalLabel}>Ngày gửi:</Text>
+              <Text style={styles.modalValue}>
+                {new Date(selectedRequest.created_at).toLocaleDateString('vi-VN')}
+              </Text>
+            </View>
+
+            <Text style={styles.modalLabel}>Nội dung:</Text>
+            <View style={styles.contentBox}>
+              <Text style={styles.contentText}>
+                {selectedRequest.content || selectedRequest.subject || 'Không có nội dung'}
+              </Text>
+            </View>
+
+            <Text style={styles.noteText}>
+              * Phản hồi từ quản trị viên sẽ được gửi qua email của bạn.
+            </Text>
+
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setDetailsModalVisible(false)}
+            >
+              <Text style={styles.closeButtonText}>Đóng</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   );
 };
@@ -200,18 +247,18 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   itemTitle: {
-    fontSize: SIZES.h3,
+    fontSize: SIZES.heading3,
     fontFamily: FONTS.bold,
     marginBottom: 4,
   },
   itemDate: {
-    fontSize: SIZES.body4,
+    fontSize: SIZES.small,
     fontFamily: FONTS.regular,
     color: COLORS.gray,
     marginBottom: 8,
   },
   itemStatus: {
-    fontSize: SIZES.body4,
+    fontSize: SIZES.small,
     fontFamily: FONTS.semiBold,
     color: COLORS.primary,
     textTransform: 'capitalize',
@@ -227,6 +274,78 @@ const styles = StyleSheet.create({
   detailsButtonText: {
     color: COLORS.white,
     fontFamily: FONTS.bold,
+  },
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 20,
+    width: '100%',
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: SIZES.heading2,
+    fontFamily: FONTS.bold,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  modalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  modalLabel: {
+    fontSize: SIZES.body,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.gray,
+    marginBottom: 4,
+  },
+  modalValue: {
+    fontSize: SIZES.body,
+    fontFamily: FONTS.regular,
+    color: COLORS.black,
+  },
+  contentBox: {
+    backgroundColor: COLORS.lightGray,
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 4,
+    marginBottom: 16,
+    maxHeight: 200,
+  },
+  contentText: {
+    fontSize: SIZES.body,
+    fontFamily: FONTS.regular,
+    color: COLORS.black,
+    lineHeight: 22,
+  },
+  noteText: {
+    fontSize: SIZES.small,
+    fontFamily: FONTS.italic,
+    color: COLORS.gray,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  closeButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    color: COLORS.white,
+    fontFamily: FONTS.bold,
+    fontSize: SIZES.body,
   },
 });
 

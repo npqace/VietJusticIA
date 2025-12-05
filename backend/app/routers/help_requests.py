@@ -194,14 +194,14 @@ async def delete_help_request(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Help request not found"
             )
         # Validate status transition
-        if request.status == HelpRequest.HelpStatus.CLOSED:
+        if request.status == HelpRequest.HelpStatus.CLOSED.value:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot delete a closed help request"
             )
         
         # Only allow deleting PENDING requests
-        if request.status != HelpRequest.HelpStatus.PENDING:
+        if request.status != HelpRequest.HelpStatus.PENDING.value:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot delete a help request that is already in progress or resolved"

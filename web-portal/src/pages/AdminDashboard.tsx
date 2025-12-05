@@ -179,7 +179,7 @@ const AdminDashboard: React.FC = () => {
           {/* Requests Card */}
           <Grid size={{ xs: 12, md: 3 }}>
             <DashboardCard
-              title="Yêu Cầu Dịch Vụ"
+              title="Yêu Cầu"
               value={stats.total_requests}
               icon={<AssignmentOutlined color="info" />}
               onClick={() => navigate(ADMIN_ROUTES.REQUESTS)}

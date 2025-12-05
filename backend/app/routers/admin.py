@@ -8,7 +8,7 @@ from typing import List, Optional
 import logging
 
 from ..database.database import get_db
-from ..database.models import User, Lawyer, ServiceRequest
+from ..database.models import User, Lawyer, ServiceRequest, ConsultationRequest, HelpRequest
 from ..services.auth import get_current_user
 from ..services.audit_service import audit_service
 from ..schemas.user import UserProfile, AdminCreateUser, AdminCreateUserResponse, UserListResponse
@@ -37,7 +37,13 @@ async def get_dashboard_stats(
         total_users = db.query(func.count(User.id)).filter(User.role == User.Role.USER).scalar()
         total_admins = db.query(func.count(User.id)).filter(User.role == User.Role.ADMIN).scalar()
         total_lawyers = db.query(func.count(Lawyer.id)).scalar()
-        total_requests = db.query(func.count(ServiceRequest.id)).scalar()
+        
+        # Calculate total requests from all types
+        service_requests_count = db.query(func.count(ServiceRequest.id)).scalar() or 0
+        consultation_requests_count = db.query(func.count(ConsultationRequest.id)).scalar() or 0
+        help_requests_count = db.query(func.count(HelpRequest.id)).scalar() or 0
+        
+        total_requests = service_requests_count + consultation_requests_count + help_requests_count
 
         total_documents = document_cms_repository.get_total_documents_count()
 

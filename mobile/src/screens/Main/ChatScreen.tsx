@@ -11,7 +11,8 @@ import {
   Image,
   Dimensions,
   Keyboard,
-  Animated
+  Animated,
+  DeviceEventEmitter
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -139,11 +140,20 @@ const ChatScreen = () => {
       }
     );
 
+    // Listen for session deletion events from MenuScreen
+    const sessionDeletedListener = DeviceEventEmitter.addListener('chatSessionDeleted', (event) => {
+      if (event.sessionId === currentSessionId) {
+        logger.debug("Current session deleted, resetting chat");
+        startNewChat();
+      }
+    });
+
     return () => {
       keyboardDidHideListener.remove();
       keyboardDidShowListener.remove();
+      sessionDeletedListener.remove();
     };
-  }, []);
+  }, [currentSessionId]);
 
   useEffect(() => {
     // Use onContentSizeChange instead of setTimeout for better reliability

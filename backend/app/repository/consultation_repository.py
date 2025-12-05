@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 # Constants
 DEFAULT_PAGE_SIZE = 50
 MAX_PAGE_SIZE = 100
-VALID_STATUSES = {"pending", "in_progress", "resolved", "closed"}
+VALID_STATUSES = {"pending", "in_progress", "completed", "rejected"}
 VALID_PRIORITIES = {"low", "medium", "high", "urgent"}
 
 def create_consultation_request(
@@ -113,7 +113,9 @@ def get_consultation_requests(
             if status not in VALID_STATUSES:
                 logger.warning(f"Invalid status filter: {status}, ignoring")
             else:
-                query = query.filter(ConsultationRequest.status == status)
+                # Case-insensitive comparison to handle legacy "PENDING" vs new "pending"
+                from sqlalchemy import func
+                query = query.filter(func.lower(ConsultationRequest.status) == status.lower())
 
         # Filter by priority with validation
         if priority:

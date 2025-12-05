@@ -43,8 +43,21 @@ interface SignupData {
 
 const handleError = (err: unknown): never => {
   if (axios.isAxiosError(err) && err.response) {
-    // Use the detailed error message from the backend if available
-    throw new Error(err.response.data.detail || 'Đã có lỗi xảy ra.');
+    const detail = err.response.data.detail;
+    let errorMessage = 'Đã có lỗi xảy ra.';
+
+    if (typeof detail === 'string') {
+      errorMessage = detail;
+    } else if (typeof detail === 'object' && detail !== null) {
+      // Handle 429 rate limit object or other structured errors
+      if ('message' in detail) {
+        errorMessage = (detail as any).message;
+      } else {
+        errorMessage = JSON.stringify(detail);
+      }
+    }
+
+    throw new Error(errorMessage);
   }
   // Fallback for non-API errors
   throw err;
