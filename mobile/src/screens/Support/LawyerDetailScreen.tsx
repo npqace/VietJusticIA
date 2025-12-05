@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
-  Alert
+  Alert,
+  RefreshControl
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -46,6 +47,7 @@ const LawyerDetailScreen: React.FC<LawyerDetailScreenProps> = ({ route, navigati
   const { lawyerId } = route.params;
   const [lawyer, setLawyer] = useState<LawyerDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [requestModalVisible, setRequestModalVisible] = useState(false);
 
   useEffect(() => {
@@ -54,11 +56,11 @@ const LawyerDetailScreen: React.FC<LawyerDetailScreenProps> = ({ route, navigati
 
   const fetchLawyerDetail = async () => {
     try {
-      setLoading(true);
+      if (!refreshing) setLoading(true);
       const response = await api.get(`/api/v1/lawyers/${lawyerId}`);
-      setLawyer(response.data);
+      setLawyer(response.data as LawyerDetail);
     } catch (error: any) {
-      console.error('Failed to fetch lawyer details:', error);
+      // console.error('Failed to fetch lawyer details:', error);
       Alert.alert(
         'Lỗi',
         'Không thể tải thông tin luật sư. Vui lòng thử lại.',
@@ -66,7 +68,13 @@ const LawyerDetailScreen: React.FC<LawyerDetailScreenProps> = ({ route, navigati
       );
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchLawyerDetail();
   };
 
   const formatFee = (fee: number | null) => {
@@ -140,7 +148,13 @@ const LawyerDetailScreen: React.FC<LawyerDetailScreenProps> = ({ route, navigati
     >
       <Header title="Chi tiết luật sư" showAddChat={false} />
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />
+        }
+      >
         {/* Profile Card */}
         <View style={styles.profileCard}>
           <View style={styles.profileHeader}>

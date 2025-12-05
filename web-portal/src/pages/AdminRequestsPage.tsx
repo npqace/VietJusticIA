@@ -539,13 +539,13 @@ const AdminRequestsPage: React.FC = () => {
         <DialogContent>
           {selectedServiceRequest && (
             <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   ID Yêu cầu
                 </Typography>
                 <Typography variant="body1">{selectedServiceRequest.id}</Typography>
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Trạng thái
                 </Typography>
@@ -554,25 +554,25 @@ const AdminRequestsPage: React.FC = () => {
                   color={getStatusColor(selectedServiceRequest.status) as any}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Người dùng
                 </Typography>
                 <Typography variant="body1">{selectedServiceRequest.user_name}</Typography>
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Luật sư
                 </Typography>
                 <Typography variant="body1">{selectedServiceRequest.lawyer_name || 'Chưa gán'}</Typography>
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Tiêu đề
                 </Typography>
                 <Typography variant="body1">{selectedServiceRequest.title}</Typography>
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Mô tả
                 </Typography>
@@ -583,7 +583,7 @@ const AdminRequestsPage: React.FC = () => {
                 </Paper>
               </Grid>
               {selectedServiceRequest.lawyer_response && (
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Typography variant="subtitle2" color="text.secondary">
                     Phản hồi của luật sư
                   </Typography>
@@ -595,7 +595,7 @@ const AdminRequestsPage: React.FC = () => {
                 </Grid>
               )}
               {selectedServiceRequest.rejected_reason && (
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Typography variant="subtitle2" color="text.secondary">
                     Lý do từ chối
                   </Typography>
@@ -606,13 +606,13 @@ const AdminRequestsPage: React.FC = () => {
                   </Paper>
                 </Grid>
               )}
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Ngày tạo
                 </Typography>
                 <Typography variant="body1">{formatDate(selectedServiceRequest.created_at)}</Typography>
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Ngày cập nhật
                 </Typography>
@@ -632,43 +632,43 @@ const AdminRequestsPage: React.FC = () => {
         <DialogContent>
           {selectedConsultation && (
             <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   ID Yêu cầu
                 </Typography>
                 <Typography variant="body1">{selectedConsultation.id}</Typography>
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Loại người dùng
                 </Typography>
                 <Chip label={selectedConsultation.user_id ? 'Người dùng đã đăng ký' : 'Khách'} size="small" />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Họ và tên
                 </Typography>
                 <Typography variant="body1">{selectedConsultation.full_name}</Typography>
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Email
                 </Typography>
                 <Typography variant="body1">{selectedConsultation.email}</Typography>
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Số điện thoại
                 </Typography>
                 <Typography variant="body1">{selectedConsultation.phone}</Typography>
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Địa điểm
                 </Typography>
                 <Typography variant="body1">{selectedConsultation.district}, {selectedConsultation.province}</Typography>
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Nội dung yêu cầu
                 </Typography>
@@ -680,12 +680,12 @@ const AdminRequestsPage: React.FC = () => {
               </Grid>
 
               {/* Admin Management Section */}
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
                   Quản Lý Admin
                 </Typography>
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <FormControl fullWidth>
                   <InputLabel>Trạng thái</InputLabel>
                   <Select
@@ -700,7 +700,7 @@ const AdminRequestsPage: React.FC = () => {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <FormControl fullWidth>
                   <InputLabel>Mức độ ưu tiên</InputLabel>
                   <Select
@@ -714,7 +714,7 @@ const AdminRequestsPage: React.FC = () => {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <TextField
                   fullWidth
                   multiline
@@ -725,13 +725,13 @@ const AdminRequestsPage: React.FC = () => {
                   placeholder="Thêm ghi chú về yêu cầu này..."
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Ngày tạo
                 </Typography>
                 <Typography variant="body1">{formatDate(selectedConsultation.created_at)}</Typography>
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Ngày cập nhật
                 </Typography>
@@ -764,37 +764,37 @@ const AdminRequestsPage: React.FC = () => {
         <DialogContent>
           {selectedHelpRequest && (
             <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   ID Yêu cầu
                 </Typography>
                 <Typography variant="body1">{selectedHelpRequest.id}</Typography>
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Loại người dùng
                 </Typography>
                 <Chip label={selectedHelpRequest.user_id ? 'Người dùng đã đăng ký' : 'Khách'} size="small" />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Họ và tên
                 </Typography>
                 <Typography variant="body1">{selectedHelpRequest.full_name}</Typography>
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Email
                 </Typography>
                 <Typography variant="body1">{selectedHelpRequest.email}</Typography>
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Chủ đề
                 </Typography>
                 <Typography variant="body1">{selectedHelpRequest.subject}</Typography>
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Nội dung yêu cầu
                 </Typography>
@@ -806,12 +806,12 @@ const AdminRequestsPage: React.FC = () => {
               </Grid>
 
               {/* Admin Management Section */}
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
                   Quản Lý Admin
                 </Typography>
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <FormControl fullWidth>
                   <InputLabel>Trạng thái</InputLabel>
                   <Select
@@ -826,7 +826,7 @@ const AdminRequestsPage: React.FC = () => {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <TextField
                   fullWidth
                   multiline
@@ -837,13 +837,13 @@ const AdminRequestsPage: React.FC = () => {
                   placeholder="Thêm ghi chú về yêu cầu này..."
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Ngày tạo
                 </Typography>
                 <Typography variant="body1">{formatDate(selectedHelpRequest.created_at)}</Typography>
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Ngày cập nhật
                 </Typography>

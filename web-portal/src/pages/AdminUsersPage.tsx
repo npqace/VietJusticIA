@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   Container,
   Box,
@@ -29,6 +29,10 @@ import {
   FormControl,
   InputLabel,
   FormHelperText,
+  TablePagination,
+  Skeleton,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import {
   LogoutOutlined,
@@ -40,6 +44,8 @@ import {
   AddOutlined,
   ArrowUpward,
   ArrowDownward,
+  Visibility,
+  VisibilityOff,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -47,25 +53,61 @@ import api from '../services/api';
 import type { User } from '../types';
 import { formatDate } from '../utils/dateFormatter';
 
+// Type for role color to satisfy MUI types
+type ChipColor = 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning';
+
+interface UserListResponse {
+  users: User[];
+  total: number;
+  skip: number;
+  limit: number;
+}
+
 const AdminUsersPage: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Data State
   const [users, setUsers] = useState<User[]>([]);
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Filter & Pagination State
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [isLoading, setIsLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  // Dialog State
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [credentialsDialogOpen, setCredentialsDialogOpen] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Notification State
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'info' as 'success' | 'error' | 'info' | 'warning',
+  });
+
+  const showSnackbar = (message: string, severity: 'success' | 'error' | 'info' | 'warning') => {
+    setSnackbar({ open: true, message, severity });
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
+
   const [createdCredentials, setCreatedCredentials] = useState<{
     email: string;
     password: string;
     role: string;
   } | null>(null);
+
   const [newUser, setNewUser] = useState({
     full_name: '',
     email: '',
@@ -84,62 +126,64 @@ const AdminUsersPage: React.FC = () => {
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
+  // Fetch users with server-side pagination and filtering
+  const fetchUsers = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.append('skip', (page * rowsPerPage).toString());
+      params.append('limit', rowsPerPage.toString());
+
+      if (searchQuery) {
+        params.append('search', searchQuery);
+      }
+
+      if (roleFilter && roleFilter !== 'all') {
+        params.append('role', roleFilter);
+      }
+
+      const response = await api.get<UserListResponse>(`/api/v1/admin/users?${params.toString()}`);
+      setUsers(response.data.users);
+      setTotalUsers(response.data.total);
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+      showSnackbar('Không thể tải danh sách người dùng', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [page, rowsPerPage, searchQuery, roleFilter]);
+
+  // Initial load and sync with URL params
   useEffect(() => {
-    fetchUsers();
     const roleParam = searchParams.get('role');
     if (roleParam) {
       setRoleFilter(roleParam);
     }
   }, [searchParams]);
 
+  // Trigger fetch when dependencies change
   useEffect(() => {
-    filterUsers();
-  }, [searchQuery, users, roleFilter, sortOrder]);
-
-  const fetchUsers = async () => {
-    try {
-      const response = await api.get<User[]>('/api/v1/admin/users');
-      setUsers(response.data);
-    } catch (error) {
-      console.error('Failed to fetch users:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const filterUsers = () => {
-    let filtered = users;
-
-    // Apply role filter
-    if (roleFilter !== 'all') {
-      filtered = filtered.filter((u) => u.role.toLowerCase() === roleFilter.toLowerCase());
-    }
-
-    // Apply search query
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (u) =>
-          u.full_name.toLowerCase().includes(query) ||
-          u.email.toLowerCase().includes(query) ||
-          u.phone.toLowerCase().includes(query)
-      );
-    }
-
-    // Sort by ID
-    filtered = [...filtered].sort((a, b) => {
-      if (sortOrder === 'asc') {
-        return a.id - b.id;
-      } else {
-        return b.id - a.id;
-      }
-    });
-
-    setFilteredUsers(filtered);
-  };
+    const timer = setTimeout(() => {
+      fetchUsers();
+    }, 300); // Debounce search
+    return () => clearTimeout(timer);
+  }, [fetchUsers]);
 
   const handleSortById = () => {
     setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    // Client-side sort for current page
+    setUsers(prev => [...prev].sort((a, b) => {
+      return sortOrder === 'asc' ? b.id - a.id : a.id - b.id;
+    }));
+  };
+
+  const handleChangePage = (_event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
   };
 
   const handleViewDetails = (selectedUser: User) => {
@@ -152,10 +196,12 @@ const AdminUsersPage: React.FC = () => {
       await api.patch(`/api/v1/admin/users/${userId}/status`, {
         is_active: !currentStatus,
       });
+      showSnackbar('Cập nhật trạng thái thành công', 'success');
       fetchUsers();
       setDialogOpen(false);
     } catch (error) {
       console.error('Failed to update user status:', error);
+      showSnackbar('Cập nhật trạng thái thất bại', 'error');
     }
   };
 
@@ -164,8 +210,8 @@ const AdminUsersPage: React.FC = () => {
     navigate('/login');
   };
 
-  const getRoleColor = (role: string) => {
-    switch (role) {
+  const getRoleColor = (role: string): ChipColor => {
+    switch (role.toLowerCase()) {
       case 'admin':
         return 'error';
       case 'lawyer':
@@ -179,6 +225,7 @@ const AdminUsersPage: React.FC = () => {
 
   const handleRoleFilterChange = (_event: React.SyntheticEvent, newValue: string) => {
     setRoleFilter(newValue);
+    setPage(0); // Reset to first page on filter change
     if (newValue === 'all') {
       setSearchParams({});
     } else {
@@ -214,10 +261,19 @@ const AdminUsersPage: React.FC = () => {
 
   const validateForm = () => {
     const errors: Record<string, string> = {};
+    const emailRegex = /^[^@]+@[^@]+\.[^@]+$/;
 
     if (!newUser.full_name.trim()) errors.full_name = 'Họ và tên là bắt buộc';
-    if (!newUser.email.trim()) errors.email = 'Email là bắt buộc';
-    if (!newUser.phone.trim()) errors.phone = 'Số điện thoại là bắt buộc';
+
+    if (!newUser.email.trim()) {
+      errors.email = 'Email là bắt buộc';
+    } else if (!emailRegex.test(newUser.email)) {
+      errors.email = 'Email không hợp lệ';
+    }
+
+    if (!newUser.phone.trim()) {
+      errors.phone = 'Số điện thoại là bắt buộc';
+    }
 
     if (newUser.role === 'lawyer') {
       if (!newUser.lawyer_profile.specialization.trim())
@@ -236,7 +292,15 @@ const AdminUsersPage: React.FC = () => {
     if (!validateForm()) return;
 
     try {
-      const payload: any = {
+      interface CreateUserPayload {
+        full_name: string;
+        email: string;
+        phone: string;
+        role: string;
+        lawyer_profile?: any;
+      }
+
+      const payload: CreateUserPayload = {
         full_name: newUser.full_name,
         email: newUser.email,
         phone: newUser.phone,
@@ -247,14 +311,13 @@ const AdminUsersPage: React.FC = () => {
         payload.lawyer_profile = {
           ...newUser.lawyer_profile,
           consultation_fee: newUser.lawyer_profile.consultation_fee
-            ? parseFloat(newUser.lawyer_profile.consultation_fee)
+            ? parseFloat(String(newUser.lawyer_profile.consultation_fee))
             : null,
         };
       }
 
       const response = await api.post('/api/v1/admin/users/create', payload);
 
-      // Store credentials to show in dialog
       setCreatedCredentials({
         email: response.data.user.email,
         password: response.data.generated_password,
@@ -264,9 +327,10 @@ const AdminUsersPage: React.FC = () => {
       fetchUsers();
       handleCloseCreateDialog();
       setCredentialsDialogOpen(true);
+      showSnackbar('Tạo người dùng thành công', 'success');
     } catch (error: any) {
       const errorMessage = error.response?.data?.detail || 'Tạo người dùng thất bại';
-      alert(errorMessage);
+      showSnackbar(errorMessage, 'error');
       console.error('Failed to create user:', error);
     }
   };
@@ -275,7 +339,7 @@ const AdminUsersPage: React.FC = () => {
     if (createdCredentials) {
       const text = `Email: ${createdCredentials.email}\nMật khẩu: ${createdCredentials.password}`;
       navigator.clipboard.writeText(text);
-      alert('Đã sao chép thông tin đăng nhập vào clipboard!');
+      showSnackbar('Đã sao chép thông tin đăng nhập vào clipboard!', 'success');
     }
   };
 
@@ -283,7 +347,7 @@ const AdminUsersPage: React.FC = () => {
     <Box sx={{ flexGrow: 1 }}>
       <AppBar position="static">
         <Toolbar>
-          <IconButton color="inherit" onClick={() => navigate('/admin')}>
+          <IconButton color="inherit" onClick={() => navigate('/admin')} aria-label="Quay lại">
             <ArrowBackOutlined />
           </IconButton>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
@@ -294,7 +358,7 @@ const AdminUsersPage: React.FC = () => {
               <PersonOutline />
               <Typography>{user?.full_name}</Typography>
             </Box>
-            <IconButton color="inherit" onClick={handleLogout}>
+            <IconButton color="inherit" onClick={handleLogout} aria-label="Đăng xuất">
               <LogoutOutlined />
             </IconButton>
           </Box>
@@ -303,12 +367,12 @@ const AdminUsersPage: React.FC = () => {
 
       <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
         <Paper sx={{ p: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
             <Typography variant="h5">Quản Lý Người Dùng</Typography>
             <Box sx={{ display: 'flex', gap: 2 }}>
               <TextField
                 size="small"
-                placeholder="Tìm kiếm theo tên, email hoặc số điện thoại"
+                placeholder="Tìm kiếm theo tên, email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 sx={{ width: 300 }}
@@ -339,58 +403,76 @@ const AdminUsersPage: React.FC = () => {
             </Tabs>
           </Box>
 
-          {isLoading ? (
-            <Typography sx={{ mt: 3 }}>Đang tải...</Typography>
-          ) : filteredUsers.length === 0 ? (
-            <Typography color="text.secondary" sx={{ mt: 3 }}>
-              Không tìm thấy người dùng.
-            </Typography>
-          ) : (
-            <TableContainer sx={{ mt: 3 }}>
-              <Table>
-                <TableHead>
+          <TableContainer sx={{ mt: 3 }}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                      }}
+                      onClick={handleSortById}
+                      role="button"
+                      aria-label="Sắp xếp theo ID"
+                    >
+                      ID
+                      {sortOrder === 'asc' ? (
+                        <ArrowUpward fontSize="small" />
+                      ) : (
+                        <ArrowDownward fontSize="small" />
+                      )}
+                    </Box>
+                  </TableCell>
+                  <TableCell>Tên</TableCell>
+                  <TableCell>Email</TableCell>
+                  <TableCell>Số điện thoại</TableCell>
+                  <TableCell>Vai trò</TableCell>
+                  <TableCell>Trạng thái</TableCell>
+                  <TableCell>Đã xác thực</TableCell>
+                  <TableCell align="center">Thao tác</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {isLoading ? (
+                  // Loading Skeleton
+                  Array.from(new Array(rowsPerPage)).map((_, index) => (
+                    <TableRow key={`skeleton-${index}`}>
+                      <TableCell><Skeleton width={40} /></TableCell>
+                      <TableCell><Skeleton width={120} /></TableCell>
+                      <TableCell><Skeleton width={180} /></TableCell>
+                      <TableCell><Skeleton width={100} /></TableCell>
+                      <TableCell><Skeleton width={80} /></TableCell>
+                      <TableCell><Skeleton width={80} /></TableCell>
+                      <TableCell><Skeleton width={40} /></TableCell>
+                      <TableCell><Skeleton width={100} /></TableCell>
+                    </TableRow>
+                  ))
+                ) : users.length === 0 ? (
                   <TableRow>
-                    <TableCell>
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 0.5,
-                          cursor: 'pointer',
-                          userSelect: 'none',
-                        }}
-                        onClick={handleSortById}
-                      >
-                        ID
-                        {sortOrder === 'asc' ? (
-                          <ArrowUpward fontSize="small" />
-                        ) : (
-                          <ArrowDownward fontSize="small" />
-                        )}
-                      </Box>
+                    <TableCell colSpan={8} align="center">
+                      <Typography color="text.secondary" sx={{ py: 3 }}>
+                        Không tìm thấy người dùng nào.
+                      </Typography>
                     </TableCell>
-                    <TableCell>Tên</TableCell>
-                    <TableCell>Email</TableCell>
-                    <TableCell>Số điện thoại</TableCell>
-                    <TableCell>Vai trò</TableCell>
-                    <TableCell>Trạng thái</TableCell>
-                    <TableCell>Đã xác thực</TableCell>
-                    <TableCell align="center">Thao tác</TableCell>
                   </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredUsers.map((u) => (
+                ) : (
+                  users.map((u) => (
                     <TableRow key={u.id}>
                       <TableCell>{u.id}</TableCell>
                       <TableCell>{u.full_name}</TableCell>
                       <TableCell>{u.email}</TableCell>
                       <TableCell>{u.phone}</TableCell>
                       <TableCell>
-                        <Chip label={u.role} size="small" color={getRoleColor(u.role) as any} />
+                        <Chip label={u.role} size="small" color={getRoleColor(u.role)} />
                       </TableCell>
                       <TableCell>
                         <Chip
-                          label={u.is_active ? 'Active' : 'Inactive'}
+                          label={u.is_active ? 'Hoạt động' : 'Vô hiệu'}
                           size="small"
                           color={u.is_active ? 'success' : 'default'}
                         />
@@ -412,11 +494,23 @@ const AdminUsersPage: React.FC = () => {
                         </Button>
                       </TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+
+          <TablePagination
+            rowsPerPageOptions={[5, 10, 25, 50]}
+            component="div"
+            count={totalUsers}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+            labelRowsPerPage="Số hàng mỗi trang:"
+            labelDisplayedRows={({ from, to, count }) => `${from}-${to} trong số ${count}`}
+          />
         </Paper>
       </Container>
 
@@ -426,31 +520,31 @@ const AdminUsersPage: React.FC = () => {
         <DialogContent>
           {selectedUser && (
             <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Họ và tên
                 </Typography>
                 <Typography variant="body1">{selectedUser.full_name}</Typography>
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Email
                 </Typography>
                 <Typography variant="body1">{selectedUser.email}</Typography>
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Số điện thoại
                 </Typography>
                 <Typography variant="body1">{selectedUser.phone}</Typography>
               </Grid>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Vai trò
                 </Typography>
-                <Chip label={selectedUser.role} color={getRoleColor(selectedUser.role) as any} />
+                <Chip label={selectedUser.role} color={getRoleColor(selectedUser.role)} />
               </Grid>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Trạng thái
                 </Typography>
@@ -459,13 +553,13 @@ const AdminUsersPage: React.FC = () => {
                   color={selectedUser.is_active ? 'success' : 'default'}
                 />
               </Grid>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Đã xác thực
                 </Typography>
                 <Typography variant="body1">{selectedUser.is_verified ? 'Có' : 'Không'}</Typography>
               </Grid>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Ngày tạo
                 </Typography>
@@ -495,7 +589,7 @@ const AdminUsersPage: React.FC = () => {
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             {/* Basic Info */}
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
                 label="Họ và tên"
@@ -506,11 +600,10 @@ const AdminUsersPage: React.FC = () => {
                 required
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
                 label="Email"
-                type="email"
                 value={newUser.email}
                 onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
                 error={!!formErrors.email}
@@ -518,7 +611,7 @@ const AdminUsersPage: React.FC = () => {
                 required
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
                 label="Số điện thoại"
@@ -529,30 +622,30 @@ const AdminUsersPage: React.FC = () => {
                 required
               />
             </Grid>
-            <Grid item xs={12}>
-              <FormControl fullWidth required>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <FormControl fullWidth>
                 <InputLabel>Vai trò</InputLabel>
                 <Select
                   value={newUser.role}
                   label="Vai trò"
                   onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
                 >
+                  <MenuItem value="user">Người dùng</MenuItem>
                   <MenuItem value="lawyer">Luật sư</MenuItem>
                   <MenuItem value="admin">Admin</MenuItem>
                 </Select>
-                <FormHelperText>Mật khẩu sẽ được tự động tạo và hiển thị sau khi tạo tài khoản</FormHelperText>
               </FormControl>
             </Grid>
 
-            {/* Lawyer Profile Fields - Only shown if role is lawyer */}
+            {/* Lawyer Specific Fields */}
             {newUser.role === 'lawyer' && (
               <>
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }}>
-                    Thông Tin Luật Sư
+                    Thông tin Luật sư
                   </Typography>
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <TextField
                     fullWidth
                     label="Chuyên môn"
@@ -568,7 +661,7 @@ const AdminUsersPage: React.FC = () => {
                     required
                   />
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <TextField
                     fullWidth
                     label="Số giấy phép hành nghề"
@@ -584,11 +677,11 @@ const AdminUsersPage: React.FC = () => {
                     required
                   />
                 </Grid>
-                <Grid item xs={12} md={4}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <TextField
                     fullWidth
-                    label="Số năm kinh nghiệm"
                     type="number"
+                    label="Số năm kinh nghiệm"
                     value={newUser.lawyer_profile.years_of_experience}
                     onChange={(e) =>
                       setNewUser({
@@ -603,37 +696,11 @@ const AdminUsersPage: React.FC = () => {
                     helperText={formErrors.years_of_experience}
                   />
                 </Grid>
-                <Grid item xs={12} md={4}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <TextField
                     fullWidth
-                    label="Thành phố"
-                    value={newUser.lawyer_profile.city}
-                    onChange={(e) =>
-                      setNewUser({
-                        ...newUser,
-                        lawyer_profile: { ...newUser.lawyer_profile, city: e.target.value },
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <TextField
-                    fullWidth
-                    label="Tỉnh/Thành phố"
-                    value={newUser.lawyer_profile.province}
-                    onChange={(e) =>
-                      setNewUser({
-                        ...newUser,
-                        lawyer_profile: { ...newUser.lawyer_profile, province: e.target.value },
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Phí tư vấn (VNĐ)"
                     type="number"
+                    label="Phí tư vấn (VNĐ)"
                     value={newUser.lawyer_profile.consultation_fee}
                     onChange={(e) =>
                       setNewUser({
@@ -641,34 +708,9 @@ const AdminUsersPage: React.FC = () => {
                         lawyer_profile: { ...newUser.lawyer_profile, consultation_fee: e.target.value },
                       })
                     }
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Ngôn ngữ"
-                    value={newUser.lawyer_profile.languages}
-                    onChange={(e) =>
-                      setNewUser({
-                        ...newUser,
-                        lawyer_profile: { ...newUser.lawyer_profile, languages: e.target.value },
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Giới thiệu"
-                    multiline
-                    rows={3}
-                    value={newUser.lawyer_profile.bio}
-                    onChange={(e) =>
-                      setNewUser({
-                        ...newUser,
-                        lawyer_profile: { ...newUser.lawyer_profile, bio: e.target.value },
-                      })
-                    }
+                    InputProps={{
+                      endAdornment: <InputAdornment position="end">VNĐ</InputAdornment>,
+                    }}
                   />
                 </Grid>
               </>
@@ -677,61 +719,74 @@ const AdminUsersPage: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseCreateDialog}>Hủy</Button>
-          <Button variant="contained" onClick={handleCreateUser}>
-            Tạo Người Dùng
+          <Button onClick={handleCreateUser} variant="contained">
+            Tạo
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Credentials Display Dialog */}
-      <Dialog
-        open={credentialsDialogOpen}
-        onClose={() => setCredentialsDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Tài Khoản Đã Được Tạo Thành Công</DialogTitle>
+      {/* Credentials Dialog */}
+      <Dialog open={credentialsDialogOpen} onClose={() => setCredentialsDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Tài Khoản Đã Được Tạo</DialogTitle>
         <DialogContent>
+          <Alert severity="success" sx={{ mb: 2 }}>
+            Tài khoản người dùng đã được tạo thành công!
+          </Alert>
           {createdCredentials && (
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="body1" gutterBottom>
-                Tài khoản {createdCredentials.role === 'lawyer' ? 'luật sư' : 'admin'} đã được tạo. Vui lòng chia sẻ thông tin đăng nhập này với người dùng:
-              </Typography>
-              <Paper sx={{ p: 2, mt: 2, bgcolor: 'grey.100' }}>
-                <Grid container spacing={2}>
-                  <Grid item xs={12}>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Email
-                    </Typography>
-                    <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
-                      {createdCredentials.email}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Mật khẩu
-                    </Typography>
-                    <Typography variant="body1" sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
-                      {createdCredentials.password}
-                    </Typography>
-                  </Grid>
+            <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.50' }}>
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12 }}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Email đăng nhập
+                  </Typography>
+                  <Typography variant="body1" fontWeight="medium">
+                    {createdCredentials.email}
+                  </Typography>
                 </Grid>
-              </Paper>
-              <Typography variant="caption" color="error" sx={{ mt: 2, display: 'block' }}>
-                Quan trọng: Lưu thông tin đăng nhập ngay bây giờ. Mật khẩu không thể lấy lại sau này.
-              </Typography>
-            </Box>
+                <Grid size={{ xs: 12 }}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Mật khẩu
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body1" fontWeight="medium">
+                      {showPassword ? createdCredentials.password : '••••••••'}
+                    </Typography>
+                    <IconButton size="small" onClick={() => setShowPassword(!showPassword)}>
+                      {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                    </IconButton>
+                  </Box>
+                </Grid>
+                <Grid size={{ xs: 12 }}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Vai trò
+                  </Typography>
+                  <Chip label={createdCredentials.role} size="small" />
+                </Grid>
+              </Grid>
+            </Paper>
           )}
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
+            * Vui lòng sao chép thông tin đăng nhập này và gửi cho người dùng. Mật khẩu này sẽ không được hiển thị lại.
+          </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCopyCredentials} variant="outlined">
-            Sao Chép Vào Clipboard
+          <Button startIcon={<CheckCircleOutline />} onClick={handleCopyCredentials}>
+            Sao chép
           </Button>
-          <Button onClick={() => setCredentialsDialogOpen(false)} variant="contained">
-            Hoàn Tất
-          </Button>
+          <Button onClick={() => setCredentialsDialogOpen(false)}>Đóng</Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

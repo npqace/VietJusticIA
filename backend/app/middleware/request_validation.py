@@ -7,7 +7,7 @@ Enforces request size limits and content type validation to prevent:
 - Malformed content type attacks
 """
 
-from fastapi import Request, HTTPException, status
+from fastapi import Request, Response, HTTPException, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 import logging
@@ -35,6 +35,13 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
         "/api/v1/admin/documents/upload",
     ]
     
+    # Endpoints that are allowed to have empty body (and thus no Content-Type)
+    EMPTY_BODY_ENDPOINTS = [
+        "/api/v1/auth/refresh",
+        "/api/v1/auth/logout",
+        "/api/v1/auth/resend-otp", # Often just ID in query or path, or empty post
+    ]
+
     # Allowed content types for different request methods
     ALLOWED_CONTENT_TYPES = [
         "application/json",
@@ -53,14 +60,19 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
         """Check if endpoint allows file uploads."""
         return any(path.startswith(endpoint) for endpoint in self.UPLOAD_ENDPOINTS)
     
-    async def dispatch(self, request: Request, call_next):
+    def is_empty_body_allowed(self, path: str) -> bool:
+        """Check if endpoint is allowed to have empty body."""
+        return any(path.startswith(endpoint) for endpoint in self.EMPTY_BODY_ENDPOINTS)
+    
+    async def dispatch(self, request: Request, call_next) -> Response:
         """Validate request before processing."""
+        logger.info(f"RequestValidationMiddleware dispatching: {request.method} {request.url.path}")
         
         # Check request size
-        content_length = request.headers.get("content-length")
-        if content_length:
-            content_length = int(content_length)
-            
+        content_length_header = request.headers.get("content-length")
+        content_length = int(content_length_header) if content_length_header else 0
+        
+        if content_length > 0:
             # Determine size limit based on endpoint
             if self.is_upload_endpoint(request.url.path):
                 max_size = self.MAX_UPLOAD_SIZE
@@ -80,28 +92,41 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
                 )
         
         # Validate Content-Type for POST/PUT/PATCH requests
+        logger.info(f"Middleware processing: method={request.method}, path={request.url.path}")
         if request.method in ["POST", "PUT", "PATCH"]:
             content_type = request.headers.get("content-type", "")
             
-            # Extract base content type (ignore charset, boundary, etc.)
-            base_content_type = content_type.split(";")[0].strip()
-            
-            # Check if content type is allowed
-            is_allowed = any(
-                base_content_type.startswith(allowed)
-                for allowed in self.ALLOWED_CONTENT_TYPES
-            )
-            
-            if not is_allowed and content_type:  # Allow empty for some endpoints
-                logger.warning(
-                    f"Invalid content type: path={request.url.path}, "
-                    f"content_type={content_type}"
+            # Special case: Allow empty Content-Type only if body is empty AND endpoint allows it
+            if not content_type:
+                 if content_length == 0 and self.is_empty_body_allowed(request.url.path):
+                     # Allowed empty body request (e.g. logout)
+                     pass
+                 else:
+                     # Missing Content-Type for non-empty body OR endpoint requiring body
+                     logger.warning(f"Missing Content-Type: path={request.url.path}")
+                     raise HTTPException(
+                        status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                        detail="Content-Type header is required for POST/PUT/PATCH requests."
+                     )
+            else:
+                # Validate provided Content-Type
+                base_content_type = content_type.split(";")[0].strip()
+                
+                is_allowed = any(
+                    base_content_type.startswith(allowed)
+                    for allowed in self.ALLOWED_CONTENT_TYPES
                 )
-                raise HTTPException(
-                    status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-                    detail=f"Unsupported content type: {base_content_type}. "
-                           f"Allowed types: {', '.join(self.ALLOWED_CONTENT_TYPES)}"
-                )
+                
+                if not is_allowed:
+                    logger.warning(
+                        f"Invalid content type: path={request.url.path}, "
+                        f"content_type={content_type}"
+                    )
+                    raise HTTPException(
+                        status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                        detail=f"Unsupported content type: {base_content_type}. "
+                               f"Allowed types: {', '.join(self.ALLOWED_CONTENT_TYPES)}"
+                    )
         
         # Process request
         response = await call_next(request)

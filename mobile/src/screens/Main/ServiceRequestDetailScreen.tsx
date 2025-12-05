@@ -7,11 +7,13 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../api';
 import { COLORS, FONTS, SIZES } from '../../constants/styles';
 import Header from '../../components/Header';
+import logger from '../../utils/logger';
 
 interface ServiceRequestDetail {
   id: number;
@@ -36,6 +38,7 @@ interface ServiceRequestDetail {
 const ServiceRequestDetailScreen = ({ route, navigation }: { route: any; navigation: any }) => {
   const { requestId } = route.params;
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [request, setRequest] = useState<ServiceRequestDetail | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
 
@@ -45,21 +48,21 @@ const ServiceRequestDetailScreen = ({ route, navigation }: { route: any; navigat
 
   const fetchRequestDetail = async () => {
     try {
-      setIsLoading(true);
+      if (!refreshing) setIsLoading(true);
       const response = await api.get(`/api/v1/service-requests/${requestId}`);
       setRequest(response.data);
-
-      // Check if a conversation exists for this request
-      if (response.data.status === 'ACCEPTED' || response.data.status === 'IN_PROGRESS') {
-        checkConversationExists();
-      }
-    } catch (error: any) {
-      console.error('Failed to fetch request details:', error);
-      Alert.alert('Error', 'Failed to load request details');
-      navigation.goBack();
+    } catch (error) {
+      logger.error('Failed to fetch request detail:', error);
+      Alert.alert('Lỗi', 'Không thể tải thông tin yêu cầu.');
     } finally {
       setIsLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchRequestDetail();
   };
 
   const checkConversationExists = async () => {
@@ -70,7 +73,7 @@ const ServiceRequestDetailScreen = ({ route, navigation }: { route: any; navigat
       }
     } catch (error: any) {
       // Conversation doesn't exist yet or error occurred
-      console.log('No conversation exists yet for this request');
+      logger.debug('No conversation exists yet for this request');
     }
   };
 
@@ -84,10 +87,18 @@ const ServiceRequestDetailScreen = ({ route, navigation }: { route: any; navigat
         serviceRequestId: requestId,
         title: request.title,
       });
+    } else if (request.status === 'ACCEPTED' || request.status === 'IN_PROGRESS') {
+      // Request accepted but conversation not found/created yet
+      // Navigate to Conversation screen which will attempt to create it
+      navigation.navigate('Conversation', {
+        conversationId: null,
+        serviceRequestId: requestId,
+        title: request.title,
+      });
     } else {
       Alert.alert(
-        'Start Conversation',
-        'The lawyer will need to accept your request before you can start chatting.',
+        'Bắt đầu cuộc trò chuyện',
+        'Luật sư cần chấp nhận yêu cầu của bạn trước khi bắt đầu cuộc trò chuyện.',
         [{ text: 'OK' }]
       );
     }
@@ -110,7 +121,15 @@ const ServiceRequestDetailScreen = ({ route, navigation }: { route: any; navigat
   };
 
   const getStatusText = (status: string) => {
-    return status.replace('_', ' ').toUpperCase();
+    const statusMap: Record<string, string> = {
+      'pending': 'Đang chờ',
+      'accepted': 'Đã chấp nhận',
+      'in_progress': 'Đang xử lý',
+      'completed': 'Hoàn thành',
+      'rejected': 'Đã từ chối',
+      'cancelled': 'Đã hủy'
+    };
+    return statusMap[status.toLowerCase()] || status;
   };
 
   if (isLoading) {
@@ -124,16 +143,22 @@ const ServiceRequestDetailScreen = ({ route, navigation }: { route: any; navigat
   if (!request) {
     return (
       <View style={styles.center}>
-        <Text style={styles.errorText}>Request not found</Text>
+        <Text style={styles.errorText}>Không tìm thấy yêu cầu</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Header title="Request Details" />
+      <Header title="Chi tiết yêu cầu" />
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />
+        }
+      >
         {/* Status Badge */}
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(request.status) }]}>
           <Text style={styles.statusText}>{getStatusText(request.status)}</Text>
@@ -141,20 +166,20 @@ const ServiceRequestDetailScreen = ({ route, navigation }: { route: any; navigat
 
         {/* Request Information */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Request Information</Text>
+          <Text style={styles.sectionTitle}>Thông tin yêu cầu</Text>
 
           <View style={styles.infoRow}>
-            <Text style={styles.label}>Title:</Text>
+            <Text style={styles.label}>Tiêu đề:</Text>
             <Text style={styles.value}>{request.title}</Text>
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.label}>Description:</Text>
+            <Text style={styles.label}>Mô tả:</Text>
             <Text style={styles.value}>{request.description}</Text>
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.label}>Submitted:</Text>
+            <Text style={styles.label}>Đã gửi:</Text>
             <Text style={styles.value}>
               {new Date(request.created_at).toLocaleDateString()} at{' '}
               {new Date(request.created_at).toLocaleTimeString()}
@@ -163,7 +188,7 @@ const ServiceRequestDetailScreen = ({ route, navigation }: { route: any; navigat
 
           {request.updated_at && (
             <View style={styles.infoRow}>
-              <Text style={styles.label}>Last Updated:</Text>
+              <Text style={styles.label}>Cập nhật lần cuối:</Text>
               <Text style={styles.value}>
                 {new Date(request.updated_at).toLocaleDateString()} at{' '}
                 {new Date(request.updated_at).toLocaleTimeString()}
@@ -175,7 +200,7 @@ const ServiceRequestDetailScreen = ({ route, navigation }: { route: any; navigat
         {/* Lawyer Information */}
         {request.lawyer_full_name && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Assigned Lawyer</Text>
+            <Text style={styles.sectionTitle}>Luật sư phụ trách</Text>
 
             <View style={styles.lawyerCard}>
               <Ionicons name="person-circle-outline" size={48} color={COLORS.primary} />
@@ -198,7 +223,7 @@ const ServiceRequestDetailScreen = ({ route, navigation }: { route: any; navigat
         {/* Lawyer Response */}
         {request.lawyer_response && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Lawyer's Response</Text>
+            <Text style={styles.sectionTitle}>Phản hồi của luật sư</Text>
             <View style={styles.responseCard}>
               <Text style={styles.responseText}>{request.lawyer_response}</Text>
             </View>
@@ -208,7 +233,7 @@ const ServiceRequestDetailScreen = ({ route, navigation }: { route: any; navigat
         {/* Rejection Reason */}
         {request.rejected_reason && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Rejection Reason</Text>
+            <Text style={styles.sectionTitle}>Lý do từ chối</Text>
             <View style={[styles.responseCard, styles.rejectionCard]}>
               <Text style={styles.responseText}>{request.rejected_reason}</Text>
             </View>
@@ -220,7 +245,7 @@ const ServiceRequestDetailScreen = ({ route, navigation }: { route: any; navigat
           <TouchableOpacity style={styles.chatButton} onPress={handleStartChat}>
             <Ionicons name="chatbubble-ellipses-outline" size={24} color={COLORS.white} />
             <Text style={styles.chatButtonText}>
-              {conversationId ? 'Open Chat' : 'Start Conversation'}
+              {conversationId ? 'Mở cuộc trò chuyện' : 'Bắt đầu cuộc trò chuyện'}
             </Text>
           </TouchableOpacity>
         )}

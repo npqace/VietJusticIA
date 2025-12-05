@@ -9,21 +9,56 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
   Modal,
+  NativeSyntheticEvent,
+  TextInputKeyPressEventData,
 } from 'react-native';
 import CustomButton from '../CustomButton';
 import { COLORS, SIZES, FONTS } from '../../constants/styles';
+import { AxiosError } from 'axios';
 
+interface ApiErrorResponse {
+  detail?: string;
+  message?: string;
+}
+
+/**
+ * Props for OtpVerificationModal component
+ */
 interface OtpVerificationModalProps {
+  /** Whether modal is visible */
   visible: boolean;
+  /** User's email address (will be masked in display) */
   email: string;
+  /** Callback to close modal */
   onClose: () => void;
-  onVerify: (otp: string) => Promise<any>; // Should return the response from the service
+  /** Callback to verify OTP code - returns API response */
+  onVerify: (otp: string) => Promise<any>;
+  /** Callback to resend OTP - returns API response */
   onResend: () => Promise<any>;
-  onSuccess: (data?: any) => void; // Can pass data back on success, like a reset token
+  /** Callback invoked on successful verification - receives API response data */
+  onSuccess: (data?: any) => void;
+  /** Optional modal title (default: "Xác nhận mã OTP") */
   title?: string;
+  /** Optional subtitle text (default: "Mã xác nhận...") */
   subtitle?: string;
 }
 
+/**
+ * OtpVerificationModal Component
+ *
+ * Modal for entering and verifying 6-digit OTP codes sent via email.
+ * Includes auto-focus navigation, countdown timer, and email masking.
+ *
+ * Features:
+ * - 6 individual digit inputs with auto-focus
+ * - Backspace navigation between inputs
+ * - 60-second countdown before resend allowed
+ * - Email masking (shows first 3 chars + ***)
+ * - Digit-only validation (regex)
+ * - Timer cleanup on unmount
+ *
+ * @component
+ */
 const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
   visible,
   email,
@@ -91,8 +126,12 @@ const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
     try {
       const response = await onVerify(otpCode);
       onSuccess(response); // Pass the whole response back
-    } catch (error: any) {
-      Alert.alert('Xác thực thất bại', error.message || 'Đã có lỗi xảy ra.');
+    } catch (error) {
+      const errorMessage = error instanceof Error
+        ? error.message
+        : 'Đã có lỗi xảy ra.';
+
+      Alert.alert('Xác thực thất bại', errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -105,13 +144,23 @@ const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
       Alert.alert('Đã gửi lại OTP', 'Một mã OTP mới đã được gửi tới email của bạn.');
       // Restart the countdown timer
       startCountdownTimer();
-    } catch (error: any) {
-      Alert.alert('Lỗi', error.response?.data?.detail || 'Không thể gửi lại OTP.');
+    } catch (error) {
+      const axiosError = error as AxiosError<ApiErrorResponse>;
+      const errorMessage =
+        axiosError.response?.data?.detail ||
+        axiosError.response?.data?.message ||
+        'Không thể gửi lại OTP.';
+
+      Alert.alert('Lỗi', errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
+  /**
+   * Handles OTP input change for a specific digit
+   * Auto-focuses next input after digit entry
+   */
   const handleOtpChange = (text: string, index: number) => {
     if (/^[0-9]$/.test(text) || text === '') {
       const newOtp = [...otp];
@@ -124,12 +173,19 @@ const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
     }
   };
 
-  const handleOtpBackspace = (event: any, index: number) => {
+  /**
+   * Handles backspace key press on OTP inputs
+   * Focuses previous input when backspace pressed on empty field
+   */
+  const handleOtpBackspace = (event: NativeSyntheticEvent<TextInputKeyPressEventData>, index: number) => {
     if (event.nativeEvent.key === 'Backspace' && otp[index] === '' && index > 0) {
       otpInputs.current[index - 1]?.focus();
     }
   };
 
+  /**
+   * Masks email for privacy (shows first 3 chars + ***)
+   */
   const maskEmail = (email: string) => {
     const [localPart, domain] = email.split('@');
     if (!localPart || !domain) return email;
@@ -148,9 +204,9 @@ const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
         <View style={styles.modalBackdrop}>
           <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
             <View style={styles.modalContainer}>
-              <Text style={styles.modalTitle}>Xác nhận mã OTP</Text>
+              <Text style={styles.modalTitle}>{title}</Text>
               <Text style={styles.modalSubtitle}>
-                Mã xác nhận OTP đã được gửi về email của bạn: <Text style={{fontWeight: 'bold'}}>{maskEmail(email)}</Text>
+                {subtitle} <Text style={styles.boldText}>{maskEmail(email)}</Text>
               </Text>
               <View style={styles.otpInputContainer}>
                 {otp.map((digit, index) => (
@@ -189,13 +245,13 @@ const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
 const styles = StyleSheet.create({
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: COLORS.modalBackdrop || 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContainer: {
     width: '90%',
-    backgroundColor: 'white',
+    backgroundColor: COLORS.white,
     borderRadius: 20,
     padding: 25,
     alignItems: 'center',
@@ -218,6 +274,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 25,
     lineHeight: SIZES.medium * 1.4,
+  },
+  boldText: {
+    fontFamily: FONTS.bold,
   },
   otpInputContainer: {
     flexDirection: 'row',

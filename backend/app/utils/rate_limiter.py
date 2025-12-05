@@ -7,11 +7,15 @@ Free tier limits:
 - 1 million tokens per minute (TPM)
 """
 
+import os
 import time
+import asyncio
+import logging
 from collections import deque
 from datetime import datetime, timedelta
-from typing import Optional
-import asyncio
+from typing import Optional, Dict, Any
+
+logger = logging.getLogger(__name__)
 
 
 class GeminiRateLimiter:
@@ -49,7 +53,7 @@ class GeminiRateLimiter:
         # Lock for thread safety
         self.lock = asyncio.Lock()
 
-        print(f"GeminiRateLimiter initialized: {self.rpm_limit} RPM, {self.rpd_limit} RPD")
+        logger.info(f"GeminiRateLimiter initialized: {self.rpm_limit} RPM, {self.rpd_limit} RPD")
 
     async def acquire(self) -> bool:
         """
@@ -65,7 +69,9 @@ class GeminiRateLimiter:
             if datetime.now() >= self.daily_reset_time:
                 self.daily_requests = 0
                 self.daily_reset_time = datetime.now() + timedelta(days=1)
-                print("Daily rate limit counter reset")
+                self.daily_requests = 0
+                self.daily_reset_time = datetime.now() + timedelta(days=1)
+                logger.info("Daily rate limit counter reset")
 
             # Check daily limit
             if self.daily_requests >= self.rpd_limit:
@@ -110,7 +116,7 @@ class GeminiRateLimiter:
             # Wait before retry (100ms intervals)
             await asyncio.sleep(0.1)
 
-    def get_stats(self) -> dict:
+    def get_stats(self) -> Dict[str, Any]:
         """
         Get current rate limiter statistics.
 
@@ -152,7 +158,6 @@ class GeminiRateLimiter:
 
 
 # Global rate limiter instance with environment-based configuration
-import os
 
 _rpm_limit = int(os.getenv("GEMINI_RPM_LIMIT", "15"))
 _rpd_limit = int(os.getenv("GEMINI_RPD_LIMIT", "1500"))

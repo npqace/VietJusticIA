@@ -51,11 +51,10 @@ class TestUserRepository:
         user_repository.create_user(db_session, signup_data)
         
         # Try to create duplicate
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(ValueError) as exc_info:
             user_repository.create_user(db_session, signup_data)
         
-        assert exc_info.value.status_code == 400
-        assert "Email already registered" in str(exc_info.value.detail)
+        assert "Email already registered" in str(exc_info.value)
 
     def test_create_user_with_duplicate_phone_raises_exception(self, db_session, sample_user_data):
         """Creating user with duplicate phone should raise HTTPException."""
@@ -79,11 +78,10 @@ class TestUserRepository:
         user_repository.create_user(db_session, signup_data1)
         
         # Try to create duplicate phone
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(ValueError) as exc_info:
             user_repository.create_user(db_session, signup_data2)
         
-        assert exc_info.value.status_code == 400
-        assert "Phone number already registered" in str(exc_info.value.detail)
+        assert "Phone number already registered" in str(exc_info.value)
 
     def test_get_user_by_email_with_existing_user_returns_user(self, db_session, create_test_user):
         """Getting user by email should return user if exists."""
@@ -218,9 +216,9 @@ class TestUserRepository:
         db_session.commit()
         db_session.refresh(user)  # Refresh to ensure datetime is properly stored
         
-        result = user_repository.verify_otp(db_session, user, "123456")
+        success, _ = user_repository.verify_otp(db_session, user, "123456")
         
-        assert result is True
+        assert success is True
 
     def test_verify_otp_with_invalid_otp_returns_false(self, db_session, create_test_user):
         """Verifying invalid OTP should return False."""
@@ -232,9 +230,9 @@ class TestUserRepository:
         user.otp_expires_at = datetime.now(pytz.utc) + timedelta(minutes=10)
         db_session.commit()
         
-        result = user_repository.verify_otp(db_session, user, "999999")
+        success, _ = user_repository.verify_otp(db_session, user, "999999")
         
-        assert result is False
+        assert success is False
 
     def test_verify_otp_with_expired_otp_returns_false(self, db_session, create_test_user):
         """Verifying expired OTP should return False."""
@@ -246,9 +244,9 @@ class TestUserRepository:
         db_session.commit()
         db_session.refresh(user)  # Refresh to ensure datetime is properly stored
         
-        result = user_repository.verify_otp(db_session, user, "123456")
+        success, _ = user_repository.verify_otp(db_session, user, "123456")
         
-        assert result is False
+        assert success is False
 
     def test_verify_otp_without_otp_returns_false(self, db_session, create_test_user):
         """Verifying OTP when user has no OTP should return False."""
@@ -257,9 +255,9 @@ class TestUserRepository:
         user.otp_expires_at = None
         db_session.commit()
         
-        result = user_repository.verify_otp(db_session, user, "123456")
+        success, _ = user_repository.verify_otp(db_session, user, "123456")
         
-        assert result is False
+        assert success is False
 
     def test_get_all_users_returns_all_users(self, db_session, create_test_user):
         """Getting all users should return all users."""

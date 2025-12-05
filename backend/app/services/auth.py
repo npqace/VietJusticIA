@@ -24,7 +24,8 @@ logger = logging.getLogger(__name__)
 
 # HTTPBearer scheme to get the token from the Authorization header
 # More standard for JWT authentication than OAuth2PasswordBearer
-http_bearer_auth = HTTPBearer()
+# Set auto_error=False to handle 401 manually in dependencies
+http_bearer_auth = HTTPBearer(auto_error=False)
 
 class AuthService:
     def __init__(self, db: Session):
@@ -108,7 +109,7 @@ class AuthService:
 
 
 # --- Core User Dependency ---
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(http_bearer_auth), db: Session = Depends(get_db)) -> User:
+def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(http_bearer_auth), db: Session = Depends(get_db)) -> User:
     """
     Dependency to get the current user from a JWT token.
     This function will be used to protect endpoints.
@@ -119,6 +120,10 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(http_be
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+    if not credentials:
+        logger.warning("No credentials provided.")
+        raise credentials_exception
 
     # Extract token from credentials
     token = credentials.credentials
@@ -146,6 +151,8 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(http_be
     except JWTError as e:
         logger.error(f"JWT Error: {e}")
         raise credentials_exception
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"An unexpected error occurred in get_current_user: {e}", exc_info=True)
         # Re-raise as a generic 500 error to see the traceback

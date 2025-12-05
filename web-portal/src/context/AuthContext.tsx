@@ -43,8 +43,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const refreshUser = async () => {
     if (authService.isAuthenticated()) {
-      const userData = await authService.getCurrentUser();
-      setUser(userData);
+      try {
+        const userData = await authService.getCurrentUser();
+        setUser(userData);
+      } catch (error) {
+        console.error('Failed to refresh user:', error);
+        // api.ts interceptor handles logout on 401, but we catch other errors here
+      }
     }
   };
 
