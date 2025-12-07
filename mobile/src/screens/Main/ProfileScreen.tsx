@@ -16,13 +16,28 @@ import Header from '../../components/Header';
 import EditProfileModal from '../../components/Profile/EditProfileModal';
 import * as ImagePicker from 'expo-image-picker';
 import api from '../../api';
-import { API_URL } from '@env';
 import ChangePasswordModal from '../../components/Profile/ChangePasswordModal';
 import DeleteAccountModal from '../../components/Profile/DeleteAccountModal';
 import { changePassword, forgotPassword, deactivateAccount, deleteAccount } from '../../services/authService';
 import { getFullAvatarUrl } from '../../utils/avatarHelper';
+import { useNavigation } from '@react-navigation/native';
+import { ProfileScreenNavigationProp } from '../../types/navigation';
+import logger from '../../utils/logger';
+import { getAccountErrorMessage, getErrorStatus, isNetworkError } from '../../utils/errorMessages';
+import { SCREEN_NAMES } from '../../constants/screens';
 
-const ProfileScreen = ({ navigation }: { navigation: any }) => {
+/**
+ * User profile management screen.
+ *
+ * Features:
+ * - View and edit profile information (name, email, phone)
+ * - Upload/change avatar image
+ * - Change password
+ * - Deactivate account (can reactivate by logging in)
+ * - Delete account (permanent)
+ */
+const ProfileScreen = () => {
+  const navigation = useNavigation<ProfileScreenNavigationProp>();
   const { user, refreshUserData, logout } = useAuth();
   const [isModalVisible, setModalVisible] = useState(false);
   const [isChangePasswordModalVisible, setChangePasswordModalVisible] = useState(false);
@@ -42,6 +57,11 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
     }
   }, [user]);
 
+  /**
+   * Handle avatar image upload.
+   * Requests media library permission, allows user to select image,
+   * validates and uploads to backend.
+   */
   const handleChangeAvatar = async () => {
     setIsUploading(true);
     try {
@@ -66,7 +86,15 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
         return;
       }
 
-      const imageUri = pickerResult.assets[0].uri;
+      const asset = pickerResult.assets[0];
+      const imageUri = asset.uri;
+
+      // Validate file size (5MB limit)
+      if (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) {
+        Alert.alert("Ảnh quá lớn", "Vui lòng chọn ảnh nhỏ hơn 5MB.");
+        setIsUploading(false);
+        return;
+      }
 
       // Create FormData for multipart upload
       const formData = new FormData();
@@ -78,10 +106,10 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
         uri: imageUri,
         name: filename,
         type: type,
-      } as any);
+      } as unknown as Blob);
 
       // Upload to backend
-      const response = await api.post('/api/v1/users/me/avatar', formData, {
+      await api.post('/api/v1/users/me/avatar', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -92,10 +120,18 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
 
       Alert.alert("Thành công", "Ảnh đại diện của bạn đã được cập nhật.");
 
-    } catch (error: any) {
-      console.error("Avatar upload error:", error);
-      const errorMessage = error.response?.data?.detail || 'Không thể cập nhật ảnh đại diện. Vui lòng thử lại.';
-      Alert.alert("Tải lên thất bại", errorMessage);
+    } catch (error: unknown) {
+      logger.error("Avatar upload error:", error);
+
+      const status = getErrorStatus(error);
+      if (status === 413) {
+        Alert.alert("Tải lên thất bại", "Ảnh quá lớn. Vui lòng chọn ảnh nhỏ hơn 5MB.");
+      } else if (isNetworkError(error)) {
+        Alert.alert("Lỗi Kết Nối", "Không thể kết nối đến máy chủ. Vui lòng thử lại.");
+      } else {
+        const errorMessage = (error as any).response?.data?.detail || 'Không thể cập nhật ảnh đại diện. Vui lòng thử lại.';
+        Alert.alert("Tải lên thất bại", errorMessage);
+      }
     } finally {
       setIsUploading(false);
     }
@@ -116,20 +152,34 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
     Alert.alert("Thành công", "Mật khẩu của bạn đã được thay đổi.");
   };
 
+  /**
+   * Handle forgot password from change password modal.
+   * Sends password reset OTP to user's email and navigates to reset screen.
+   */
   const handleForgotPasswordFromModal = async () => {
     closeChangePasswordModal();
+
+    if (!user?.email) {
+      Alert.alert('Lỗi', 'Không thể xác định email của bạn. Vui lòng đăng nhập lại.');
+      return;
+    }
+
     try {
       await forgotPassword(user.email);
       Alert.alert(
         'Kiểm tra Email của bạn',
         'Nếu tài khoản tồn tại, một mã OTP để đặt lại mật khẩu đã được gửi đến email của bạn.',
-        [{ text: 'OK', onPress: () => navigation.navigate('ResetPassword', { email: user.email }) }]
+        [{ text: 'OK', onPress: () => navigation.navigate(SCREEN_NAMES.RESET_PASSWORD, { email: user.email! }) }]
       );
     } catch (err: any) {
       Alert.alert('Lỗi', err.response?.data?.detail || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
     }
   };
 
+  /**
+   * Handle account deactivation.
+   * Shows confirmation alert, deactivates account on backend, and logs out user.
+   */
   const handleDeactivate = () => {
     Alert.alert(
       "Vô hiệu hóa tài khoản",
@@ -142,9 +192,11 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
           onPress: async () => {
             try {
               await deactivateAccount();
+              Alert.alert("Thành công", "Tài khoản của bạn đã được vô hiệu hóa.");
               await logout();
             } catch (error) {
-              Alert.alert("Lỗi", "Không thể vô hiệu hóa tài khoản. Vui lòng thử lại.");
+              logger.error("Deactivate account error", error);
+              Alert.alert("Lỗi", getAccountErrorMessage(error, 'deactivate'));
             }
           },
         },
@@ -152,12 +204,18 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
     );
   };
 
+  /**
+   * Handle account deletion.
+   * Permanently deletes account from backend and logs out user.
+   */
   const handleDeleteAccount = async () => {
     try {
       await deleteAccount();
+      Alert.alert("Thành công", "Tài khoản của bạn đã được xóa.");
       await logout();
     } catch (error) {
-      Alert.alert("Lỗi", "Không thể xóa tài khoản. Vui lòng thử lại.");
+      logger.error("Delete account error", error);
+      Alert.alert("Lỗi", getAccountErrorMessage(error, 'delete'));
     }
   };
 
@@ -183,14 +241,14 @@ const ProfileScreen = ({ navigation }: { navigation: any }) => {
           <View style={styles.avatarSection}>
             <Image source={{ uri: profileImageUrl }} style={styles.avatar} />
             <View style={styles.avatarTextContainer}>
-                <TouchableOpacity style={styles.changeAvatarButtonContainer} onPress={handleChangeAvatar} disabled={isUploading}>
-                  {isUploading ? (
-                    <ActivityIndicator color={COLORS.primary} />
-                  ) : (
-                    <Text style={styles.changeAvatarButton}>Thay đổi ảnh đại diện</Text>
-                  )}
-                </TouchableOpacity>
-                <Text style={styles.avatarHint}>Định dạng hình ảnh JPEG, PNG, WEBP, tối đa 5MB.</Text>
+              <TouchableOpacity style={styles.changeAvatarButtonContainer} onPress={handleChangeAvatar} disabled={isUploading}>
+                {isUploading ? (
+                  <ActivityIndicator color={COLORS.primary} />
+                ) : (
+                  <Text style={styles.changeAvatarButton}>Thay đổi ảnh đại diện</Text>
+                )}
+              </TouchableOpacity>
+              <Text style={styles.avatarHint}>Định dạng hình ảnh JPEG, PNG, WEBP, tối đa 5MB.</Text>
             </View>
           </View>
 
@@ -293,9 +351,9 @@ const styles = StyleSheet.create({
     fontSize: SIZES.small,
     color: COLORS.gray,
   },
-  // infoSection: {
-  //   marginBottom: SIZES.padding,
-  // },
+  infoSection: {
+    marginBottom: SIZES.padding,
+  },
   infoRow: {
     marginBottom: SIZES.padding,
   },
@@ -317,7 +375,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: SIZES.padding,
   },
-mainButtonText: {
+  mainButtonText: {
     fontFamily: FONTS.bold,
     fontSize: SIZES.body,
     color: COLORS.white,
@@ -343,7 +401,6 @@ mainButtonText: {
   deleteButtonText: {
     color: COLORS.white,
   },
-  
   center: {
     flex: 1,
     justifyContent: 'center',

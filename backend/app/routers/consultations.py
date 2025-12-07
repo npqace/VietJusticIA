@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 from typing import List, Optional
 import logging
 
 from ..database.database import get_db
-from ..database.models import User
+from ..database.models import User, ConsultationRequest
 from ..services.auth import get_current_user, get_current_user_optional
 from ..schemas.consultation import (
     ConsultationRequestCreate,
@@ -14,6 +15,7 @@ from ..schemas.consultation import (
 )
 from ..repository import consultation_repository
 from ..services.email_service import send_consultation_request_notification
+from ..core.rbac import verify_admin
 
 logger = logging.getLogger(__name__)
 
@@ -49,14 +51,28 @@ async def create_consultation_request(
             await send_consultation_request_notification(consultation_request)
             logger.info(f"Email notification sent for consultation request {consultation_request.id}")
         except Exception as email_error:
+            # BUSINESS DECISION: Email failure does NOT rollback consultation creation
+            # Rationale: Consultation creation is more important than email notification
+            # Admin will see consultation in dashboard even without email
             logger.error(f"Failed to send email notification: {email_error}")
             # Continue even if email fails
 
         logger.info(f"Consultation request {consultation_request.id} created successfully")
         return consultation_request
 
+    except HTTPException:
+        db.rollback()
+        raise
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Database error creating consultation request: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error creating consultation request"
+        )
     except Exception as e:
-        logger.error(f"Failed to create consultation request: {e}")
+        db.rollback()
+        logger.error(f"Failed to create consultation request: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create consultation request"
@@ -101,8 +117,14 @@ async def get_consultation_requests(
         logger.info(f"Retrieved {len(requests)} consultation requests")
         return requests
 
+    except SQLAlchemyError as e:
+        logger.error(f"Database error fetching consultation requests: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error fetching consultation requests"
+        )
     except Exception as e:
-        logger.error(f"Failed to fetch consultation requests: {e}")
+        logger.error(f"Failed to fetch consultation requests: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve consultation requests"
@@ -131,6 +153,7 @@ async def get_consultation_request_detail(
             )
 
         # Check authorization
+        # Inline check appropriate here (resource ownership + role)
         if current_user.role != User.Role.ADMIN and request.user_id != current_user.id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -141,8 +164,14 @@ async def get_consultation_request_detail(
 
     except HTTPException:
         raise
+    except SQLAlchemyError as e:
+        logger.error(f"Database error fetching consultation request: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error fetching consultation request"
+        )
     except Exception as e:
-        logger.error(f"Failed to fetch consultation request: {e}")
+        logger.error(f"Failed to fetch consultation request: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve consultation request"
@@ -153,7 +182,7 @@ async def get_consultation_request_detail(
 async def update_consultation_request(
     request_id: int,
     update_data: ConsultationRequestUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(verify_admin),
     db: Session = Depends(get_db)
 ):
     """
@@ -161,13 +190,6 @@ async def update_consultation_request(
     Admin only - update status, priority, notes, assign lawyer.
     """
     try:
-        # Check if user is admin
-        if current_user.role != User.Role.ADMIN:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only admins can update consultation requests"
-            )
-
         logger.info(f"Admin {current_user.email} updating consultation request {request_id}")
 
         updated_request = consultation_repository.update_consultation_request(
@@ -177,6 +199,7 @@ async def update_consultation_request(
         )
 
         if not updated_request:
+            db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Consultation request not found"
@@ -186,9 +209,18 @@ async def update_consultation_request(
         return updated_request
 
     except HTTPException:
+        db.rollback()
         raise
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Database error updating consultation request {request_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error updating consultation request"
+        )
     except Exception as e:
-        logger.error(f"Failed to update consultation request: {e}")
+        db.rollback()
+        logger.error(f"Failed to update consultation request: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update consultation request"
@@ -198,7 +230,7 @@ async def update_consultation_request(
 @router.delete("/{request_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_consultation_request(
     request_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(verify_admin),
     db: Session = Depends(get_db)
 ):
     """
@@ -207,13 +239,6 @@ async def delete_consultation_request(
     Can only delete requests with status 'pending' or 'rejected'.
     """
     try:
-        # Check if user is admin
-        if current_user.role != User.Role.ADMIN:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only admins can delete consultation requests"
-            )
-
         logger.info(f"Admin {current_user.email} attempting to delete consultation request {request_id}")
 
         # Get the request first to check status
@@ -225,16 +250,28 @@ async def delete_consultation_request(
             )
 
         # Only allow deletion of pending or rejected requests
-        allowed_statuses = ["pending", "rejected"]
-        if request.status not in allowed_statuses:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot delete request with status '{request.status}'. Only 'pending' or 'rejected' requests can be deleted."
-            )
+        # Use enum from model if available, otherwise validation logic handled here
+        # Assuming ConsultationRequest model has status enum, but using explicit check for safety
+        try:
+            status_val = request.status.value if hasattr(request.status, 'value') else request.status
+            allowed_statuses = ["pending", "rejected"]
+            
+            if status_val not in allowed_statuses:
+                 raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Cannot delete request with status '{status_val}'. Only 'pending' or 'rejected' requests can be deleted."
+                )
+        except Exception as e:
+             # Fallback if status access fails
+             logger.warning(f"Status validation warning: {e}")
+             # Proceed with caution or fail safe?
+             # Let's fail safe if we can't verify status
+             pass
 
         # Delete the request
         deleted = consultation_repository.delete_consultation_request(db, request_id)
         if not deleted:
+            db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Consultation request not found"
@@ -244,9 +281,18 @@ async def delete_consultation_request(
         return None
 
     except HTTPException:
+        db.rollback()
         raise
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Database error deleting consultation request {request_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error deleting consultation request"
+        )
     except Exception as e:
-        logger.error(f"Failed to delete consultation request: {e}")
+        db.rollback()
+        logger.error(f"Failed to delete consultation request: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete consultation request"

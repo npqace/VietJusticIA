@@ -15,31 +15,68 @@ import { COLORS, SIZES, FONTS } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
 import { forgotPassword } from '../../services/authService';
 
+/**
+ * Props for ForgotPasswordModal component
+ */
 interface ForgotPasswordModalProps {
+  /** Whether modal is visible */
   visible: boolean;
+  /** Callback to close modal */
   onClose: () => void;
+  /** Callback invoked after request (success or error) - receives email for OTP verification */
   onSuccess: (email: string) => void;
 }
 
+/**
+ * ForgotPasswordModal Component
+ *
+ * Modal for requesting password reset via email.
+ * Implements anti-enumeration security pattern to prevent email discovery attacks.
+ *
+ * Security Features:
+ * - Anti-enumeration: Always shows success message regardless of email validity
+ * - Prevents attackers from discovering valid emails by timing/response differences
+ * - Backend handles actual validation and email sending
+ *
+ * @component
+ */
 const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ visible, onClose, onSuccess }) => {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  /**
+   * Requests password reset for provided email
+   *
+   * Security: Implements anti-enumeration pattern
+   * - Always calls onSuccess regardless of API response
+   * - Prevents attackers from discovering valid emails
+   */
   const handleRequestReset = async () => {
     Keyboard.dismiss();
-    if (!email) {
+    const mail = email.trim();
+
+    if (!mail) {
       Alert.alert('Lỗi', 'Vui lòng nhập địa chỉ email của bạn.');
       return;
     }
+
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(mail)) {
+      Alert.alert('Lỗi', 'Email không hợp lệ. Vui lòng kiểm tra lại.');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      await forgotPassword(email);
-      // The alert is removed from here
-      onSuccess(email);
-    } catch (err: any) {
-      // Still show a generic message on error to prevent email enumeration
-      // The alert is also removed from the error case
-      onSuccess(email);
+      await forgotPassword(mail);
+      // Anti-enumeration: Show same success behavior for all cases
+      onSuccess(mail);
+    } catch (err) {
+      // SECURITY: Anti-enumeration pattern
+      // Always call onSuccess (same as success case) to prevent email discovery
+      // Attackers cannot determine if email exists by observing different responses
+      onSuccess(mail);
     } finally {
       setIsLoading(false);
     }
@@ -93,13 +130,13 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ visible, onCl
 const styles = StyleSheet.create({
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: COLORS.modalBackdrop || 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContainer: {
     width: '90%',
-    backgroundColor: 'white',
+    backgroundColor: COLORS.white,
     borderRadius: 20,
     padding: 25,
     alignItems: 'center',

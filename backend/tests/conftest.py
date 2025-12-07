@@ -13,7 +13,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, MagicMock
 
 # Set test environment variables BEFORE importing app modules
 # This prevents database connection attempts during import
@@ -50,9 +50,26 @@ def mock_psycopg2_connect(*args, **kwargs):
 # Replace psycopg2.connect with mock before importing app modules
 psycopg2.connect = mock_psycopg2_connect
 
+# Mock pymongo.MongoClient to prevent MongoDB connection attempts during import
+# The document_processor.py module tries to connect at import time
+with patch("pymongo.MongoClient"):
+    pass
+# We need to keep the patch active during import, but patch context manager exits.
+# So we manually patch it.
+mock_mongo_client = MagicMock()
+patcher = patch("pymongo.MongoClient", return_value=mock_mongo_client)
+patcher.start()
+# Note: We should stop this patcher at some point, but for tests it's fine to keep it mocked globally.
+
 from app.database.database import Base, get_db
 from app.main import app
 from app.database.models import User
+from app.core import security
+
+# Force update security keys in case module was already loaded
+print(f"DEBUG: security module loaded from: {security.__file__}")
+security.SECRET_KEY = os.environ["SECRET_KEY"]
+security.REFRESH_SECRET_KEY = os.environ["REFRESH_SECRET_KEY"]
 
 
 # --- Database Fixtures ---

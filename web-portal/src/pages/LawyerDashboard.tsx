@@ -12,8 +12,10 @@ import {
   AppBar,
   Toolbar,
   IconButton,
+  Alert,
+  Snackbar,
 } from '@mui/material';
-import { LogoutOutlined, PersonOutline, AssignmentOutlined, ChatOutlined } from '@mui/icons-material';
+import { LogoutOutlined, PersonOutline, AssignmentOutlined, ChatOutlined, Refresh } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -29,6 +31,8 @@ const LawyerDashboard: React.FC = () => {
     null
   );
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isSnackbarOpen, setIsSnackbarOpen] = useState(false);
 
   useEffect(() => {
     fetchServiceRequests();
@@ -36,15 +40,27 @@ const LawyerDashboard: React.FC = () => {
 
   const fetchServiceRequests = async () => {
     try {
+      setIsLoading(true);
+      setError(null);
       const response = await api.get<ServiceRequest[]>(
         '/api/v1/lawyers/requests/my-requests'
       );
       setRequests(response.data);
     } catch (error) {
       console.error('Failed to fetch service requests:', error);
+      setError('Failed to load service requests. Please try again.');
+      setIsSnackbarOpen(true);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleRefresh = () => {
+    fetchServiceRequests();
+  };
+
+  const handleCloseSnackbar = () => {
+    setIsSnackbarOpen(false);
   };
 
   const handleLogout = () => {
@@ -90,6 +106,13 @@ const LawyerDashboard: React.FC = () => {
             VietJusticIA - Lawyer Dashboard
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Button
+              color="inherit"
+              startIcon={<Refresh />}
+              onClick={handleRefresh}
+            >
+              Refresh
+            </Button>
             <Button
               color="inherit"
               startIcon={<ChatOutlined />}
@@ -212,6 +235,17 @@ const LawyerDashboard: React.FC = () => {
           onUpdate={fetchServiceRequests}
         />
       )}
+
+      <Snackbar
+        open={isSnackbarOpen}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity="error" sx={{ width: '100%' }}>
+          {error}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

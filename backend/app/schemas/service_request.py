@@ -159,3 +159,10 @@ class ServiceRequestDetail(BaseModel):
     
     model_config = ConfigDict(from_attributes=True)
 
+
+class ServiceRequestFilterParams(BaseModel):
+    """Schema for filtering service requests."""
+    status: Optional[RequestStatus] = None
+    skip: int = Field(0, ge=0)
+    limit: int = Field(50, ge=1, le=100)
+

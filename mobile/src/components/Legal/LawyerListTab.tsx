@@ -8,6 +8,8 @@ import {
   FlatList,
   ActivityIndicator,
   Image,
+  RefreshControl,
+  Alert,
 } from 'react-native';
 import { COLORS, SIZES, FONTS, LOGO_PATH } from '../../constants/styles';
 import { Ionicons } from '@expo/vector-icons';
@@ -52,13 +54,15 @@ const LawyerListTab: React.FC<LawyerListTabProps> = ({ navigation }) => {
     cities: [{ id: 'all', label: 'Tất cả' }] as FilterOption[],
   });
 
+  const [refreshing, setRefreshing] = useState(false);
+
   useEffect(() => {
     fetchLawyers();
   }, []);
 
   const fetchLawyers = async (currentFilters = filters, currentSearch = searchQuery) => {
     try {
-      setLoading(true);
+      if (!refreshing) setLoading(true);
       const params = new URLSearchParams();
 
       if (currentSearch) params.append('search', currentSearch);
@@ -72,19 +76,26 @@ const LawyerListTab: React.FC<LawyerListTabProps> = ({ navigation }) => {
       if (currentFilters.availableOnly) params.append('is_available', 'true');
 
       const response = await api.get(`/api/v1/lawyers?${params.toString()}`);
-      setLawyers(response.data);
+      setLawyers(response.data as Lawyer[]);
     } catch (error) {
       console.error('Failed to fetch lawyers:', error);
+      Alert.alert('Lỗi', 'Không thể tải danh sách luật sư. Vui lòng thử lại sau.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchLawyers();
   };
 
   // Fetch filter options from backend
   const fetchFilterOptions = async () => {
     try {
       const response = await api.get('/api/v1/lawyers/filters/options');
-      const { specializations, cities } = response.data;
+      const { specializations, cities } = response.data as { specializations: string[], cities: string[] };
 
       setFilterOptions({
         specializations: [
@@ -269,6 +280,9 @@ const LawyerListTab: React.FC<LawyerListTabProps> = ({ navigation }) => {
           keyExtractor={(item) => item.id.toString()}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />
+          }
         />
       )}
 

@@ -64,13 +64,11 @@ const renderers = {
     }
     return <TDefaultRenderer {...props} />;
   },
-  span: (props: any) => {
-    const { TDefaultRenderer, tnode } = props;
-    const style = tnode.attributes.style || '';
-    if (style.includes('font-size:12.0pt')) {
-      return <TDefaultRenderer {...props} style={[props.style, { textAlign: 'center' }]} />;
-    }
-    return <TDefaultRenderer {...props} />;
+  // Fix for "No suitable URL request handler" crash
+  img: (props: any) => {
+    // The backend does not currently serve these images (they are relative paths from the original source).
+    // Returning null prevents the app from trying to load 'about:///' URLs and crashing.
+    return null;
   }
 };
 
@@ -125,80 +123,84 @@ const DocumentDetailScreen = ({ route, navigation }: { route: any, navigation: a
   const renderContent = () => {
     if (activeTab === 'content') {
       return (
-        <RenderHTML
-          contentWidth={width}
-          source={{ html: document.html_content || '' }}
-          tagsStyles={tagsStyles}
-          classesStyles={classesStyles}
-          systemFonts={[FONTS.regular, FONTS.bold, FONTS.italic]}
-          renderers={renderers}
-          renderersProps={{ a: { onPress: handleLinkPress } }}
-        />
+        <ScrollView contentContainerStyle={styles.contentContainer}>
+          <RenderHTML
+            contentWidth={width}
+            source={{ html: document.html_content || '' }}
+            tagsStyles={tagsStyles}
+            classesStyles={classesStyles}
+            systemFonts={[FONTS.regular, FONTS.bold, FONTS.italic]}
+            renderers={renderers}
+            renderersProps={{ a: { onPress: handleLinkPress } }}
+          />
+        </ScrollView>
       );
     } else {
       return (
-        <View>
-          {/* Metadata Section */}
-          {metadataFields.map(({ key, label }) => {
-            const value = document[key];
-            if (!value) return null;
+        <ScrollView contentContainerStyle={styles.contentContainer}>
+          <View>
+            {/* Metadata Section */}
+            {metadataFields.map(({ key, label }) => {
+              const value = document[key];
+              if (!value) return null;
 
-            // Format dates to dd/mm/yyyy for display
-            const displayValue = (key === 'issue_date' || key === 'effective_date' || key === 'publish_date')
-              ? formatDateForDisplay(String(value))
-              : String(value);
+              // Format dates to dd/mm/yyyy for display
+              const displayValue = (key === 'issue_date' || key === 'effective_date' || key === 'publish_date')
+                ? formatDateForDisplay(String(value))
+                : String(value);
 
-            return (
-              <View key={key} style={styles.metadataRow}>
-                <Text style={styles.metadataLabel}>{label}:</Text>
-                <Text style={[styles.metadataValue, key === 'status' && { color: getStatusColor(String(value)) }]}>
-                  {displayValue}
-                </Text>
-              </View>
-            );
-          })}
-
-          {/* ASCII Diagram Section */}
-          {document.ascii_diagram && (
-            <View style={styles.diagramContainer}>
-              <Text style={styles.diagramTitle}>Sơ đồ tóm tắt</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator>
-                <View style={{ paddingVertical: 5 }}>
-                  {document.ascii_diagram.split('\n').map((line: string, index: number) => (
-                    <Text key={index} style={styles.diagramText}>{line}</Text>
-                  ))}
+              return (
+                <View key={key} style={styles.metadataRow}>
+                  <Text style={styles.metadataLabel}>{label}:</Text>
+                  <Text style={[styles.metadataValue, key === 'status' && { color: getStatusColor(String(value)) }]}>
+                    {displayValue}
+                  </Text>
                 </View>
-              </ScrollView>
-            </View>
-          )}
+              );
+            })}
 
-          {/* Related Documents Section */}
-          {document.related_documents && document.related_documents.length > 0 && (
-            <View style={styles.relatedDocsContainer}>
-              <Text style={styles.diagramTitle}>Văn bản liên quan</Text>
-              {document.related_documents.map((doc: any, index: number) => (
-                <TouchableOpacity 
-                  key={doc.doc_id || index} 
-                  style={styles.relatedDocItem}
-                  onPress={() => navigation.push('DocumentDetail', { documentId: doc.doc_id })}
-                >
-                  <Ionicons name="document-text-outline" size={16} color={COLORS.primary} style={styles.relatedDocIcon} />
-                  <View style={{ flex: 1, justifyContent: 'center' }}>
-                    {doc.document_number && (
-                      <Text style={styles.relatedDocNumber} numberOfLines={1}>
-                        {doc.document_number}
-                      </Text>
-                    )}
-                    <Text style={styles.relatedDocTitle} numberOfLines={2} ellipsizeMode="tail">
-                      {doc.title}
-                    </Text>
+            {/* ASCII Diagram Section */}
+            {document.ascii_diagram && (
+              <View style={styles.diagramContainer}>
+                <Text style={styles.diagramTitle}>Sơ đồ tóm tắt</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator>
+                  <View style={{ paddingVertical: 5 }}>
+                    {document.ascii_diagram.split('\n').map((line: string, index: number) => (
+                      <Text key={index} style={styles.diagramText}>{line}</Text>
+                    ))}
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color={COLORS.gray} />
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </View>
+                </ScrollView>
+              </View>
+            )}
+
+            {/* Related Documents Section */}
+            {document.related_documents && document.related_documents.length > 0 && (
+              <View style={styles.relatedDocsContainer}>
+                <Text style={styles.diagramTitle}>Văn bản liên quan</Text>
+                {document.related_documents.map((doc: any, index: number) => (
+                  <TouchableOpacity
+                    key={doc.doc_id || index}
+                    style={styles.relatedDocItem}
+                    onPress={() => navigation.push('DocumentDetail', { documentId: doc.doc_id })}
+                  >
+                    <Ionicons name="document-text-outline" size={16} color={COLORS.primary} style={styles.relatedDocIcon} />
+                    <View style={{ flex: 1, justifyContent: 'center' }}>
+                      {doc.document_number && (
+                        <Text style={styles.relatedDocNumber} numberOfLines={1}>
+                          {doc.document_number}
+                        </Text>
+                      )}
+                      <Text style={styles.relatedDocTitle} numberOfLines={2} ellipsizeMode="tail">
+                        {doc.title}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color={COLORS.gray} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+        </ScrollView>
       );
     }
   };
@@ -244,17 +246,15 @@ const DocumentDetailScreen = ({ route, navigation }: { route: any, navigation: a
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.contentContainer}>
-          {renderContent()}
-        </View>
-      </ScrollView>
+      <View style={styles.container}>
+        {renderContent()}
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, backgroundColor: COLORS.white },
+  container: { flex: 1, backgroundColor: COLORS.white },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   errorText: { fontFamily: FONTS.regular, fontSize: SIZES.body, color: COLORS.primary, textAlign: 'center' },
   contentContainer: { padding: 16 },

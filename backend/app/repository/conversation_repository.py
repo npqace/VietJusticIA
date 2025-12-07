@@ -1,10 +1,12 @@
+import logging
 from pymongo import MongoClient, ASCENDING, DESCENDING
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 from datetime import datetime, timezone
 from bson import ObjectId
+from bson.errors import InvalidId
 import os
-import logging
 
+# Configure logging
 logger = logging.getLogger(__name__)
 
 # MongoDB Connection
@@ -16,14 +18,17 @@ client = MongoClient(MONGO_URL)
 db = client[MONGO_DB_NAME]
 collection = db[MONGO_COLLECTION_NAME]
 
+# Constants
+DEFAULT_PAGE_SIZE = 50
+MAX_PAGE_SIZE = 100
+MAX_MESSAGE_LENGTH = 10000  # 10KB max message
+VALID_SENDERS = {"user", "lawyer"}
+
 
 def _ensure_indexes():
-    """
-    Creates indexes for efficient querying.
-    Called once when the module loads.
-    """
+    """Creates indexes for efficient querying."""
     try:
-        # Unique index on service_request_id (one conversation per request)
+        # Unique index on service_request_id
         collection.create_index("service_request_id", unique=True)
         
         # Composite indexes for listing conversations
@@ -34,9 +39,35 @@ def _ensure_indexes():
     except Exception as e:
         logger.warning(f"Index creation failed (may already exist): {e}")
 
-
-# Create indexes when module is imported
+# Create indexes on module import
 _ensure_indexes()
+
+
+def _convert_object_id(conversation: dict) -> dict:
+    """Converts ObjectId to string for JSON serialization."""
+    if "_id" in conversation:
+        conversation["_id"] = str(conversation["_id"])
+        conversation["conversation_id"] = conversation["_id"]
+    return conversation
+
+
+def _validate_object_id(object_id_str: str) -> ObjectId:
+    """
+    Validates and converts string to ObjectId.
+
+    Args:
+        object_id_str: String representation of ObjectId
+
+    Returns:
+        Valid ObjectId instance
+
+    Raises:
+        ValueError: If ObjectId format invalid
+    """
+    try:
+        return ObjectId(object_id_str)
+    except InvalidId:
+        raise ValueError(f"Invalid ObjectId format: {object_id_str}")
 
 
 def create_conversation(
@@ -70,15 +101,7 @@ def create_conversation(
 
     try:
         result = collection.insert_one(conversation)
-        conversation["_id"] = str(result.inserted_id)
-        conversation["conversation_id"] = str(result.inserted_id)
-        
-        logger.info(
-            f"Conversation created: id={conversation['_id']}, "
-            f"service_request_id={service_request_id}"
-        )
-        
-        return conversation
+        return _convert_object_id(conversation)
     except Exception as e:
         logger.error(f"Failed to create conversation: {e}")
         return None
@@ -116,9 +139,7 @@ def get_conversation_by_service_request_id(
         conversation = collection.find_one(query)
 
         if conversation:
-            conversation["_id"] = str(conversation["_id"])
-            conversation["conversation_id"] = str(conversation["_id"])
-            return conversation
+            return _convert_object_id(conversation)
 
         return None
     except Exception as e:
@@ -144,8 +165,10 @@ def get_conversation_by_id(
         Conversation document with all messages, or None if not found/unauthorized
     """
     try:
+        obj_id = _validate_object_id(conversation_id)
+        
         # Build query with authorization check
-        query = {"_id": ObjectId(conversation_id)}
+        query = {"_id": obj_id}
         
         if user_id is not None:
             query["user_id"] = user_id
@@ -158,10 +181,11 @@ def get_conversation_by_id(
         conversation = collection.find_one(query)
 
         if conversation:
-            conversation["_id"] = str(conversation["_id"])
-            conversation["conversation_id"] = str(conversation["_id"])
-            return conversation
+            return _convert_object_id(conversation)
 
+        return None
+    except ValueError as e:
+        logger.error(f"Invalid conversation ID format: {e}")
         return None
     except Exception as e:
         logger.error(f"Failed to get conversation by id: {e}")
@@ -185,22 +209,42 @@ def add_message(
 
     Returns:
         The created message object, or None if failed
+        
+    Raises:
+        ValueError: If sender_type invalid or text empty
     """
-    now = datetime.now(timezone.utc)
-
-    message = {
-        "message_id": str(ObjectId()),
-        "sender_id": sender_id,
-        "sender_type": sender_type,
-        "text": text,
-        "timestamp": now,
-        "read_by_user": sender_type == "user",  # Auto-read if sender is user
-        "read_by_lawyer": sender_type == "lawyer"  # Auto-read if sender is lawyer
-    }
-
     try:
+        # Validate sender_type
+        if sender_type not in VALID_SENDERS:
+            logger.error(f"Invalid sender_type: {sender_type}")
+            raise ValueError(f"sender_type must be 'user' or 'lawyer', got '{sender_type}'")
+
+        # Validate text
+        if not text or not text.strip():
+            logger.error("Empty message text provided")
+            raise ValueError("Message text cannot be empty")
+
+        # Validate text length
+        if len(text) > MAX_MESSAGE_LENGTH:
+            logger.error(f"Message text too long: {len(text)} chars")
+            raise ValueError(f"Message text too long (max {MAX_MESSAGE_LENGTH} characters)")
+
+        obj_id = _validate_object_id(conversation_id)
+        
+        now = datetime.now(timezone.utc)
+
+        message = {
+            "message_id": str(ObjectId()),
+            "sender_id": sender_id,
+            "sender_type": sender_type,
+            "text": text.strip(),
+            "timestamp": now,
+            "read_by_user": sender_type == "user",  # Auto-read if sender is user
+            "read_by_lawyer": sender_type == "lawyer"  # Auto-read if sender is lawyer
+        }
+
         result = collection.update_one(
-            {"_id": ObjectId(conversation_id)},
+            {"_id": obj_id},
             {
                 "$push": {"messages": message},
                 "$set": {"updated_at": now}
@@ -216,9 +260,14 @@ def add_message(
             message["timestamp"] = message["timestamp"].isoformat()
             return message
         
+        logger.warning(f"Conversation {conversation_id} not found or no changes made")
         return None
+        
+    except ValueError as e:
+        # Re-raise validation errors
+        raise
     except Exception as e:
-        logger.error(f"Failed to add message: {e}")
+        logger.error(f"Failed to add message: {e}", exc_info=True)
         return None
 
 
@@ -236,15 +285,17 @@ def mark_messages_as_read(
     Returns:
         True if successful, False otherwise
     """
-    if reader_type not in ["user", "lawyer"]:
+    if reader_type not in VALID_SENDERS:
         logger.error(f"Invalid reader_type: {reader_type}")
         return False
 
     read_field = f"read_by_{reader_type}"
 
     try:
+        obj_id = _validate_object_id(conversation_id)
+        
         # First check if conversation exists
-        conversation = collection.find_one({"_id": ObjectId(conversation_id)})
+        conversation = collection.find_one({"_id": obj_id})
         if not conversation:
             logger.warning(f"Conversation {conversation_id} not found")
             return False
@@ -252,22 +303,20 @@ def mark_messages_as_read(
         messages = conversation.get("messages", [])
         if not messages:
             # No messages to mark as read, but conversation exists
-            logger.info(f"No messages to mark as read in conversation {conversation_id}")
             return True
 
         # Use simple $[] operator to update all messages
-        # This is more reliable than array_filters with dynamic field names
         result = collection.update_one(
-            {"_id": ObjectId(conversation_id)},
+            {"_id": obj_id},
             {"$set": {f"messages.$[].{read_field}": True}}
         )
 
         logger.info(
             f"Messages marked as read in conversation {conversation_id} "
-            f"by {reader_type} (matched: {result.matched_count}, modified: {result.modified_count})"
+            f"by {reader_type} (modified: {result.modified_count})"
         )
 
-        # Return True if document was found (even if no messages were modified)
+        # Return True if document was found
         return True
     except Exception as e:
         logger.error(f"Failed to mark messages as read: {e}", exc_info=True)
@@ -288,14 +337,16 @@ def get_unread_count(
     Returns:
         Number of unread messages
     """
-    if reader_type not in ["user", "lawyer"]:
+    if reader_type not in VALID_SENDERS:
         return 0
 
     read_field = f"read_by_{reader_type}"
 
     try:
+        obj_id = _validate_object_id(conversation_id)
+        
         conversation = collection.find_one(
-            {"_id": ObjectId(conversation_id)},
+            {"_id": obj_id},
             {"messages": 1}
         )
 
@@ -313,10 +364,101 @@ def get_unread_count(
         return 0
 
 
+def _get_conversations_for_party(
+    party_field: str,
+    party_id: int,
+    reader_type: str,
+    skip: int = 0,
+    limit: int = DEFAULT_PAGE_SIZE
+) -> List[Dict[str, Any]]:
+    """
+    Generic function to get conversations for a user or lawyer using aggregation.
+    
+    Args:
+        party_field: Field name ("user_id" or "lawyer_id")
+        party_id: ID of the party
+        reader_type: "user" or "lawyer"
+        skip: Pagination offset
+        limit: Max results
+
+    Returns:
+        List of conversation documents
+    """
+    try:
+        # Validate pagination
+        if skip < 0:
+            logger.warning(f"Invalid skip value: {skip}, using 0")
+            skip = 0
+            
+        if limit < 1:
+            logger.warning(f"Invalid limit value: {limit}, using default {DEFAULT_PAGE_SIZE}")
+            limit = DEFAULT_PAGE_SIZE
+        elif limit > MAX_PAGE_SIZE:
+            logger.warning(f"Limit {limit} exceeds max {MAX_PAGE_SIZE}, using max")
+            limit = MAX_PAGE_SIZE
+
+        logger.info(f"Fetching conversations for {reader_type} {party_id}")
+
+        pipeline = [
+            # Filter by party and active status
+            {
+                "$match": {
+                    party_field: party_id,
+                    "is_active": True
+                }
+            },
+            # Sort by most recent
+            {
+                "$sort": {"updated_at": -1}
+            },
+            # Pagination
+            {
+                "$skip": skip
+            },
+            {
+                "$limit": limit
+            },
+            # Calculate metadata and project fields
+            {
+                "$project": {
+                    "service_request_id": 1,
+                    "user_id": 1,
+                    "lawyer_id": 1,
+                    "created_at": 1,
+                    "updated_at": 1,
+                    "last_message": {"$arrayElemAt": ["$messages", -1]},
+                    "message_count": {"$size": "$messages"},
+                    "unread_count": {
+                        "$size": {
+                            "$filter": {
+                                "input": "$messages",
+                                "as": "msg",
+                                "cond": {"$eq": [f"$$msg.read_by_{reader_type}", False]}
+                            }
+                        }
+                    }
+                }
+            }
+        ]
+
+        conversations = list(collection.aggregate(pipeline))
+
+        # Convert ObjectId to string
+        for conv in conversations:
+            _convert_object_id(conv)
+
+        logger.info(f"Found {len(conversations)} conversations for {reader_type} {party_id}")
+        return conversations
+
+    except Exception as e:
+        logger.error(f"Failed to get {reader_type} conversations: {e}", exc_info=True)
+        return []
+
+
 def get_user_conversations(
     user_id: int,
     skip: int = 0,
-    limit: int = 50
+    limit: int = DEFAULT_PAGE_SIZE
 ) -> List[Dict[str, Any]]:
     """
     Retrieves all conversations for a user, sorted by most recent first.
@@ -329,46 +471,13 @@ def get_user_conversations(
     Returns:
         List of conversation documents with metadata
     """
-    try:
-        conversations = collection.find(
-            {"user_id": user_id, "is_active": True},
-            {
-                "service_request_id": 1,
-                "user_id": 1,
-                "lawyer_id": 1,
-                "created_at": 1,
-                "updated_at": 1,
-                "messages": {"$slice": -1}  # Get only last message for preview
-            }
-        ).sort("updated_at", -1).skip(skip).limit(limit)
-
-        conversations_list = []
-        for conv in conversations:
-            conv["_id"] = str(conv["_id"])
-            conv["conversation_id"] = str(conv["_id"])
-            
-            # Get unread count
-            conv["unread_count"] = get_unread_count(conv["_id"], "user")
-            
-            # Get total message count
-            full_conv = collection.find_one(
-                {"_id": ObjectId(conv["_id"])},
-                {"messages": 1}
-            )
-            conv["message_count"] = len(full_conv.get("messages", [])) if full_conv else 0
-            
-            conversations_list.append(conv)
-
-        return conversations_list
-    except Exception as e:
-        logger.error(f"Failed to get user conversations: {e}")
-        return []
+    return _get_conversations_for_party("user_id", user_id, "user", skip, limit)
 
 
 def get_lawyer_conversations(
     lawyer_id: int,
     skip: int = 0,
-    limit: int = 50
+    limit: int = DEFAULT_PAGE_SIZE
 ) -> List[Dict[str, Any]]:
     """
     Retrieves all conversations for a lawyer, sorted by most recent first.
@@ -381,40 +490,7 @@ def get_lawyer_conversations(
     Returns:
         List of conversation documents with metadata
     """
-    try:
-        conversations = collection.find(
-            {"lawyer_id": lawyer_id, "is_active": True},
-            {
-                "service_request_id": 1,
-                "user_id": 1,
-                "lawyer_id": 1,
-                "created_at": 1,
-                "updated_at": 1,
-                "messages": {"$slice": -1}  # Get only last message for preview
-            }
-        ).sort("updated_at", -1).skip(skip).limit(limit)
-
-        conversations_list = []
-        for conv in conversations:
-            conv["_id"] = str(conv["_id"])
-            conv["conversation_id"] = str(conv["_id"])
-            
-            # Get unread count
-            conv["unread_count"] = get_unread_count(conv["_id"], "lawyer")
-            
-            # Get total message count
-            full_conv = collection.find_one(
-                {"_id": ObjectId(conv["_id"])},
-                {"messages": 1}
-            )
-            conv["message_count"] = len(full_conv.get("messages", [])) if full_conv else 0
-            
-            conversations_list.append(conv)
-
-        return conversations_list
-    except Exception as e:
-        logger.error(f"Failed to get lawyer conversations: {e}")
-        return []
+    return _get_conversations_for_party("lawyer_id", lawyer_id, "lawyer", skip, limit)
 
 
 def deactivate_conversation(conversation_id: str) -> bool:
@@ -429,15 +505,18 @@ def deactivate_conversation(conversation_id: str) -> bool:
         True if successful, False otherwise
     """
     try:
+        obj_id = _validate_object_id(conversation_id)
+        
         result = collection.update_one(
-            {"_id": ObjectId(conversation_id)},
+            {"_id": obj_id},
             {"$set": {"is_active": False, "updated_at": datetime.now(timezone.utc)}}
         )
 
-        logger.info(f"Conversation {conversation_id} deactivated")
-        return result.modified_count > 0
+        if result.modified_count > 0:
+            logger.info(f"Conversation {conversation_id} deactivated")
+            return True
+            
+        return False
     except Exception as e:
         logger.error(f"Failed to deactivate conversation: {e}")
         return False
-
-

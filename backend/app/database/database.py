@@ -6,6 +6,8 @@ from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from dotenv import load_dotenv
 from sqlalchemy.engine.url import make_url
 from pathlib import Path
+from pymongo import MongoClient
+from pymongo.database import Database
 
 # Load environment variables from project root .env file
 # Navigate up from backend/app/database/database.py to project root
@@ -15,6 +17,30 @@ load_dotenv(dotenv_path=dotenv_path)
 
 # connect to database via env or fallback
 DATABASE_URL = os.getenv("DATABASE_URL")
+
+# MongoDB configuration
+MONGO_URL = os.getenv("MONGO_URL", "mongodb://mongodb:27017/")
+MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "vietjusticia")
+
+# MongoDB client (created at module level but shared)
+_mongo_client = None
+
+def get_mongo_client() -> MongoClient:
+    """Get or create MongoDB client (singleton pattern)."""
+    global _mongo_client
+    if _mongo_client is None:
+        _mongo_client = MongoClient(MONGO_URL)
+    return _mongo_client
+
+def get_mongo_db() -> Database:
+    """
+    Dependency function to get MongoDB database.
+    
+    Use this in FastAPI endpoints via Depends(get_mongo_db).
+    Returns the configured MongoDB database instance.
+    """
+    client = get_mongo_client()
+    return client[MONGO_DB_NAME]
 
 # Parse components from DATABASE_URL
 def get_db_params(database_url):

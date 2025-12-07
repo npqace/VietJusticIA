@@ -26,17 +26,17 @@ class ChatMessage(BaseModel):
 class ChatSessionCreate(BaseModel):
     """Schema for creating a new chat session."""
     title: Optional[str] = None  # Auto-generated if not provided
-    first_message: str  # The user's first message
+    first_message: str = Field(..., min_length=1)  # The user's first message
 
 
 class ChatSessionUpdate(BaseModel):
     """Schema for updating a chat session (e.g., rename title)."""
-    title: str
+    title: str = Field(..., min_length=1)
 
 
 class AddMessageRequest(BaseModel):
     """Schema for adding a message to an existing session."""
-    message: str
+    message: str = Field(..., min_length=1)
 
 
 class ChatSessionRead(BaseModel):
