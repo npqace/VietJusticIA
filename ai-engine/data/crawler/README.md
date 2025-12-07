@@ -32,7 +32,7 @@ This is a mandatory one-time setup step.
 1.  Create a file named `.env` in the `ai-engine/data/crawler/` directory.
 2.  Add the following line to the file, replacing `your_token_here` with your actual bearer token:
     ```
-    AUTH_TOKEN=your_token_here
+    BEARER_TOKEN=your_token_here
     ```
 3.  **How to get the Bearer Token:**
     -   Open Chrome, log in to `aitracuuluat.vn`.

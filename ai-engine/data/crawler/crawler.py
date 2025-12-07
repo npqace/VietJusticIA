@@ -25,7 +25,7 @@ load_dotenv()
 CHROME_DEBUGGING_PORT = 9222
 SITE_BASE_URL = "https://aitracuuluat.vn"
 API_BASE_URL = "https://api.aitracuuluat.vn/api/v2/legal-documents"
-BEARER_TOKEN = os.getenv("AUTH_TOKEN")
+BEARER_TOKEN = os.getenv("BEARER_TOKEN")
 CRAWLER_SCRIPT_DIR = Path(__file__).parent
 OUTPUT_DIR = CRAWLER_SCRIPT_DIR / ".." / "raw_data"
 API_PAGE_SIZE = 10
@@ -52,8 +52,8 @@ class Crawler:
         self.logger = self._setup_logger()
         self.debug_dir.mkdir(parents=True, exist_ok=True)
         if not BEARER_TOKEN:
-            self.logger.critical("BEARER_TOKEN not found. Please set AUTH_TOKEN in your .env file.")
-            raise ValueError("AUTH_TOKEN not set.")
+            self.logger.critical("BEARER_TOKEN not found. Please set BEARER_TOKEN in your .env file.")
+            raise ValueError("BEARER_TOKEN not set.")
         self.api_headers = {
             "Authorization": f"Bearer {BEARER_TOKEN}",
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
