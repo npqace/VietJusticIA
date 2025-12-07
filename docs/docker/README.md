@@ -284,4 +284,4 @@ WebSocket connections will automatically use:
 
 ---
 
-**Last Updated:** November 2024
+**Last Updated:** December 2025
