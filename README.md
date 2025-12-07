@@ -47,6 +47,6 @@ For detailed technical documentation, setup guides, and API references, please v
 
 ---
 
-**Developed by:** Nguyen Phuoc Quynh Anh  
-**Supervisor:** Mr. Tran Trong Minh & Mr. Hoang Nhu Vinh
+**Developed by:** Nguyen Phuoc Quynh Anh\
+**Supervisor:** Mr. Tran Trong Minh & Mr. Hoang Nhu Vinh\
 **Program:** BSc Hons Computing - Greenwich Vietnam
