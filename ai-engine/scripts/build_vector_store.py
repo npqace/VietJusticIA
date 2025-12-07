@@ -128,7 +128,7 @@ if __name__ == "__main__":
     print(f"\n[PHASE 1/4] Initializing embedding model...")
     embeddings = SentenceTransformerEmbeddings(
         model_name='sentence-transformers/paraphrase-multilingual-mpnet-base-v2',
-        model_kwargs={'device': 'cuda'}
+        model_kwargs={'device': 'cuda' if __import__('torch').cuda.is_available() else 'cpu'}
     )
     print("-> Embedding model initialized.")
 

@@ -65,5 +65,5 @@ The system implements a RAG architecture to provide AI-powered legal assistance 
 
 ---
 
-**Last Updated:** November 2024  
+**Last Updated:** December 2025  
 **Maintained By:** VietJusticIA Development Team

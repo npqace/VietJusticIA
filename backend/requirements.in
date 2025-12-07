@@ -24,6 +24,8 @@ sib-api-v3-sdk
 
 # AI & RAG Ecosystem (Unpinned to allow pip-tools to resolve conflicts)
 requests
+aiohttp
+torch
 langchain
 langchain-google-genai
 langchain-community
@@ -36,6 +38,7 @@ rank_bm25
 qdrant-client
 langchain-huggingface
 beautifulsoup4
+google-generativeai
 
 # Testing Dependencies
 pytest==8.3.4

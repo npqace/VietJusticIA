@@ -8,6 +8,7 @@ import asyncio
 import time
 import signal
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
 from pymongo import MongoClient, UpdateOne
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
@@ -68,18 +69,29 @@ class APIKeyPool:
         self.current_index = 0
         self.rate_limiters = {}
 
-        if RATE_LIMITER_AVAILABLE:
+        # Track last request time per key for manual delay (with thread lock)
+        self.last_request_time = {key: 0 for key in self.keys} if self.keys else {}
+        self._lock = threading.Lock()  # Thread-safe access to last_request_time
+
+        
+        if RATE_LIMITER_AVAILABLE and self.keys:
             for key in self.keys:
+                # gemini-2.5-flash-lite has 15 RPM limit, use 10 for safety margin
                 self.rate_limiters[key] = GeminiRateLimiter(
-                    requests_per_minute=12,
-                    requests_per_day=1200,
-                    burst_allowance=1.0
+                    requests_per_minute=10,
+                    requests_per_day=1400,  # 1500 daily limit, use 1400 for safety
+                    burst_allowance=0.5  # Reduce burst to prevent spikes
                 )
 
-        if len(self.keys) > 1:
+        if self.keys and len(self.keys) > 1:
             logger.info(f"Key pool initialized with {len(self.keys)} keys, rotation enabled")
-        else:
+            for i, key in enumerate(self.keys):
+                key_preview = f"{key[:8]}...{key[-4:]}" if len(key) > 12 else "***"
+                logger.info(f"  Key {i+1}: {key_preview}")
+        elif self.keys:
             logger.info("Key pool initialized in single key mode, no rotation")
+        else:
+            logger.info("Key pool initialized with no migration keys - will use fallback")
 
     def _discover_keys(self):
         """Discover all available migration API keys."""
@@ -245,12 +257,27 @@ def generate_ascii_diagram(text: str, llm, worker_key: str = None) -> str:
     ---
     """
     try:
-        # Check rate limiting for worker-specific key
+        # Enforce minimum delay between requests per key (4.5s = ~13 RPM, well under 15 RPM limit)
+        MIN_DELAY_BETWEEN_REQUESTS = 3.0
+        
         if key_pool and worker_key:
+            # Thread-safe delay enforcement per key
+            with key_pool._lock:
+                current_time = time.time()
+                last_time = key_pool.last_request_time.get(worker_key, 0)
+                elapsed = current_time - last_time
+                
+                if elapsed < MIN_DELAY_BETWEEN_REQUESTS:
+                    wait_time = MIN_DELAY_BETWEEN_REQUESTS - elapsed
+                    time.sleep(wait_time)
+                
+                # Update last request time for this key
+                key_pool.last_request_time[worker_key] = time.time()
+            
+            # Also check rate limiter if available
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
-            # Wait for rate limiter permission for this specific key
             rate_limiter = key_pool.get_rate_limiter_for_key(worker_key)
             if rate_limiter:
                 acquired = loop.run_until_complete(rate_limiter.wait_if_needed(max_wait_seconds=120.0))
@@ -354,7 +381,7 @@ def process_single_document(dir_entry, llm, worker_key: str = None):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Migrate documents to MongoDB with AI diagram generation (Free Tier Optimized).")
     parser.add_argument('--force', action='store_true', help='Force re-migration of all documents.')
-    parser.add_argument('--max-workers', type=int, default=8, help='Maximum number of parallel workers (default: 8 with multi-key, 2 workers per key).')
+    parser.add_argument('--max-workers', type=int, default=4, help='Maximum number of parallel workers (default: 4, 1 worker per key recommended for flash-lite).')
     parser.add_argument('--max-docs', type=int, help='Limit number of documents to process in this run (useful for daily quota management).')
     args = parser.parse_args()
 
@@ -374,7 +401,10 @@ if __name__ == "__main__":
         if not os.getenv("GOOGLE_API_KEY"):
             logger.error("FATAL: No API keys found. Set GOOGLE_API_KEY or GOOGLE_API_KEY_MIGRATION.")
             sys.exit(1)
+        fallback_key = os.getenv("GOOGLE_API_KEY")
+        key_preview = f"{fallback_key[:8]}...{fallback_key[-4:]}" if len(fallback_key) > 12 else "***"
         logger.warning("[CONFIG] Using shared API key (GOOGLE_API_KEY)")
+        logger.warning(f"[CONFIG] API Key: {key_preview}")
         logger.warning("[CONFIG] Consider setting GOOGLE_API_KEY_MIGRATION for production")
     else:
         # Calculate total capacity
@@ -481,14 +511,14 @@ if __name__ == "__main__":
             # Create one LLM instance per key
             for i, key in enumerate(key_pool.keys):
                 os.environ["GOOGLE_API_KEY"] = key
-                llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.2)
+                llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", temperature=0.2)
                 llm_pool.append((llm, key))
             logger.info(f"[INIT] Created {len(llm_pool)} LLM instances for parallel processing")
             # Reset to first key
             os.environ["GOOGLE_API_KEY"] = key_pool.keys[0]
         else:
             # Single key mode - create one LLM
-            llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.2)
+            llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", temperature=0.2)
             current_key = key_pool.get_current_key() if key_pool.keys else os.getenv("GOOGLE_API_KEY")
             llm_pool.append((llm, current_key))
     except Exception as e:
