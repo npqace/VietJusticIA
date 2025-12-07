@@ -54,31 +54,31 @@ This is a mandatory step each time you want to run a crawl.
 4.  **Keep this browser window open** while the crawler is running.
 
 ### Step 4: Run the Crawler
-Open a new terminal, navigate to this directory, and run the `crawler.py` script with your desired options.
+Open a new terminal, navigate to **`ai-engine/data/`** directory, and run the crawler module with your desired options.
 
 - **Scrape 20 documents from all categories (defaults to "Còn hiệu lực" status):**
   ```bash
-  python crawler.py --max-docs 20
+  python -m crawler --max-docs 20
   ```
 
 - **Scrape 20 documents specifically from the "Giáo dục" category:**
   ```bash
-  python crawler.py --max-docs 20 --category "Giáo dục"
+  python -m crawler --max-docs 20 --category "Giáo dục"
   ```
 
 - **Scrape a maximum of 5 pages of API results from all categories:**
   ```bash
-  python crawler.py --max-pages 5
+  python -m crawler --max-pages 5
   ```
 
 - **Scrape only documents with "Hết hiệu lực" status by overriding the default:**
   ```bash
-  python crawler.py --max-docs 10 --status-filter "Hết hiệu lực"
+  python -m crawler --max-docs 10 --status-filter "Hết hiệu lực"
   ```
 
 - **Scrape documents from a specific category with a specific status:**
   ```bash
-  python crawler.py --max-docs 5 --category "Doanh nghiệp" --status-filter "Hết hiệu lực"
+  python -m crawler --max-docs 5 --category "Doanh nghiệp" --status-filter "Hết hiệu lực"
   ```
 
 ### Command Line Options
@@ -90,7 +90,33 @@ Open a new terminal, navigate to this directory, and run the `crawler.py` script
 
 ## 3. Project Structure
 
-- `crawler.py`: The main script containing all logic. Run this file to start the crawler.
-- `setup_crawler.py`: Handles dependency installation and Playwright browser setup.
-- `requirements.txt`: A list of all necessary Python packages including Playwright.
-- `.env`: Stores your secret bearer token for API authentication (create this file manually).
+The crawler is organized into modular components for better maintainability:
+
+```
+crawler/
+├── __init__.py       # Package initialization and exports
+├── __main__.py       # CLI entry point (python -m crawler)
+├── config.py         # Configuration settings and constants
+├── logger.py         # Colored console and file logging setup
+├── api_client.py     # API interactions with retry logic
+├── scraper.py        # Content extraction using Playwright
+├── storage.py        # Document persistence and deduplication
+├── robots.py         # Robots.txt handling
+├── crawler.py        # Main orchestrator class
+├── setup_crawler.py  # Dependency installation script
+├── requirements.txt  # Python package dependencies
+└── .env              # Secret bearer token (create manually)
+```
+
+### Module Descriptions
+
+| Module | Responsibility |
+|--------|----------------|
+| `config.py` | Centralizes all configuration, URLs, selectors, and settings |
+| `logger.py` | Provides colored console output and file logging |
+| `api_client.py` | Handles API requests with exponential backoff retry |
+| `scraper.py` | Extracts document content using Playwright browser automation |
+| `storage.py` | Manages document saving and duplicate detection |
+| `robots.py` | Enforces crawl policies from robots.txt |
+| `crawler.py` | Orchestrates the crawling process with thread pool |
+| `__main__.py` | Provides CLI interface for running the crawler |
